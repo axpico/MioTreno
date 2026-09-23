@@ -1,5 +1,7 @@
 package it.picone.miotreno.ui
 
+import it.picone.miotreno.BuildConfig
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -217,11 +219,26 @@ fun SettingsScreen(
         }
 
         item {
-            Text(
-                "Dati da ViaggiaTreno (API non ufficiale RFI). Scioperi dal feed pubblico MIT, aggiornato una volta al giorno. " +
-                    "Lo storico ritardi resta solo su questo dispositivo.",
-                style = Testo.micro, color = tb.ter,
-            )
+            Column {
+                // Va detto chiaramente e dentro l'app, non solo nella scheda dello store:
+                // l'app usa un feed pubblico di RFI ma non ha nulla a che vedere con loro.
+                Text(
+                    "App non ufficiale, non affiliata né approvata da Trenitalia, RFI o " +
+                        "Ferrovie dello Stato Italiane.",
+                    style = Testo.micro, color = tb.sub,
+                )
+                Text(
+                    "Dati da ViaggiaTreno (API non ufficiale RFI). Scioperi dal feed pubblico MIT, " +
+                        "aggiornato una volta al giorno. Lo storico ritardi resta solo su questo dispositivo.",
+                    Modifier.padding(top = 6.dp),
+                    style = Testo.micro, color = tb.ter,
+                )
+                Text(
+                    "MioTreno ${BuildConfig.VERSION_NAME}",
+                    Modifier.padding(top = 6.dp),
+                    style = Testo.micro, color = tb.ter,
+                )
+            }
         }
     }
 }

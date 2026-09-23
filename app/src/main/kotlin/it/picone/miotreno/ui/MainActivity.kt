@@ -194,7 +194,9 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
     val chiediPosizione = {
         if (posizioneBloccata) apriImpostazioniApp()
         else permessoPosizione.launch(
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+            // solo COARSE: per capire a quale scalo sei vicino non serve la precisione GPS,
+            // e una permission in meno e' una permission in meno da giustificare e da esporre
+            arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
         )
     }
     val permessoNotifiche = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
