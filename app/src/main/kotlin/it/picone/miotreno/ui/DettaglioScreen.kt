@@ -1,12 +1,12 @@
 package it.picone.miotreno.ui
 
-import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,9 +39,9 @@ import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.FermataTreno
 import it.picone.miotreno.domain.ProssimoTreno
-import it.picone.miotreno.domain.orario
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.etichettaStato
+import it.picone.miotreno.domain.orario
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.componenti.AnimatedCountdown
 import it.picone.miotreno.ui.componenti.Binario
@@ -50,8 +50,8 @@ import it.picone.miotreno.ui.componenti.BottonePrimario
 import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.DeltaRitardo
 import it.picone.miotreno.ui.componenti.GlassCard
-import it.picone.miotreno.ui.componenti.RigaAtteso
 import it.picone.miotreno.ui.componenti.Icone
+import it.picone.miotreno.ui.componenti.RigaAtteso
 import it.picone.miotreno.ui.componenti.StatoVuoto
 import it.picone.miotreno.ui.componenti.StatusBadge
 import it.picone.miotreno.ui.componenti.TimelineStop
@@ -103,7 +103,10 @@ fun DettaglioScreen(
                         Chip(treno.categoria, colore = tb.accento2, pieno = true)
                         Text("${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.tx)
                     }
-                    Text("per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -150,8 +153,11 @@ fun DettaglioScreen(
             if (notificaAttiva) {
                 val quando = treno.orarioPartenzaMs + (treno.ritardoMinuti - state.impostazioni.anticipoMinuti) * 60_000L
                 Text(
-                    if (state.notifichePermesse) "Ti avviso alle ${quando.comeOra()} · widget e notifica seguono questa corsa"
-                    else "Notifiche bloccate dal sistema: nessun avviso, ma la corsa resta seguita qui e nel widget",
+                    if (state.notifichePermesse) {
+                        "Ti avviso alle ${quando.comeOra()} · widget e notifica seguono questa corsa"
+                    } else {
+                        "Notifiche bloccate dal sistema: nessun avviso, ma la corsa resta seguita qui e nel widget"
+                    },
                     Modifier.fillMaxWidth().padding(top = 6.dp), style = Testo.micro,
                     color = if (state.notifichePermesse) tb.verde else tb.ambra,
                     textAlign = TextAlign.Center,

@@ -32,15 +32,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
-import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.StatoTreno
 import it.picone.miotreno.domain.etichettaStato
+import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
@@ -459,8 +458,11 @@ private fun BarraViaggio(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioTr
                             .size(6.dp)
                             .clip(CircleShape)
                             .let {
-                                if (passata) it.background(tb.accento)
-                                else it.background(tb.bg).border(1.5.dp, tb.ter, CircleShape)
+                                if (passata) {
+                                    it.background(tb.accento)
+                                } else {
+                                    it.background(tb.bg).border(1.5.dp, tb.ter, CircleShape)
+                                }
                             },
                     )
                 }

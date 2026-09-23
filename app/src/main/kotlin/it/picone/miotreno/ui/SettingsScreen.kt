@@ -1,7 +1,5 @@
 package it.picone.miotreno.ui
 
-import it.picone.miotreno.BuildConfig
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +25,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import it.picone.miotreno.BuildConfig
 import it.picone.miotreno.data.Impostazioni
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.ui.componenti.BottoneIcona
@@ -148,11 +147,13 @@ fun SettingsScreen(
                 RigaToggle("Avviso pre-partenza", "Notifica prima del treno seguito, o del prossimo utile.", imp.notifiche) {
                     haptic.conferma(); if (it) onChiediNotifiche(); onNotifiche(it)
                 }
-                if (imp.notifiche && !notifichePermesse) Text(
-                    "Bloccate dal sistema: nessun avviso finché non le riattivi da Impostazioni Android ↗",
-                    Modifier.padding(top = 8.dp).clip(Forme.chip).clickable(onClick = onApriImpostazioniSistema).padding(4.dp),
-                    style = Testo.micro, color = tb.ambra,
-                )
+                if (imp.notifiche && !notifichePermesse) {
+                    Text(
+                        "Bloccate dal sistema: nessun avviso finché non le riattivi da Impostazioni Android ↗",
+                        Modifier.padding(top = 8.dp).clip(Forme.chip).clickable(onClick = onApriImpostazioniSistema).padding(4.dp),
+                        style = Testo.micro, color = tb.ambra,
+                    )
+                }
                 Text("Preavviso", style = Testo.etichettaBold, color = tb.tx, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(Spazio.s)) {
                     ANTICIPI.forEach { m ->
@@ -205,11 +206,13 @@ fun SettingsScreen(
                     "Disabilita tutte le pubblicità", "Niente banner né interstitial, in nessuna schermata.",
                     !imp.adsAbilitate,
                 ) { onAdsAbilitate(!it) }
-                if (imp.adsAbilitate && mostraGestioneConsenso) Text(
-                    "Gestisci consenso privacy",
-                    Modifier.padding(top = 14.dp).clickable(onClick = onGestisciConsenso),
-                    style = Testo.etichettaBold, color = tb.accento,
-                )
+                if (imp.adsAbilitate && mostraGestioneConsenso) {
+                    Text(
+                        "Gestisci consenso privacy",
+                        Modifier.padding(top = 14.dp).clickable(onClick = onGestisciConsenso),
+                        style = Testo.etichettaBold, color = tb.accento,
+                    )
+                }
                 Text(
                     "Supporta lo sviluppatore ☕",
                     Modifier.padding(top = 14.dp).clickable(onClick = onSupportaSviluppatore),
@@ -246,8 +249,10 @@ fun SettingsScreen(
 @Composable
 private fun Sezione(titolo: String, etichetta: String? = null, content: @Composable () -> Unit) {
     Column {
-        Row(Modifier.padding(bottom = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.padding(bottom = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Overline(titolo)
             etichetta?.let { Chip(it, colore = LocalTb.current.ter) }
         }

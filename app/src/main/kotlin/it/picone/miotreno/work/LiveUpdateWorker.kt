@@ -1,6 +1,7 @@
 package it.picone.miotreno.work
 
 import android.app.Notification
+import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.util.Log
@@ -10,7 +11,6 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import android.content.Context
 import it.picone.miotreno.Deps
 import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
@@ -38,8 +38,9 @@ internal fun passoLive(minutiAllEvento: Int): Long = when {
     minutiAllEvento <= FINESTRA_STRETTA_MIN -> PASSO_MIN_MS
     minutiAllEvento >= 30 -> PASSO_MAX_MS
     // fra 5 e 30 minuti: interpolazione lineare fra i due estremi
-    else -> PASSO_MIN_MS +
-        (PASSO_MAX_MS - PASSO_MIN_MS) * (minutiAllEvento - FINESTRA_STRETTA_MIN) / (30 - FINESTRA_STRETTA_MIN)
+    else ->
+        PASSO_MIN_MS +
+            (PASSO_MAX_MS - PASSO_MIN_MS) * (minutiAllEvento - FINESTRA_STRETTA_MIN) / (30 - FINESTRA_STRETTA_MIN)
 }
 
 /**
@@ -56,7 +57,6 @@ internal fun passoLive(minutiAllEvento: Int): Long = when {
  * treno in viaggio "aggiornato con ritardo" equivaleva a "non aggiornato".
  */
 class LiveTrackingWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-
     override suspend fun doWork(): Result {
         Deps.init(applicationContext)
         setForeground(info(notificaTrackingIniziale(applicationContext)))

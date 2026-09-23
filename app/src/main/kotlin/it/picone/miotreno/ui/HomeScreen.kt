@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +42,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -63,7 +61,6 @@ import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.ui.componenti.BottoneIcona
-import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.Overline
@@ -109,7 +106,10 @@ fun HomeScreen(
     // haptic solo sul refresh chiesto dall'utente, non sul polling silenzioso
     var tirato by remember { mutableStateOf(false) }
     LaunchedEffect(state.aggiornatoAlle) {
-        if (tirato && state.aggiornatoAlle != null) { haptic.conferma(); tirato = false }
+        if (tirato && state.aggiornatoAlle != null) {
+            haptic.conferma()
+            tirato = false
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -175,13 +175,15 @@ fun HomeScreen(
                     }
                 }
 
-                if (state.treni.isNotEmpty()) item(key = "footer") {
-                    Text(
-                        "Dati ViaggiaTreno" + (state.aggiornatoAlle?.let { " · agg. ${it.comeOra()}" } ?: ""),
-                        Modifier.fillMaxWidth().padding(top = Spazio.s),
-                        style = Testo.micro, color = tb.ter,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
+                if (state.treni.isNotEmpty()) {
+                    item(key = "footer") {
+                        Text(
+                            "Dati ViaggiaTreno" + (state.aggiornatoAlle?.let { " · agg. ${it.comeOra()}" } ?: ""),
+                            Modifier.fillMaxWidth().padding(top = Spazio.s),
+                            style = Testo.micro, color = tb.ter,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -242,8 +244,10 @@ private fun Intestazione(state: UiState, onScegliStazione: () -> Unit, onScambia
                     style = Testo.sottotitolo,
                     color = tb.tx, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 4.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
                     Icon(Icone.Posizione, null, tint = tb.accento2, modifier = Modifier.size(14.dp))
                     Text(
                         when (s?.origine) {

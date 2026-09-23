@@ -130,7 +130,10 @@ fun StatisticheScreen(
                     Column(Modifier.weight(1f)) {
                         Overline("Puntualità")
                         Row(verticalAlignment = Alignment.Bottom) {
-                            NumeroAnimato("${(stat.quotaEntro5Min * 100).toInt()}", stile = Testo.display, colore = colorePuntualita(stat.quotaEntro5Min))
+                            NumeroAnimato(
+                                "${(stat.quotaEntro5Min * 100).toInt()}", stile = Testo.display,
+                                colore = colorePuntualita(stat.quotaEntro5Min),
+                            )
                             Text("%", style = Testo.numeroGrande, color = tb.sub, modifier = Modifier.padding(bottom = 6.dp, start = 2.dp))
                         }
                         Text("entro 5 minuti · ${stat.rilevazioni} rilevazioni", style = Testo.etichetta, color = tb.sub)
@@ -160,18 +163,22 @@ fun StatisticheScreen(
                 StatChart(stat.perFascia, altezza = 72.dp, colore = colore, formato = { it.minuti() })
             }
         }
-        if (stat.perTreno.isNotEmpty()) item {
-            GlassCard(Modifier.fillMaxWidth()) {
-                Overline("Per treno", Modifier.padding(bottom = 12.dp))
-                val max = stat.perTreno.maxOf { it.valore }
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    stat.perTreno.forEach { BarraOrizzontale(it, max, colore(it.valore), { v -> v.minuti() }) }
+        if (stat.perTreno.isNotEmpty()) {
+            item {
+                GlassCard(Modifier.fillMaxWidth()) {
+                    Overline("Per treno", Modifier.padding(bottom = 12.dp))
+                    val max = stat.perTreno.maxOf { it.valore }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        stat.perTreno.forEach { BarraOrizzontale(it, max, colore(it.valore), { v -> v.minuti() }) }
+                    }
                 }
             }
         }
         item {
-            Text("Solo su questo dispositivo. Una riga per treno e giorno, conservata 3 anni.",
-                style = Testo.micro, color = tb.ter)
+            Text(
+                "Solo su questo dispositivo. Una riga per treno e giorno, conservata 3 anni.",
+                style = Testo.micro, color = tb.ter,
+            )
         }
     }
 }

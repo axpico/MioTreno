@@ -51,7 +51,17 @@ fun GlassCard(
             .scale(scala)
             .clip(forma)
             .background(if (accento) tb.sf2 else tb.sf)
-            .border(1.dp, if (accento) tb.accento else if (rilievo) tb.bordoForte else tb.bordo, forma)
+            .border(
+                1.dp,
+                if (accento) {
+                    tb.accento
+                } else if (rilievo) {
+                    tb.bordoForte
+                } else {
+                    tb.bordo
+                },
+                forma,
+            )
             .let { m ->
                 if (onClick != null) m.clickable(interaction, indication = null, onClick = onClick) else m
             }

@@ -11,7 +11,6 @@ import it.picone.miotreno.Deps
  */
 class ScioperiSyncWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
-
     override suspend fun doWork(): Result {
         Deps.init(applicationContext)
         return runCatching { Deps.repository.aggiornaScioperi() }

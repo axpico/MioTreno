@@ -4,13 +4,13 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
@@ -31,8 +31,8 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
-import androidx.glance.currentState
 import androidx.glance.background
+import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -55,9 +55,9 @@ import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
-import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.comeSeguito
 import it.picone.miotreno.domain.etichettaStato
+import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.progressoReale
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.MainActivity
@@ -119,6 +119,7 @@ sealed interface EsitoWidget {
     data object PosizioneNonDisponibile : EsitoWidget
     data object ErroreRete : EsitoWidget
     data object NessunTreno : EsitoWidget
+
     /** Nessuna destinazione ancora scelta: l'app non ha completato l'onboarding. */
     data object DestinazioneNonConfigurata : EsitoWidget
 }
@@ -147,7 +148,6 @@ suspend fun aggiornaWidget(context: Context, seguito: Int? = null) {
 }
 
 class TrenoWidget : GlanceAppWidget() {
-
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -157,8 +157,11 @@ class TrenoWidget : GlanceAppWidget() {
             val prefs = currentState<Preferences>()
             val esito = remember(prefs) {
                 val alle = prefs[SEGUITO_ALLE] ?: 0L
-                if (iniziale is EsitoWidget.Dati && alle > iniziale.aggiornatoAlle) iniziale.conSeguito(prefs[SEGUITO]?.takeIf { it > 0 })
-                else iniziale
+                if (iniziale is EsitoWidget.Dati && alle > iniziale.aggiornatoAlle) {
+                    iniziale.conSeguito(prefs[SEGUITO]?.takeIf { it > 0 })
+                } else {
+                    iniziale
+                }
             }
             GlanceTheme {
                 val size = LocalSize.current
@@ -307,8 +310,8 @@ private fun Pillola(testo: String, colore: Color = tb.sub) {
 private fun PillolaSegui(t: ProssimoTreno, seguito: Boolean) {
     if (t.cancellato) return
     val s = t.comeSeguito()
-        Text(
-            if (seguito) "● seguo" else "segui",
+    Text(
+        if (seguito) "● seguo" else "segui",
         maxLines = 1,
         modifier = GlanceModifier
             .background(if (seguito) tb.accento else tb.accento.copy(alpha = 0.16f))
@@ -338,7 +341,10 @@ private fun Intestazione(esito: EsitoWidget.Dati, testo: String) {
 /** 2×2: orario grande, categoria e binario, badge di stato, countdown. */
 @Composable
 private fun Compatto(esito: EsitoWidget, altezza: Dp) {
-    if (esito !is EsitoWidget.Dati) { Vuoto(esito); return }
+    if (esito !is EsitoWidget.Dati) {
+        Vuoto(esito)
+        return
+    }
     val t = esito.treni.first()
     val minuti = t.minutiAllaPartenza(System.currentTimeMillis())
     val context = LocalContext.current
@@ -369,10 +375,12 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
             PillolaSegui(t, esito.seguito == t.numeroTreno)
         }
         Column(GlanceModifier.padding(top = 8.dp)) {
-            if (!t.cancellato) Text(
-                if (minuti > 0) "tra $minuti min" else "in viaggio",
-                style = stile(tb.tx, 11, bold = true),
-            )
+            if (!t.cancellato) {
+                Text(
+                    if (minuti > 0) "tra $minuti min" else "in viaggio",
+                    style = stile(tb.tx, 11, bold = true),
+                )
+            }
             esito.seguitoNonDisponibile?.let { Text("treno $it non disponibile", maxLines = 1, style = stile(tb.ambra, 9, bold = true)) }
             if (altezza >= 160.dp) Text("a ${esito.destinazione} ${t.oraArrivo()}", style = stile(tb.sub, 10))
             esito.treni.drop(1).take(extra).forEach {
@@ -391,7 +399,10 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
 /** 3×2: orario, treno, binario, badge e la barra di avanzamento verso la destinazione. */
 @Composable
 private fun Medio(esito: EsitoWidget, altezza: Dp) {
-    if (esito !is EsitoWidget.Dati) { Vuoto(esito); return }
+    if (esito !is EsitoWidget.Dati) {
+        Vuoto(esito)
+        return
+    }
     val t = esito.treni.first()
     val context = LocalContext.current
     val extra = righeExtra(altezza, base = 136.dp, perRiga = 30.dp, max = 3)
@@ -479,7 +490,10 @@ private fun sigla(nome: String): String =
 /** 4×2: i prossimi treni in lista con badge, aggiornamento manuale e avviso sciopero. */
 @Composable
 private fun Lista(esito: EsitoWidget, altezza: Dp) {
-    if (esito !is EsitoWidget.Dati) { Vuoto(esito); return }
+    if (esito !is EsitoWidget.Dati) {
+        Vuoto(esito)
+        return
+    }
     val context = LocalContext.current
     val righe = righeExtra(altezza, base = 78.dp, perRiga = 44.dp, max = 8).coerceAtLeast(1)
     Column(sfondo(false).padding(horizontal = 15.dp, vertical = 13.dp)) {
@@ -520,8 +534,10 @@ private fun RigaCompatta(t: ProssimoTreno, context: Context) {
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         Text(t.oraPartenza(), modifier = GlanceModifier.width(44.dp), style = stile(tb.tx, 12, bold = true))
-        Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1,
-            modifier = GlanceModifier.defaultWeight(), style = stile(tb.sub, 11))
+        Text(
+            "${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1,
+            modifier = GlanceModifier.defaultWeight(), style = stile(tb.sub, 11),
+        )
         BadgeStato(t, piccolo = true)
     }
 }
@@ -545,10 +561,12 @@ private fun RigaTreno(t: ProssimoTreno, context: Context, destinazione: String, 
                     textDecoration = if (t.cancellato) TextDecoration.LineThrough else TextDecoration.None,
                 ),
             )
-            if (!t.cancellato) Text(
-                when { minuti > 0 -> "tra ${minuti}′"; else -> "in viaggio" },
-                maxLines = 1, style = stile(tb.ter, 8),
-            )
+            if (!t.cancellato) {
+                Text(
+                    when { minuti > 0 -> "tra $minuti′"; else -> "in viaggio" },
+                    maxLines = 1, style = stile(tb.ter, 8),
+                )
+            }
         }
         Box(GlanceModifier.width(3.dp).height(30.dp).cornerRadius(2.dp).background(tb.colore(t.semaforo()))) {}
         Spacer(GlanceModifier.width(10.dp))

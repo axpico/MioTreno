@@ -39,9 +39,12 @@ fun NumeroAnimato(
                 targetState = c,
                 transitionSpec = {
                     val giu = targetState > initialState
-                    if (Molla.riduci) fadeIn(Molla.piatta()).togetherWith(fadeOut(Molla.piatta()))
-                    else (slideInVertically(Molla.piatta()) { if (giu) it else -it } + fadeIn(Molla.piatta()))
-                        .togetherWith(slideOutVertically(Molla.piatta()) { if (giu) -it else it } + fadeOut(Molla.piatta()))
+                    if (Molla.riduci) {
+                        fadeIn(Molla.piatta()).togetherWith(fadeOut(Molla.piatta()))
+                    } else {
+                        (slideInVertically(Molla.piatta()) { if (giu) it else -it } + fadeIn(Molla.piatta()))
+                            .togetherWith(slideOutVertically(Molla.piatta()) { if (giu) -it else it } + fadeOut(Molla.piatta()))
+                    }
                 },
                 label = "cifra$i",
             ) { Text(it.toString(), style = stile, color = colore) }

@@ -27,7 +27,6 @@ private const val TAG = "NotificaWorker"
  */
 class NotificaWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
-
     override suspend fun doWork(): Result {
         Deps.init(applicationContext)
         val imp = Deps.impostazioni.flow.first()
@@ -96,7 +95,6 @@ class NotificaWorker(context: Context, params: WorkerParameters) :
 /** Lo scatto effettivo all'orario calcolato: rilegge i dati, che nel frattempo cambiano. */
 class AvvisoTrenoWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
-
     override suspend fun doWork(): Result {
         Deps.init(applicationContext)
         val numero = inputData.getInt(KEY_NUMERO, -1)

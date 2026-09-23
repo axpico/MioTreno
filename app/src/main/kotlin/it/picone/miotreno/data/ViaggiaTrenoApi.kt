@@ -32,10 +32,13 @@ interface ViaggiaTrenoApi {
     suspend fun arrivi(codStazione: String, quando: Date = Date()): List<PartenzaArrivoDto>
     suspend fun andamentoTreno(codOrigine: String, numeroTreno: Int, partenzaMs: Long): Andamento
     suspend fun elencoStazioni(idRegione: Int = REGIONE_LOMBARDIA): List<StazioneDto>
+
     /** Ricerca stazioni per prefisso nome, su tutto il territorio nazionale (niente coordinate). */
     suspend fun cercaStazione(prefisso: String): List<RicercaStazioneDto>
+
     /** Id regione ViaggiaTreno a cui appartiene la stazione. */
     suspend fun regione(codStazione: String): Int?
+
     /** Dati completi (incluse coordinate) di una singola stazione, nota la sua regione. */
     suspend fun dettaglioStazione(codStazione: String, idRegione: Int): StazioneDto?
 

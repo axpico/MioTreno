@@ -8,21 +8,21 @@ import it.picone.miotreno.data.NOMI_REGIONI
 import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ElementoStazione
-import it.picone.miotreno.domain.etichetteCluster
+import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.RitardoAtteso
-import it.picone.miotreno.domain.ritardiAttesi
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.Statistiche
 import it.picone.miotreno.domain.Stazione
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.domain.TrenoSeguito
-import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.domain.calcolaStatistiche
-import it.picone.miotreno.domain.PeriodoFiltro
+import it.picone.miotreno.domain.etichetteCluster
 import it.picone.miotreno.domain.filtraPerPeriodo
 import it.picone.miotreno.domain.filtraPerStazione
 import it.picone.miotreno.domain.passaPer
+import it.picone.miotreno.domain.ritardiAttesi
+import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.widget.aggiornaWidget
 import it.picone.miotreno.work.ricalcolaNotifica
 import kotlinx.coroutines.Job
@@ -100,7 +100,6 @@ private const val POLL_DETTAGLIO_MS = 30_000L
 private const val TICK_MS = 10_000L
 
 class TrenoViewModel : ViewModel() {
-
     private val repo = Deps.repository
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -255,8 +254,8 @@ class TrenoViewModel : ViewModel() {
             _state.update {
                 it.copy(
                     dettagliViaggio = it.dettagliViaggio
-                        .filterKeys { numero -> numero in numeriValidi }
-                        + esito.mapNotNull { (numero, d) -> d?.let { numero to it } },
+                        .filterKeys { numero -> numero in numeriValidi } +
+                        esito.mapNotNull { (numero, d) -> d?.let { numero to it } },
                 )
             }
         }
@@ -352,9 +351,11 @@ class TrenoViewModel : ViewModel() {
 
     fun apriSelettoreFiltroStazione() {
         _state.update { it.copy(selettoreFiltroStazione = true) }
-        if (_state.value.stazioni.isEmpty()) viewModelScope.launch {
-            val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
-            _state.update { it.copy(stazioni = s) }
+        if (_state.value.stazioni.isEmpty()) {
+            viewModelScope.launch {
+                val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
+                _state.update { it.copy(stazioni = s) }
+            }
         }
     }
 
@@ -394,9 +395,11 @@ class TrenoViewModel : ViewModel() {
 
     fun apriSelettoreStazione() {
         _state.update { it.copy(selettoreStazione = true) }
-        if (_state.value.stazioni.isEmpty()) viewModelScope.launch {
-            val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
-            _state.update { it.copy(stazioni = s) }
+        if (_state.value.stazioni.isEmpty()) {
+            viewModelScope.launch {
+                val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
+                _state.update { it.copy(stazioni = s) }
+            }
         }
     }
 
@@ -489,9 +492,11 @@ class TrenoViewModel : ViewModel() {
 
     fun apriSelettorePassaggio() {
         _state.update { it.copy(selettorePassaggio = true) }
-        if (_state.value.stazioni.isEmpty()) viewModelScope.launch {
-            val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
-            _state.update { it.copy(stazioni = s) }
+        if (_state.value.stazioni.isEmpty()) {
+            viewModelScope.launch {
+                val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
+                _state.update { it.copy(stazioni = s) }
+            }
         }
     }
 

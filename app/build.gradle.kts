@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ktlint)
 }
 
 android {
@@ -78,4 +79,11 @@ dependencies {
 
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
+}
+
+ktlint {
+    version.set("1.3.1")
+    android.set(true)
+    // i file generati non sono nostri e non devono far fallire la build
+    filter { exclude("**/generated/**") }
 }

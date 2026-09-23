@@ -1,5 +1,6 @@
 package it.picone.miotreno.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -10,7 +11,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import android.app.Activity
 
 /**
  * Material 3 usato come infrastruttura, non come estetica: ColorScheme, Typography e Shapes

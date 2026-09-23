@@ -1,10 +1,10 @@
 package it.picone.miotreno
 
 import it.picone.miotreno.data.Andamento
+import it.picone.miotreno.data.JsonStore
 import it.picone.miotreno.data.PartenzaArrivoDto
 import it.picone.miotreno.data.RicercaStazioneDto
 import it.picone.miotreno.data.ScioperiApi
-import it.picone.miotreno.data.JsonStore
 import it.picone.miotreno.data.StazioneDto
 import it.picone.miotreno.data.TrenoRepository
 import it.picone.miotreno.data.ViaggiaTrenoApi
@@ -46,7 +46,6 @@ private fun repository(api: ViaggiaTrenoApi) = TrenoRepository(
 )
 
 class ProssimiTreniTest {
-
     @Test
     fun `un treno che compare in partenze e arrivi e' diretto`() = runBlocking {
         val t0 = 10_000_000L

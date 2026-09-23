@@ -24,7 +24,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.ui.theme.Forme
-import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.TbColors
 import java.time.Instant
@@ -86,4 +85,3 @@ fun rememberHaptic(): HapticFeedback = LocalHapticFeedback.current
 
 fun HapticFeedback.conferma() = performHapticFeedback(HapticFeedbackType.Confirm)
 fun HapticFeedback.tocco() = performHapticFeedback(HapticFeedbackType.ContextClick)
-

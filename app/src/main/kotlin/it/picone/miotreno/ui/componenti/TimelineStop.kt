@@ -92,7 +92,15 @@ fun TimelineStop(
             Nodo(tipo)
             Box(
                 Modifier.width(2.dp).weight(1f)
-                    .background(if (ultimo) Color.Transparent else if (passata) tb.accento else tb.ter.copy(alpha = 0.25f)),
+                    .background(
+                        if (ultimo) {
+                            Color.Transparent
+                        } else if (passata) {
+                            tb.accento
+                        } else {
+                            tb.ter.copy(alpha = 0.25f)
+                        },
+                    ),
             )
         }
         Row(
@@ -153,8 +161,11 @@ private fun Nodo(tipo: TipoFermata) {
             val alpha by t.animateFloat(0.6f, 0f, infiniteRepeatable(tween(1400), RepeatMode.Restart), label = "a")
             Box(contentAlignment = Alignment.Center) {
                 // riduci movimento: anello fermo al posto dell'onda
-                if (Molla.riduci) Box(Modifier.size(24.dp).alpha(0.3f).clip(CircleShape).background(tb.accento))
-                else Box(Modifier.size(14.dp).scale(scala).alpha(alpha).clip(CircleShape).background(tb.accento))
+                if (Molla.riduci) {
+                    Box(Modifier.size(24.dp).alpha(0.3f).clip(CircleShape).background(tb.accento))
+                } else {
+                    Box(Modifier.size(14.dp).scale(scala).alpha(alpha).clip(CircleShape).background(tb.accento))
+                }
                 Box(Modifier.size(14.dp).clip(CircleShape).background(tb.accento))
             }
         }

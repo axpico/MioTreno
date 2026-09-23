@@ -17,9 +17,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,8 +52,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -74,9 +73,9 @@ import it.picone.miotreno.data.URL_BUY_ME_A_COFFEE
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
+import it.picone.miotreno.ui.theme.MioTrenoTheme
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Testo
-import it.picone.miotreno.ui.theme.MioTrenoTheme
 import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
 import it.picone.miotreno.widget.EXTRA_SEGUI
 import it.picone.miotreno.work.pianificaLavoriPeriodici
@@ -96,7 +95,6 @@ private val LARGHEZZA_MAX = 640.dp
 private val LARGHEZZA_MAX_BARRA = 520.dp
 
 class MainActivity : ComponentActivity() {
-
     /**
      * Numero treno arrivato dal widget. È uno stato dell'activity e non un parametro perché
      * `launchMode` è `singleTask`: al secondo tap sul widget non si passa da `onCreate`,
@@ -187,17 +185,23 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
     val permessoPosizione = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { esiti ->
-        if (esiti.values.any { it }) vm.permessoConcesso()
-        else posizioneBloccata =
-            !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (esiti.values.any { it }) {
+            vm.permessoConcesso()
+        } else {
+            posizioneBloccata =
+                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
     }
     val chiediPosizione = {
-        if (posizioneBloccata) apriImpostazioniApp()
-        else permessoPosizione.launch(
-            // solo COARSE: per capire a quale scalo sei vicino non serve la precisione GPS,
-            // e una permission in meno e' una permission in meno da giustificare e da esporre
-            arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-        )
+        if (posizioneBloccata) {
+            apriImpostazioniApp()
+        } else {
+            permessoPosizione.launch(
+                // solo COARSE: per capire a quale scalo sei vicino non serve la precisione GPS,
+                // e una permission in meno e' una permission in meno da giustificare e da esporre
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+            )
+        }
     }
     val permessoNotifiche = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         vm.setNotifichePermesse(NotificationManagerCompat.from(context).areNotificationsEnabled())
@@ -205,7 +209,9 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
     val chiediNotifiche = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             !NotificationManagerCompat.from(context).areNotificationsEnabled()
-        ) permessoNotifiche.launch(Manifest.permission.POST_NOTIFICATIONS)
+        ) {
+            permessoNotifiche.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
     LaunchedEffect(Unit) {
         lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -253,9 +259,12 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
             AnimatedContent(
                 targetState = state.schermata,
                 transitionSpec = {
-                    if (Molla.riduci) fadeIn(Molla.piatta()).togetherWith(fadeOut(Molla.piatta()))
-                    else (fadeIn(Molla.piatta()) + slideInVertically(Molla.ui()) { it / 16 })
-                        .togetherWith(fadeOut(Molla.piatta()))
+                    if (Molla.riduci) {
+                        fadeIn(Molla.piatta()).togetherWith(fadeOut(Molla.piatta()))
+                    } else {
+                        (fadeIn(Molla.piatta()) + slideInVertically(Molla.ui()) { it / 16 })
+                            .togetherWith(fadeOut(Molla.piatta()))
+                    }
                 },
                 label = "schermata",
             ) { schermata ->
@@ -425,8 +434,10 @@ private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
                     tint = if (attivo) tb.accento else tb.ter,
                     modifier = Modifier.size(22.dp),
                 )
-                Text(tab.nome, style = Testo.micro, color = if (attivo) tb.accento else tb.ter,
-                    modifier = Modifier.padding(top = 2.dp))
+                Text(
+                    tab.nome, style = Testo.micro, color = if (attivo) tb.accento else tb.ter,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
         }
     }

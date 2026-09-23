@@ -7,12 +7,12 @@ import it.picone.miotreno.domain.RisultatoStazione
 import it.picone.miotreno.domain.RitardoRecord
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StatoTreno
-import it.picone.miotreno.domain.TrenoSeguito
-import it.picone.miotreno.domain.comeProssimoTreno
-import it.picone.miotreno.domain.trenoAncoraUtile
-import it.picone.miotreno.domain.UltimoCluster
 import it.picone.miotreno.domain.Stazione
+import it.picone.miotreno.domain.TrenoSeguito
+import it.picone.miotreno.domain.UltimoCluster
+import it.picone.miotreno.domain.comeProssimoTreno
 import it.picone.miotreno.domain.stazioniVicine
+import it.picone.miotreno.domain.trenoAncoraUtile
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -23,6 +23,7 @@ import java.util.Date
 
 private const val FILE_STAZIONI = "stazioni.json"
 private const val FILE_STAZIONI_NAZIONALI = "stazioni_nazionali.json"
+
 /** ViaggiaTreno numera le regioni da 0 (estero) a 22; 23 in su non risponde più nulla. */
 private val REGIONI_TUTTE = 0..22
 private const val FILE_RITARDI = "ritardi.json"

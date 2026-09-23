@@ -39,6 +39,7 @@ data class ProssimoTreno(
     val stato: StatoTreno,
 ) {
     val cancellato: Boolean get() = stato is StatoTreno.Cancellato
+
     /** Minuti alla partenza reale (programmata + ritardo) rispetto a [ora]. */
     fun minutiAllaPartenza(ora: Long): Int =
         ((orarioPartenzaMs + ritardoMinuti * 60_000L - ora) / 60_000L).toInt()
@@ -85,8 +86,11 @@ sealed interface DettaglioTreno {
 
 /** Posizione reale (fermate passate su fermate totali fino alla destinazione), 0 a 1. Null se la destinazione non è in lista. */
 fun DettaglioTreno.Ok.progressoReale(): Float? =
-    if (indiceDestinazione <= 0) null
-    else ((indiceCorrente + 1).toFloat() / (indiceDestinazione + 1)).coerceIn(0f, 1f)
+    if (indiceDestinazione <= 0) {
+        null
+    } else {
+        ((indiceCorrente + 1).toFloat() / (indiceDestinazione + 1)).coerceIn(0f, 1f)
+    }
 
 /** Forma comune a [Stazione] e [RisultatoStazione]: tutto quello che serve a un selettore. */
 interface ElementoStazione {
@@ -119,8 +123,8 @@ data class UltimoCluster(val nome: String, val codici: List<String>)
 
 @Serializable
 data class Sciopero(
-    val dataInizio: String,   // ISO yyyy-MM-dd
-    val dataFine: String,     // ISO yyyy-MM-dd
+    val dataInizio: String, // ISO yyyy-MM-dd
+    val dataFine: String, // ISO yyyy-MM-dd
     val settore: String,
     val rilevanza: String,
     val regione: String,
@@ -133,7 +137,7 @@ data class RitardoRecord(
     val numeroTreno: Int,
     val categoria: String,
     val stazionePartenzaCodice: String,
-    val dataRiferimento: String,     // ISO yyyy-MM-dd
+    val dataRiferimento: String, // ISO yyyy-MM-dd
     val orarioProgrammato: Long,
     val ritardoMinuti: Int,
     val binarioProgrammato: String?,

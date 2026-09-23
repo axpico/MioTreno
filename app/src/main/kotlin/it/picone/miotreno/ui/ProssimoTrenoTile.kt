@@ -34,7 +34,6 @@ private const val PASSO_TILE_MS = 30_000L
  * Tap: apre l'app, sul dettaglio se c'è una corsa seguita.
  */
 class ProssimoTrenoTile : TileService() {
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null
     private var seguito: Int? = null
@@ -66,12 +65,14 @@ class ProssimoTrenoTile : TileService() {
         seguito = (esito as? EsitoTile.Dati)?.seguito
         tile.label = ETICHETTA_TILE
         tile.state = if (esito is EsitoTile.Dati) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = when (esito) {
-            is EsitoTile.Dati -> esito.testo
-            EsitoTile.PosizioneNonDisponibile -> "posizione non disponibile"
-            EsitoTile.ErroreRete -> "dati non disponibili"
-            EsitoTile.NessunTreno -> "nessun treno"
-            EsitoTile.NonConfigurato -> "apri l'app per iniziare"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            tile.subtitle = when (esito) {
+                is EsitoTile.Dati -> esito.testo
+                EsitoTile.PosizioneNonDisponibile -> "posizione non disponibile"
+                EsitoTile.ErroreRete -> "dati non disponibili"
+                EsitoTile.NessunTreno -> "nessun treno"
+                EsitoTile.NonConfigurato -> "apri l'app per iniziare"
+            }
         }
         tile.updateTile()
     }
@@ -90,7 +91,9 @@ class ProssimoTrenoTile : TileService() {
         val seguito = Deps.impostazioni.seguito.first()
         val treni = runCatching { Deps.repository.prossimiTreni(stazione.codici, codDestinazione, seguito = seguito) }
             .getOrElse { return EsitoTile.ErroreRete }
-        val t: ProssimoTreno = treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno } ?: treni.firstOrNull { !it.cancellato } ?: return EsitoTile.NessunTreno
+        val t: ProssimoTreno =
+            treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno } ?: treni.firstOrNull { !it.cancellato }
+                ?: return EsitoTile.NessunTreno
         val minuti = t.minutiAllaPartenza(System.currentTimeMillis())
         val quando = when {
             t.cancellato -> "cancellato"

@@ -1,6 +1,5 @@
 package it.picone.miotreno.ui.componenti
 
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -65,7 +64,13 @@ private fun Arco(state: PullToRefreshState, caricamento: Boolean, modifier: Modi
             .graphicsLayer {
                 translationY = 80.dp.toPx() * frazione.coerceAtMost(1f)
                 alpha = frazione.coerceAtMost(1f)
-                rotationZ = if (Molla.riduci) 0f else if (caricamento) rotazione else frazione * 200f
+                rotationZ = if (Molla.riduci) {
+                    0f
+                } else if (caricamento) {
+                    rotazione
+                } else {
+                    frazione * 200f
+                }
             }
             .size(34.dp),
     ) {

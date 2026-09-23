@@ -57,10 +57,13 @@ fun FermataTreno.orario(ritardoTreno: Int): OrarioFermata {
  * esiste un "effettiva": il feed partenze dà programmata + ritardo e nient'altro.
  */
 fun orarioProiettato(programmataMs: Long?, ritardoTreno: Int): OrarioFermata =
-    if (programmataMs == null) OrarioFermata(null, null, null, confermato = false)
-    else OrarioFermata(
-        programmataMs = programmataMs,
-        previstoMs = programmataMs + ritardoTreno * 60_000L,
-        ritardoMinuti = ritardoTreno,
-        confermato = false,
-    )
+    if (programmataMs == null) {
+        OrarioFermata(null, null, null, confermato = false)
+    } else {
+        OrarioFermata(
+            programmataMs = programmataMs,
+            previstoMs = programmataMs + ritardoTreno * 60_000L,
+            ritardoMinuti = ritardoTreno,
+            confermato = false,
+        )
+    }

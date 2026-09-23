@@ -54,10 +54,12 @@ fun PrimingPosizione(bloccato: Boolean, onContinua: () -> Unit, onScegliStazione
             if (bloccato) "Apri le impostazioni" else "Attiva la posizione",
             onContinua, icona = Icone.Posizione, modifier = Modifier.fillMaxWidth(),
         )
-        if (bloccato) Text(
-            "Il permesso è stato negato in modo permanente: puoi riattivarlo da Impostazioni › App › MioTreno.",
-            style = Testo.micro, color = tb.ter, modifier = Modifier.padding(top = 8.dp),
-        )
+        if (bloccato) {
+            Text(
+                "Il permesso è stato negato in modo permanente: puoi riattivarlo da Impostazioni › App › MioTreno.",
+                style = Testo.micro, color = tb.ter, modifier = Modifier.padding(top = 8.dp),
+            )
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Text(
                 "Preferisco scegliere la stazione a mano",
@@ -76,8 +78,10 @@ private fun Mockup() {
         Overline("Esempio")
         Spacer(Modifier.height(6.dp))
         Text("Milano Centrale", style = Testo.sottotitolo, color = tb.tx)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(top = 2.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(top = 2.dp),
+        ) {
             Icon(Icone.Posizione, null, tint = tb.accento2, modifier = Modifier.size(12.dp))
             Text("più vicina · 350 m", style = Testo.etichetta, color = tb.sub)
         }

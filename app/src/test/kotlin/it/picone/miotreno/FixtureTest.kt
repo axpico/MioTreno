@@ -37,7 +37,6 @@ private fun fixture(nome: String): String =
     }.bufferedReader().readText()
 
 class ParsingTest {
-
     @Test
     fun `partenze reali si deserializzano nonostante i campi null`() {
         val list = json.decodeFromString<List<PartenzaArrivoDto>>(
@@ -83,7 +82,6 @@ class ParsingTest {
 }
 
 class IntersezioneTest {
-
     /** Il cuore dell'app: partenze ∩ arrivi = treni diretti, senza whitelist di direttrici. */
     private fun diretti(
         partenze: List<PartenzaArrivoDto>,
@@ -121,7 +119,6 @@ class IntersezioneTest {
 }
 
 class StatoTrenoTest {
-
     @Test
     fun `treno regolare`() {
         val s = statoDa(PartenzaArrivoDto(provvedimento = 0, circolante = true, subTitle = null))
@@ -173,7 +170,6 @@ class StatoTrenoTest {
 }
 
 class StazioniTest {
-
     private fun stazioniLombardia(): List<Stazione> =
         json.decodeFromString<List<StazioneDto>>(fixture("elenco_stazioni_lombardia.json"))
             .mapNotNull { d ->
@@ -247,7 +243,6 @@ class StazioniTest {
 }
 
 class ScioperiTest {
-
     private val scioperi by lazy { parseScioperiRilevanti(fixture("scioperi_mit.xml"), "Lombardia") }
 
     @Test
@@ -257,8 +252,12 @@ class ScioperiTest {
             scioperi.map { it.regione.lowercase() }.toString(),
             scioperi.all { it.regione.lowercase() in setOf("lombardia", "italia") },
         )
-        assertTrue(scioperi.all { it.settore.contains("errovi", true) ||
-            it.settore.contains("plurisettoriale", true) })
+        assertTrue(
+            scioperi.all {
+                it.settore.contains("errovi", true) ||
+                    it.settore.contains("plurisettoriale", true)
+            },
+        )
     }
 
     @Test
@@ -286,7 +285,6 @@ class ScioperiTest {
 }
 
 class StatisticheTest {
-
     private fun record(numero: Int, giorno: String, ritardo: Int, oreDelGiorno: Int) =
         RitardoRecord(
             numeroTreno = numero,
@@ -334,10 +332,10 @@ class StatisticheTest {
         assertEquals(3, s.rilevazioni)
         assertEquals(10.0 / 3, s.ritardoMedio, 0.001)
         assertEquals(2.0 / 3, s.quotaEntro5Min, 0.001)
-        assertEquals(4.0, s.perGiorno[0].valore, 0.001)   // lunedì
-        assertEquals(3.0, s.perGiorno[1].valore, 0.001)   // martedì: (6+0)/2
-        assertEquals(5.0, s.perFascia[0].valore, 0.001)   // 6–9: (4+6)/2
-        assertEquals(0.0, s.perFascia[3].valore, 0.001)   // 18–6
+        assertEquals(4.0, s.perGiorno[0].valore, 0.001) // lunedì
+        assertEquals(3.0, s.perGiorno[1].valore, 0.001) // martedì: (6+0)/2
+        assertEquals(5.0, s.perFascia[0].valore, 0.001) // 6–9: (4+6)/2
+        assertEquals(0.0, s.perFascia[3].valore, 0.001) // 18–6
         assertEquals("S5 1", s.perTreno.first().etichetta)
         assertEquals(5.0, s.perTreno.first().valore, 0.001)
     }

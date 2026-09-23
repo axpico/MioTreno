@@ -42,7 +42,6 @@ private fun treno(
 )
 
 class AvanzamentoTest {
-
     private val partenza = ms("2026-09-01", "22:00:00")
     private val arrivo = ms("2026-09-01", "22:40:00")
 
@@ -96,7 +95,6 @@ class AvanzamentoTest {
  * già partito, quindi ogni treno mostrato doveva ancora partire e l'avanzamento era 0 sempre.
  */
 class TrenoAncoraUtileTest {
-
     private val partenza = ms("2026-09-01", "22:00:00")
     private val arrivo = ms("2026-09-01", "22:40:00")
 
@@ -131,7 +129,6 @@ class TrenoAncoraUtileTest {
 }
 
 class SeguitoAttivoTest {
-
     private val arrivo = ms("2026-09-01", "22:40:00")
     private val seguito = TrenoSeguito(24576, "2026-09-01", arrivo)
 
@@ -189,7 +186,6 @@ class SeguitoAttivoTest {
 }
 
 class TrenoInEvidenzaTest {
-
     private val ora = ms("2026-09-01", "08:00:00")
     private fun corsa(numero: Int, cancellato: Boolean = false) = treno(
         partenza = ora,

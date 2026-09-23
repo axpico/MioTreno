@@ -9,9 +9,10 @@ data class Statistiche(
     val stazioniCoinvolte: Int,
     val ritardoMedio: Double,
     val quotaEntro5Min: Double,
-    val perGiorno: List<VoceStat>,      // Lun..Dom, sempre 7 voci
-    val perFascia: List<VoceStat>,      // 6-9, 9-13, 13-18, 18-21
-    val perTreno: List<VoceStat>,       // top 4 per numero di rilevazioni
+    val perGiorno: List<VoceStat>, // Lun..Dom, sempre 7 voci
+    val perFascia: List<VoceStat>, // 6-9, 9-13, 13-18, 18-21
+    // top 4 per numero di rilevazioni
+    val perTreno: List<VoceStat>,
     /** Ritardo medio per giorno di calendario, ultimi [GIORNI_TREND] giorni con dati, cronologico. */
     val andamento: List<Double>,
 )
@@ -36,6 +37,7 @@ data class VoceStat(val etichetta: String, val sottotitolo: String, val valore: 
 
 private val GIORNI = listOf("Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom")
 const val GIORNI_TREND = 14
+
 /**
  * Le fasce devono coprire le 24 ore: l'ultima è "tutto il resto", altrimenti i treni serali
  * dopo le 21 e quelli notturni sparirebbero in silenzio dalla ripartizione.

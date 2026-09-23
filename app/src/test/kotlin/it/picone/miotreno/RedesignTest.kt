@@ -1,6 +1,7 @@
 package it.picone.miotreno
 
 import it.picone.miotreno.domain.DettaglioTreno
+import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.RitardoRecord
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.StatoTreno
@@ -8,7 +9,6 @@ import it.picone.miotreno.domain.Stazione
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.domain.StazioneVicina
 import it.picone.miotreno.domain.UltimoCluster
-import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.calcolaStatistiche
 import it.picone.miotreno.domain.filtraPerPeriodo
 import it.picone.miotreno.domain.filtraPerStazione

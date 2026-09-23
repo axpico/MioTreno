@@ -15,10 +15,10 @@ import androidx.core.content.getSystemService
 import it.picone.miotreno.R
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.OrarioFermata
-import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StatoTreno
+import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.MainActivity
 import it.picone.miotreno.ui.componenti.colore
@@ -79,6 +79,7 @@ private fun builderTreno(
     val arrivoOrario = orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti)
     val ora = partenza.previstoMs?.comeOraNotifica().orEmpty()
     val arrivo = arrivoOrario.previstoMs?.comeOraNotifica()
+
     /** " (orario 14:20)" quando il previsto si discosta dalla tabella; niente se puntuale. */
     fun OrarioFermata.scarto(): String =
         if (inRitardo) programmaMs()?.let { " (orario $it)" }.orEmpty() else ""

@@ -28,7 +28,6 @@ private const val TIMEOUT_FIX_MS = 20_000L
  * una tantum; aggiungi FusedLocation solo se serve il tracking continuo.
  */
 class LocationProvider(private val context: Context) {
-
     private var ultima: Location? = null
     private var ultimaAlle = 0L
 

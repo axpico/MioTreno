@@ -40,7 +40,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.ElementoStazione
-import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.Overline
 import it.picone.miotreno.ui.componenti.conferma
@@ -130,27 +129,48 @@ fun SelettoreStazione(
                         inner()
                     },
                 )
-                if (query.isNotEmpty()) Icon(
-                    Icone.Chiudi, contentDescription = "Cancella", tint = tb.sub,
-                    modifier = Modifier.size(18.dp).clickable { query = "" },
-                )
+                if (query.isNotEmpty()) {
+                    Icon(
+                        Icone.Chiudi, contentDescription = "Cancella", tint = tb.sub,
+                        modifier = Modifier.size(18.dp).clickable { query = "" },
+                    )
+                }
             }
 
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (mostraOpzioneVuota) item(key = "gps") {
-                    Riga(
-                        nome = etichettaOpzioneVuota, sotto = descrizioneOpzioneVuota,
-                        icona = mostraIconaOpzioneVuota, selezionata = correnteCodice == null,
-                    ) { haptic.conferma(); onScegli(null) }
+            LazyColumn(
+                Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (mostraOpzioneVuota) {
+                    item(key = "gps") {
+                        Riga(
+                            nome = etichettaOpzioneVuota, sotto = descrizioneOpzioneVuota,
+                            icona = mostraIconaOpzioneVuota, selezionata = correnteCodice == null,
+                        ) { haptic.conferma(); onScegli(null) }
+                    }
                 }
                 if (ricercaLive != null) {
-                    if (query.isBlank()) item {
-                        Text("Cerca una stazione per nome.", style = Testo.etichetta, color = tb.sub, modifier = Modifier.padding(12.dp))
-                    } else if (cercando) item {
-                        Text("Cerco…", style = Testo.etichetta, color = tb.sub, modifier = Modifier.padding(12.dp))
-                    } else if (filtrate.isEmpty()) item { NessunaStazioneTrovata(tb) }
+                    if (query.isBlank()) {
+                        item {
+                            Text(
+                                "Cerca una stazione per nome.", style = Testo.etichetta,
+                                color = tb.sub, modifier = Modifier.padding(12.dp),
+                            )
+                        }
+                    } else if (cercando) {
+                        item {
+                            Text("Cerco…", style = Testo.etichetta, color = tb.sub, modifier = Modifier.padding(12.dp))
+                        }
+                    } else if (filtrate.isEmpty()) {
+                        item { NessunaStazioneTrovata(tb) }
+                    }
                 } else {
-                    if (stazioni.isEmpty()) item { Text("Carico l'elenco…", style = Testo.etichetta, color = tb.sub, modifier = Modifier.padding(12.dp)) }
+                    if (stazioni.isEmpty()) {
+                        item {
+                            Text("Carico l'elenco…", style = Testo.etichetta, color = tb.sub, modifier = Modifier.padding(12.dp))
+                        }
+                    }
                     if (stazioni.isNotEmpty() && filtrate.isEmpty()) item { NessunaStazioneTrovata(tb) }
                 }
                 items(filtrate, key = { it.codice }) { s ->

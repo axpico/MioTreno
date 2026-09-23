@@ -1,0 +1,33 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+# 140: il codice Compose di questo progetto usa righe compatte di proposito.
+# Qualche riga lunga si legge meglio di una cascata di parentesi su otto righe.
+max_line_length = 140
+
+# Le regole di a-capo di ktlint impongono uno stile che questo codice non ha scelto:
+# spezzerebbero quasi ogni composable in wrapping verticale, riscrivendo l'intero
+# progetto per motivi estetici e seppellendo i commenti che spiegano il perche'.
+# Restano attive le regole che segnalano problemi veri (import inutilizzati o con
+# wildcard, naming, spaziature incoerenti, punti e virgola superflui).
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_chain-method-continuation = disabled
+ktlint_standard_condition-wrapping = disabled
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_blank-line-before-declaration = disabled
+ktlint_standard_class-signature = disabled
+
+# I composable sono PascalCase per convenzione ufficiale, non un errore di naming.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+ktlint_standard_function-naming = disabled
