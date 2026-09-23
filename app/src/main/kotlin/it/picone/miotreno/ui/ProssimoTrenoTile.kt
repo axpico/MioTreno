@@ -112,7 +112,8 @@ class ProssimoTrenoTile : TileService() {
                 PendingIntent.getActivity(this, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
             )
         } else {
-            @Suppress("DEPRECATION")
+            // il ramo deprecato vale solo sotto API 34, dove e' ancora l'unica via
+            @Suppress("DEPRECATION", "StartActivityAndCollapseDeprecated")
             startActivityAndCollapse(intent)
         }
     }

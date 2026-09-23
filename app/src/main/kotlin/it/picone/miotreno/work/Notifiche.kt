@@ -1,16 +1,20 @@
 package it.picone.miotreno.work
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import it.picone.miotreno.R
 import it.picone.miotreno.domain.DettaglioTreno
@@ -51,6 +55,20 @@ private fun Long.comeOraNotifica(): String =
 
 private fun OrarioFermata.programmaMs(): String? = programmataMs?.comeOraNotifica()
 
+/**
+ * Permesso di notifica davvero concesso.
+ *
+ * Da API 33 POST_NOTIFICATIONS e' un permesso runtime: senza, `notify()` non lancia
+ * eccezioni, semplicemente non mostra nulla — un fallimento silenzioso che a valle
+ * sembrerebbe un bug del tracking.
+ */
+private fun puoNotificare(context: Context): Boolean {
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+}
+
 fun creaCanale(context: Context) {
     val canale = NotificationChannel(
         CANALE_TRENI,
@@ -72,6 +90,12 @@ private fun builderTreno(
     stazione: String,
     sciopero: Sciopero?,
     destinazioneNome: String,
+    /**
+     * "Segui treno" non ha senso sulla notifica di tracking: quella corsa la stai gia'
+     * seguendo. Prima l'azione veniva aggiunta e poi tolta svuotando `mActions`, un campo
+     * interno di androidx: meglio non aggiungerla affatto.
+     */
+    conAzioneSegui: Boolean = true,
 ): NotificationCompat.Builder {
     // Gli orari in notifica vanno proiettati come in app: annunciare l'orario di tabella
     // mentre il treno ha +12 significa dare l'ora sbagliata a chi sta correndo in stazione.
@@ -134,12 +158,18 @@ private fun builderTreno(
         .setContentText(righe.first())
         .setStyle(NotificationCompat.InboxStyle().also { st -> righe.forEach(st::addLine) })
         .setContentIntent(apri)
-        .addAction(0, "Segui treno", segui)
+        .apply { if (conAzioneSegui) addAction(0, "Segui treno", segui) }
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setAutoCancel(true)
 }
 
-/** Notifica pre-partenza standard (e fallback sotto API 36). */
+/**
+ * Notifica pre-partenza standard (e fallback sotto API 36).
+ *
+ * [SuppressLint]: puoNotificare() verifica POST_NOTIFICATIONS, ma lint non segue il controllo
+ * dentro una funzione di supporto e lo segnala comunque; la notify() e' anche in runCatching.
+ */
+@SuppressLint("MissingPermission")
 fun mostraNotificaTreno(
     context: Context,
     treno: ProssimoTreno,
@@ -149,7 +179,7 @@ fun mostraNotificaTreno(
     destinazioneNome: String = "destinazione",
 ) {
     creaCanale(context)
-    if (NotificationManagerCompat.from(context).areNotificationsEnabled().not()) {
+    if (!puoNotificare(context)) {
         Log.w(TAG, "notifica treno ${treno.numeroTreno} saltata: notifiche disabilitate dal sistema")
         return
     }
@@ -227,7 +257,7 @@ private fun costruisciLiveUpdate(
         treno.ritardoMinuti > 0 -> "+${treno.ritardoMinuti}′"
         else -> "in orario"
     }
-    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome)
+    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false)
         .setStyle(stile)
         .setSubText(p?.sottotitolo)
         .setShortCriticalText(chip)
@@ -237,7 +267,6 @@ private fun costruisciLiveUpdate(
         .setAutoCancel(false)
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
         .setRequestPromotedOngoing(true)
-    b.mActions.clear() // "Segui treno" non ha senso: la Live Update esiste solo per la corsa già seguita
     return b.build()
 }
 
@@ -260,7 +289,7 @@ private fun costruisciTrackingTreno(
 ): Notification {
     creaCanale(context)
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
-    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome)
+    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false)
         .setSubText(p?.sottotitolo)
         .setColor(ScuroTb.colore(treno.semaforo()).toArgb())
         .setOngoing(true)
@@ -268,7 +297,6 @@ private fun costruisciTrackingTreno(
         .setAutoCancel(false)
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
     if (p != null) b.setProgress(p.tratte, p.fatte, false)
-    b.mActions.clear()
     return b.build()
 }
 

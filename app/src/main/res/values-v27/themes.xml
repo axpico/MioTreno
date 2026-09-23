@@ -1,0 +1,7 @@
+<resources>
+    <!-- windowLightNavigationBar esiste solo da API 27. Su 26 il valore è comunque
+         quello di default (barra chiara disattivata), quindi non manca nulla. -->
+    <style name="Theme.MioTreno" parent="Theme.MioTreno.Base">
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>
