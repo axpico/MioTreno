@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,6 +54,7 @@ import it.picone.miotreno.ui.theme.Testo
  * Il badge di stato sta sotto. Un treno cancellato è una card spenta: opaca al 55%,
  * orario barrato, badge rosso pieno, non cliccabile.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TrainCard(
     treno: ProssimoTreno,
@@ -113,7 +116,13 @@ fun TrainCard(
     ) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // FlowRow e non Row: con via + stazione di salita insieme i chip non ci stanno
+                // in larghezza e l'ultimo veniva tagliato a meta' invece di andare a capo.
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
                     Icon(iconaCategoria(treno.categoria), contentDescription = null, tint = tb.sub, modifier = Modifier.size(16.dp))
                     Chip(treno.categoria, colore = tb.accento2, pieno = true)
                     Text("${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
@@ -170,6 +179,7 @@ fun TrainCard(
  * della card, a far sembrare la lista bilanciata. Il ritardo si legge dal colore
  * dell'orario stesso, non da un badge separato che sposterebbe la riga.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RigaTreno(
     treno: ProssimoTreno,
@@ -234,7 +244,11 @@ private fun RigaTreno(
                     treno.destinazione, style = Testo.corpo, color = tb.tx,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text("${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
                     if (seguito) Chip("SEGUI", colore = tb.accento, pieno = true)
                     if (passaPerEtichetta != null) Chip("via $passaPerEtichetta", colore = tb.accento2)
@@ -282,6 +296,7 @@ private fun iconaCategoria(categoria: String): ImageVector {
  * quando parte, dove va e dove aspettarla. Non è volutamente una versione ingrandita
  * delle righe successive: queste restano confrontabili a colpo d'occhio.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CardProssimaPartenza(
     treno: ProssimoTreno,
@@ -305,10 +320,11 @@ private fun CardProssimaPartenza(
         rilievo = !seguito,
         padding = 20.dp,
     ) {
-        Row(
+        FlowRow(
             Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(iconaCategoria(treno.categoria), contentDescription = null, tint = tb.sub, modifier = Modifier.size(18.dp))
             Text("${treno.categoria} · ${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.sub)
