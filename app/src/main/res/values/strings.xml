@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">MioTreno</string>
+    <string name="widget_desc">Prossimi treni verso la tua destinazione</string>
+</resources>

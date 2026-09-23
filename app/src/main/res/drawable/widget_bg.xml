@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Card del widget: superficie #141416 (Departure Board), bordo 1dp bianco all'8%, angoli quasi
+     vivi. Glance non ha `border`: il bordo deve essere un drawable. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#141416" />
+    <stroke android:width="1dp" android:color="#14FFFFFF" />
+    <corners android:radius="4dp" />
+</shape>
