@@ -45,15 +45,16 @@ incrementa `versionCode` a ogni caricamento, anche per una revisione minore.
 
 ## 3. Informativa privacy
 
-Bozza scritta e pubblicata: **https://claude.ai/artifact/KMtzwatV5UQwW4BnKNGRE3**
+Pubblicata e raggiungibile senza account: **https://axpico.github.io/MioTreno/privacy**
+(sorgente in `docs/privacy.md`, servita da GitHub Pages dal branch `master`).
 
-È privata di default — prima di incollarla in Play Console (campo "Informativa sulla privacy"),
-aprila e usa il menu di condivisione della pagina per renderla pubblica: i revisori di Google
-devono poterla leggere senza account. Se preferisci ospitarla altrove (un tuo dominio, GitHub
-Pages), il contenuto HTML è comunque tuo da riusare — il testo copre: uso del GPS (elaborato solo
-sul dispositivo, mai inviato come coordinate), i due servizi terzi contattati (ViaggiaTreno, feed
-scioperi MIT), cosa resta solo sul telefono, assenza di account/pubblicità/tracciamento, e come
-cancellare i dati.
+Incolla quell'URL nel campo "Informativa sulla privacy" di Play Console. Il testo copre:
+posizione approssimativa usata solo sul dispositivo, i due servizi terzi contattati
+(ViaggiaTreno, feed scioperi MIT), i dati che restano in locale, **Google AdMob e il consenso
+UMP in SEE/UK**, e come cancellare tutto.
+
+Se cambi qualcosa nell'app che tocca i dati trattati, aggiorna `docs/privacy.md` **e** la data
+in cima: l'informativa e' una dichiarazione, non un adempimento da riempire una volta sola.
 
 ## 4. Copy per la scheda Play Store
 
@@ -76,8 +77,9 @@ cancellare i dati.
 > • Widget in home screen, tre formati
 > • Notifica prima della partenza, con preavviso configurabile
 >
-> Nessun account richiesto, nessuna pubblicità, nessun tracciamento. I tuoi dati restano sul
-> telefono — vedi l'informativa privacy per i dettagli.
+> Nessun account richiesto. I tuoi dati restano sul telefono — vedi l'informativa privacy.
+>
+> L'app è gratuita e sostenuta da pubblicità leggera, che puoi disattivare dalle impostazioni.
 >
 > Dati da ViaggiaTreno (interfaccia non ufficiale RFI/Trenitalia) e dal feed scioperi del
 > Ministero delle Infrastrutture e dei Trasporti. MioTreno è un progetto indipendente, non
@@ -94,28 +96,48 @@ questi non sono generabili da codice, vanno catturati/composti a parte quando vu
 
 ## 5. Dichiarazioni obbligatorie in Play Console
 
-- **Data safety**: dichiara raccolta di "Posizione approssimativa/precisa" con scopo
-  "Funzionalità dell'app", non condivisa con terze parti per pubblicità, cancellabile
-  dall'utente (disinstallazione). Nessun'altra categoria di dati raccolta.
-- **Pubblico di destinazione**: non rivolta specificamente ai minori di 13 anni.
-- **Contenuti a pagamento / pubblicità**: nessuno dei due.
-- **Contatto sviluppatore**: email richiesta da Play Console — vedi la mail nell'informativa
-  privacy se vuoi riusare la stessa.
+Vanno dichiarate come sono davvero: una data safety sbagliata e' motivo di rimozione, non
+un dettaglio burocratico.
 
-## Già pronto (fatto in questa sessione)
+- **Data safety**: raccolta di **"Posizione approssimativa"** (l'app non chiede piu'
+  `ACCESS_FINE_LOCATION`) con scopo "Funzionalita' dell'app"; non inviata a server dello
+  sviluppatore, che non esistono. Dichiara inoltre quanto raccolto da **Google AdMob**
+  (identificativo pubblicitario e dati d'uso, a scopo pubblicitario): e' una libreria di
+  terze parti dentro l'app, quindi e' responsabilita' tua dichiararla.
+- **Pubblicita'**: **si', l'app contiene annunci.** Va spuntato "Contiene annunci" nella
+  scheda e dichiarato nel questionario.
+- **Consenso UMP**: in SEE/UK il consenso agli annunci personalizzati e' raccolto dalla
+  piattaforma di messaggistica utente di Google, gia' integrata (`data/AdsManager.kt`).
+- **Contenuti a pagamento**: nessuno (niente acquisti in-app, niente abbonamenti).
+- **Pubblico di destinazione**: non rivolta ai minori di 13 anni.
+- **App non ufficiale**: il disclaimer "non affiliata a Trenitalia/RFI/FS" e' dentro l'app
+  (Impostazioni) e nel README; ripetilo nella descrizione della scheda. Usare marchi o
+  loghi FS/Trenitalia nella grafica sarebbe il modo piu' rapido per farsi rimuovere.
+- **Contatto sviluppatore**: ale@picone.it (la stessa dell'informativa).
 
-- [x] R8/minificazione + shrink risorse per la release (~16.9 MB → ~3.4 MB APK; verificato
-  end-to-end su device con un pacchetto di test separato, poi rimosso — vedi keep-rule per i
-  Worker in `app/proguard-rules.pro`)
-- [x] `signingConfigs` pronto a leggere le credenziali quando le fornisci
-- [x] Bundle (`.aab`) verificato buildabile
-- [x] Icona app aggiornata al nuovo redesign
-- [x] Bozza informativa privacy scritta e pubblicata
+## Già pronto nel repo
+
+- [x] R8/minificazione + shrink risorse (APK release ~5 MB contro ~19 MB del debug),
+      verificato installato e funzionante su device Android 16
+- [x] `signingConfigs` legge le credenziali da env quando le fornisci
+- [x] Bundle (`.aab`) buildabile
+- [x] Informativa privacy pubblicata su GitHub Pages
+- [x] Disclaimer "app non ufficiale" in app, README e informativa
+- [x] Solo `ACCESS_COARSE_LOCATION`; l'app resta pienamente usabile se il permesso e' negato
+- [x] CI su GitHub Actions: ktlint, unit test, Android lint e build di release
+- [x] Android lint senza errori
+
+## Bloccanti noti
+
+- [ ] **AdMob e' ancora sugli ID di test di Google** (`AndroidManifest.xml`, `data/AdsManager.kt`).
+      Pubblicando cosi' gli annunci si vedono ma non generano nulla: sostituisci App ID e unit ID
+      con i tuoi prima di promuovere in produzione.
 
 ## Ancora da fare (solo tu puoi farlo)
 
-- [ ] Generare/recuperare la upload key, o completare il flusso Play App Signing in console
+- [ ] Generare la upload key e completare Play App Signing in console
 - [ ] Creare l'app in Play Console e rispondere al questionario contenuti/pubblico
-- [ ] Rendere pubblica la pagina privacy (o riospitarla) e incollarne l'URL
+- [ ] Incollare l'URL dell'informativa privacy
 - [ ] Screenshot reali + feature graphic 1024×500
-- [ ] Caricare `app-release.aab` firmato e inviare in revisione
+- [ ] Caricare `app-release.aab` firmato sul canale **test interno**, installarlo da Play e
+      riverificare le notifiche sulla build dello store, poi promuovere
