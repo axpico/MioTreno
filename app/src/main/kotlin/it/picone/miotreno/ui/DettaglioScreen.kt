@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.FermataTreno
 import it.picone.miotreno.domain.ProssimoTreno
+import it.picone.miotreno.domain.orario
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.semaforo
@@ -179,9 +180,7 @@ fun DettaglioScreen(
                     }
                     TimelineStop(
                         nome = f.nome, tipo = tipo,
-                        programmata = f.programmataMs?.comeOra(),
-                        effettiva = f.effettivaMs?.comeOra(),
-                        ritardoMinuti = f.ritardo(),
+                        orario = f.orario(dettaglio.ritardoMinuti),
                         primo = i == 0,
                         ultimo = i == fermate.lastIndex,
                         nota = null,
@@ -197,12 +196,6 @@ fun DettaglioScreen(
             }
         }
     }
-}
-
-private fun FermataTreno.ritardo(): Int? {
-    val p = programmataMs ?: return null
-    val e = effettivaMs ?: return null
-    return ((e - p) / 60_000L).toInt()
 }
 
 /**
@@ -262,7 +255,7 @@ private fun Avanzamento(d: DettaglioTreno.Ok) {
     val fatte = (d.indiceCorrente + 1).coerceAtLeast(0)
     val ultima = d.fermate.getOrNull(d.indiceCorrente)
     val prossima = d.fermate.getOrNull(d.indiceCorrente + 1)
-    val arrivo = d.fermate.getOrNull(d.indiceBusto)?.let { it.effettivaMs ?: it.programmataMs }
+    val arrivo = d.fermate.getOrNull(d.indiceBusto)?.orario(d.ritardoMinuti)
     val destinazione = d.fermate.getOrNull(d.indiceBusto)?.nome ?: "destinazione"
 
     GlassCard(Modifier.fillMaxWidth(), padding = 14.dp) {
@@ -279,10 +272,14 @@ private fun Avanzamento(d: DettaglioTreno.Ok) {
                     transitionSpec = { fadeIn(Molla.piatta()) togetherWith fadeOut(Molla.piatta()) },
                     label = "statoViaggio",
                 ) { Text(it, style = Testo.etichettaBold, color = tb.tx, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                // L'orario della prossima fermata va proiettato: quello di tabella è già sbagliato
+                // nel momento in cui il treno accumula ritardo.
+                fun FermataTreno.oraPrevista(): String =
+                    orario(d.ritardoMinuti).previstoMs?.comeOra().orEmpty()
                 Text(
                     when {
-                        d.indiceCorrente < 0 -> prossima?.let { "Prima fermata: ${it.nome} · ${it.programmataMs?.comeOra().orEmpty()}" }
-                        prossima != null -> "Prossima fermata: ${prossima.nome} · ${prossima.programmataMs?.comeOra().orEmpty()}"
+                        d.indiceCorrente < 0 -> prossima?.let { "Prima fermata: ${it.nome} · ${it.oraPrevista()}" }
+                        prossima != null -> "Prossima fermata: ${prossima.nome} · ${prossima.oraPrevista()}"
                         else -> "$fatte di $totale fermate confermate"
                     }.orEmpty(),
                     style = Testo.micro, color = tb.sub, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -290,7 +287,22 @@ private fun Avanzamento(d: DettaglioTreno.Ok) {
             }
             Spacer(Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(arrivo?.comeOra() ?: "—", style = Testo.numero, color = tb.verde)
+                val previsto = arrivo?.previstoMs?.comeOra()
+                Text(
+                    when {
+                        previsto == null -> "—"
+                        arrivo.confermato -> previsto
+                        else -> "≈$previsto"
+                    },
+                    style = Testo.numero, color = tb.verde,
+                )
+                val programmata = arrivo?.programmataMs
+                if (arrivo != null && arrivo.inRitardo && programmata != null) {
+                    Text(
+                        programmata.comeOra(), style = Testo.micro, color = tb.ter,
+                        textDecoration = TextDecoration.LineThrough,
+                    )
+                }
                 Text("arrivo", style = Testo.micro, color = tb.ter)
             }
         }

@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import it.picone.miotreno.domain.OrarioFermata
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Molla
@@ -51,9 +52,7 @@ enum class TipoFermata { Passata, Prossima, Futura, Target, Cambio }
 fun TimelineStop(
     nome: String,
     tipo: TipoFermata,
-    programmata: String?,
-    effettiva: String?,
-    ritardoMinuti: Int?,
+    orario: OrarioFermata,
     primo: Boolean,
     ultimo: Boolean,
     modifier: Modifier = Modifier,
@@ -63,12 +62,23 @@ fun TimelineStop(
     val passata = tipo == TipoFermata.Passata
     val evidenziata = tipo == TipoFermata.Prossima || tipo == TipoFermata.Target || tipo == TipoFermata.Cambio
     val coloreLinea = if (passata) tb.accento else tb.ter.copy(alpha = 0.25f)
-    val descrizione = when (tipo) {
-        TipoFermata.Prossima -> "Prossima fermata: $nome"
-        TipoFermata.Target -> "$nome, la tua fermata"
-        TipoFermata.Cambio -> "Cambio a $nome"
-        TipoFermata.Passata -> "$nome, passata"
-        TipoFermata.Futura -> nome
+    // Il "≈" della stima non si sente: a TalkBack la differenza va detta a parole.
+    val descrizione = buildString {
+        append(
+            when (tipo) {
+                TipoFermata.Prossima -> "Prossima fermata: $nome"
+                TipoFermata.Target -> "$nome, la tua fermata"
+                TipoFermata.Cambio -> "Cambio a $nome"
+                TipoFermata.Passata -> "$nome, passata"
+                TipoFermata.Futura -> nome
+            },
+        )
+        orario.previstoMs?.let {
+            append(if (orario.confermato) ", ore ${it.comeOra()}" else ", previsto per le ${it.comeOra()}")
+        }
+        orario.ritardoMinuti?.takeIf { orario.inRitardo }?.let {
+            append(if (it > 0) ", $it minuti di ritardo" else ", ${-it} minuti di anticipo")
+        }
     }
 
     // height(IntrinsicSize.Min): senza, i segmenti con weight collassano e restano solo i nodi
@@ -106,11 +116,26 @@ fun TimelineStop(
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(effettiva ?: programmata ?: "—", style = Testo.numeroPiccolo, color = if (passata) tb.sub else tb.tx)
-                if (ritardoMinuti != null && ritardoMinuti != 0 && programmata != null) {
+                val previsto = orario.previstoMs?.comeOra()
+                Text(
+                    when {
+                        previsto == null -> "—"
+                        // "≈" distingue la stima dal dato: il feed conferma solo le fermate raggiunte
+                        !orario.confermato -> "≈$previsto"
+                        else -> previsto
+                    },
+                    style = Testo.numeroPiccolo,
+                    color = if (passata) tb.sub else tb.tx,
+                )
+                val programmataMs = orario.programmataMs
+                val ritardo = orario.ritardoMinuti
+                if (orario.inRitardo && programmataMs != null && ritardo != null) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(programmata, style = Testo.micro, color = tb.ter, textDecoration = TextDecoration.LineThrough)
-                        DeltaRitardo(ritardoMinuti, piccolo = true)
+                        Text(
+                            programmataMs.comeOra(), style = Testo.micro, color = tb.ter,
+                            textDecoration = TextDecoration.LineThrough,
+                        )
+                        DeltaRitardo(ritardo, piccolo = true)
                     }
                 }
             }
