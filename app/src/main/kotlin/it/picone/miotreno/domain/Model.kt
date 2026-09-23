@@ -32,7 +32,7 @@ data class ProssimoTreno(
     val codPartenza: String? = null,
     val dataPartenzaTrenoMs: Long,
     val orarioPartenzaMs: Long,
-    val orarioArrivoBustoMs: Long?,
+    val orarioArrivoDestinazioneMs: Long?,
     val ritardoMinuti: Int,
     val binario: String?,
     val binarioConfermato: Boolean,
@@ -44,7 +44,7 @@ data class ProssimoTreno(
         ((orarioPartenzaMs + ritardoMinuti * 60_000L - ora) / 60_000L).toInt()
 
     /**
-     * Quanta parte del viaggio verso Busto è alle spalle, da 0 a 1.
+     * Quanta parte del viaggio verso la destinazione è alle spalle, da 0 a 1.
      *
      * Il ritardo sposta **entrambi** gli estremi: un treno con +10 non è più avanti di uno in
      * orario alla stessa ora, è indietro. Interpolando sugli orari programmati nudi la barra
@@ -54,7 +54,7 @@ data class ProssimoTreno(
      * [DettaglioTreno.Ok.progressoReale] (vedi lì per la posizione vera da andamentoTreno).
      */
     fun avanzamento(ora: Long): Float {
-        val arrivo = orarioArrivoBustoMs ?: return 0f
+        val arrivo = orarioArrivoDestinazioneMs ?: return 0f
         val scarto = ritardoMinuti * 60_000L
         val partenza = orarioPartenzaMs + scarto
         val arrivoEffettivo = arrivo + scarto
@@ -77,16 +77,16 @@ sealed interface DettaglioTreno {
         val fermate: List<FermataTreno>,
         val ritardoMinuti: Int,
         val indiceCorrente: Int,
-        val indiceBusto: Int,
+        val indiceDestinazione: Int,
     ) : DettaglioTreno
 
     data object DatiNonDisponibili : DettaglioTreno
 }
 
-/** Posizione reale (fermate passate su fermate totali fino a Busto), 0 a 1. Null se Busto non in lista. */
+/** Posizione reale (fermate passate su fermate totali fino alla destinazione), 0 a 1. Null se la destinazione non è in lista. */
 fun DettaglioTreno.Ok.progressoReale(): Float? =
-    if (indiceBusto <= 0) null
-    else ((indiceCorrente + 1).toFloat() / (indiceBusto + 1)).coerceIn(0f, 1f)
+    if (indiceDestinazione <= 0) null
+    else ((indiceCorrente + 1).toFloat() / (indiceDestinazione + 1)).coerceIn(0f, 1f)
 
 /** Forma comune a [Stazione] e [RisultatoStazione]: tutto quello che serve a un selettore. */
 interface ElementoStazione {
@@ -147,13 +147,13 @@ data class RitardoRecord(
  * Corsa che l'utente ha scelto di seguire. Non un preferito ricorrente: vale per oggi.
  *
  * [data] in ISO serve a far scadere la selezione da sola al cambio di giorno, e
- * [arrivoBustoMs] a farla scadere quando il treno ha superato Busto — senza worker di pulizia.
+ * [arrivoDestinazioneMs] a farla scadere quando il treno ha superato la destinazione — senza worker di pulizia.
  */
 @Serializable
 data class TrenoSeguito(
     val numeroTreno: Int,
     val data: String,
-    val arrivoBustoMs: Long,
+    val arrivoDestinazioneMs: Long,
     /** Snapshot della corsa: permette il tracking anche quando sparisce dalle partenze. */
     val categoria: String? = null,
     val destinazione: String? = null,

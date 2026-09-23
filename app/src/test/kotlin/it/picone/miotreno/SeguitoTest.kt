@@ -34,7 +34,7 @@ private fun treno(
     codOrigine = "S01645",
     dataPartenzaTrenoMs = partenza,
     orarioPartenzaMs = partenza,
-    orarioArrivoBustoMs = arrivo,
+    orarioArrivoDestinazioneMs = arrivo,
     ritardoMinuti = ritardo,
     binario = "2",
     binarioConfermato = true,
@@ -111,13 +111,13 @@ class TrenoAncoraUtileTest {
     }
 
     @Test
-    fun `la corsa seguita resta finche' non arriva a Busto`() {
+    fun `la corsa seguita resta finche' non arriva a destinazione`() {
         assertTrue(trenoAncoraUtile(partenza, arrivo, ms("2026-09-01", "22:10:00"), seguito = true))
         assertTrue(trenoAncoraUtile(partenza, arrivo, ms("2026-09-01", "22:39:00"), seguito = true))
     }
 
     @Test
-    fun `anche la corsa seguita sparisce dopo Busto`() {
+    fun `anche la corsa seguita sparisce dopo la destinazione`() {
         assertTrue(!trenoAncoraUtile(partenza, arrivo, ms("2026-09-01", "22:41:00"), seguito = true))
     }
 
@@ -141,7 +141,7 @@ class SeguitoAttivoTest {
     }
 
     @Test
-    fun `dopo l'orario previsto resta attivo finche il tracking non conferma Busto`() {
+    fun `dopo l'orario previsto resta attivo finche il tracking non conferma la destinazione`() {
         assertNotNull(seguitoAttivo(seguito, ms("2026-09-01", "22:50:00"), ZONA))
     }
 
@@ -184,7 +184,7 @@ class SeguitoAttivoTest {
         val s = t.comeSeguito(ZONA)
         assertEquals(24576, s.numeroTreno)
         assertEquals(LocalDate.of(2026, 9, 1).toString(), s.data)
-        assertEquals(arrivo, s.arrivoBustoMs)
+        assertEquals(arrivo, s.arrivoDestinazioneMs)
     }
 }
 
@@ -199,7 +199,7 @@ class TrenoInEvidenzaTest {
     )
 
     private fun seguito(numero: Int) =
-        TrenoSeguito(numeroTreno = numero, data = "2026-09-01", arrivoBustoMs = ora)
+        TrenoSeguito(numeroTreno = numero, data = "2026-09-01", arrivoDestinazioneMs = ora)
 
     @Test
     fun `la corsa seguita vince anche se non e' la prima`() {

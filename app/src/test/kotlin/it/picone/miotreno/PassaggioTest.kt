@@ -14,7 +14,7 @@ class PassaggioTest {
     fun `vero se il codice compare tra le fermate`() {
         val dettaglio = DettaglioTreno.Ok(
             fermate = listOf(fermata("S01700"), fermata("S01040"), fermata("S01031")),
-            ritardoMinuti = 0, indiceCorrente = 0, indiceBusto = 2,
+            ritardoMinuti = 0, indiceCorrente = 0, indiceDestinazione = 2,
         )
         assertTrue(passaPer(dettaglio, "S01040"))
     }
@@ -23,7 +23,7 @@ class PassaggioTest {
     fun `falso se il codice non compare tra le fermate`() {
         val dettaglio = DettaglioTreno.Ok(
             fermate = listOf(fermata("S01700"), fermata("S01031")),
-            ritardoMinuti = 0, indiceCorrente = 0, indiceBusto = 1,
+            ritardoMinuti = 0, indiceCorrente = 0, indiceDestinazione = 1,
         )
         assertFalse(passaPer(dettaglio, "S01040"))
     }

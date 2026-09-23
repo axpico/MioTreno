@@ -146,19 +146,19 @@ class FiltriStatisticheTest {
 class ProgressoRealeTest {
     @Test
     fun `frazione di fermate passate su fermate fino a Busto`() {
-        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = 1, indiceBusto = 3)
+        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = 1, indiceDestinazione = 3)
         assertEquals(0.5f, dettaglio.progressoReale())
     }
 
     @Test
     fun `nessuna fermata passata da' progresso zero, non null`() {
-        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = -1, indiceBusto = 3)
+        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = -1, indiceDestinazione = 3)
         assertEquals(0f, dettaglio.progressoReale())
     }
 
     @Test
     fun `Busto non in lista fermate da' progresso null`() {
-        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = 1, indiceBusto = -1)
+        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = 1, indiceDestinazione = -1)
         assertNull(dettaglio.progressoReale())
     }
 }

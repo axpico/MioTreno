@@ -113,7 +113,7 @@ class ImpostazioniStore(private val context: Context) {
             TrenoSeguito(
                 numeroTreno = numero,
                 data = p[seguitoData].orEmpty(),
-                arrivoBustoMs = p[seguitoArrivo] ?: 0L,
+                arrivoDestinazioneMs = p[seguitoArrivo] ?: 0L,
                 categoria = p[seguitoCategoria], destinazione = p[seguitoDestinazione],
                 codOrigine = p[seguitoOrigine], dataPartenzaTrenoMs = p[seguitoDataCorsa],
                 orarioPartenzaMs = p[seguitoPartenza], ritardoMinuti = p[seguitoRitardo] ?: 0,
@@ -128,7 +128,7 @@ class ImpostazioniStore(private val context: Context) {
         context.dataStore.edit {
             it[seguitoNumero] = s.numeroTreno
             it[seguitoData] = s.data
-            it[seguitoArrivo] = s.arrivoBustoMs
+            it[seguitoArrivo] = s.arrivoDestinazioneMs
             s.categoria?.let { v -> it[seguitoCategoria] = v }; s.destinazione?.let { v -> it[seguitoDestinazione] = v }
             s.codOrigine?.let { v -> it[seguitoOrigine] = v }; s.dataPartenzaTrenoMs?.let { v -> it[seguitoDataCorsa] = v }
             s.orarioPartenzaMs?.let { v -> it[seguitoPartenza] = v }; it[seguitoRitardo] = s.ritardoMinuti

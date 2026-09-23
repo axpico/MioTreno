@@ -245,7 +245,7 @@ private fun CardIntestazione(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatusBadge(semaforo, treno.etichettaStato())
             Text(
-                "a ${destinazioneNome ?: "destinazione"} · ${treno.orarioArrivoBustoMs?.comeOra() ?: "—"}",
+                "a ${destinazioneNome ?: "destinazione"} · ${treno.orarioArrivoDestinazioneMs?.comeOra() ?: "—"}",
                 style = Testo.etichetta, color = tb.sub, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -260,14 +260,14 @@ private fun Avanzamento(d: DettaglioTreno.Ok) {
     val fatte = (d.indiceCorrente + 1).coerceAtLeast(0)
     val ultima = d.fermate.getOrNull(d.indiceCorrente)
     val prossima = d.fermate.getOrNull(d.indiceCorrente + 1)
-    val arrivo = d.fermate.getOrNull(d.indiceBusto)?.orario(d.ritardoMinuti)
-    val destinazione = d.fermate.getOrNull(d.indiceBusto)?.nome ?: "destinazione"
+    val arrivo = d.fermate.getOrNull(d.indiceDestinazione)?.orario(d.ritardoMinuti)
+    val destinazione = d.fermate.getOrNull(d.indiceDestinazione)?.nome ?: "destinazione"
 
     GlassCard(Modifier.fillMaxWidth(), padding = 14.dp) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 val stato = when {
-                    d.indiceBusto >= 0 && d.indiceCorrente >= d.indiceBusto -> "Arrivato a $destinazione"
+                    d.indiceDestinazione >= 0 && d.indiceCorrente >= d.indiceDestinazione -> "Arrivato a $destinazione"
                     d.indiceCorrente < 0 -> "In attesa di partenza"
                     prossima != null -> "In viaggio da ${ultima?.nome.orEmpty()} a ${prossima.nome}"
                     else -> "Percorso in aggiornamento"

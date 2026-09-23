@@ -18,7 +18,7 @@ private fun treno(numero: Int, partenzaFraMinuti: Int, ritardo: Int = 0) = Pross
     codOrigine = "S01645",
     dataPartenzaTrenoMs = ADESSO,
     orarioPartenzaMs = ADESSO + partenzaFraMinuti * MIN,
-    orarioArrivoBustoMs = ADESSO + 60 * MIN,
+    orarioArrivoDestinazioneMs = ADESSO + 60 * MIN,
     ritardoMinuti = ritardo,
     binario = "2",
     binarioConfermato = true,

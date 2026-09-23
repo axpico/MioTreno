@@ -89,7 +89,7 @@ private fun ProssimoTreno.oraPartenza(): String =
     orarioProiettato(orarioPartenzaMs, ritardoMinuti).previstoMs?.ora() ?: "—"
 
 private fun ProssimoTreno.oraArrivo(): String =
-    orarioProiettato(orarioArrivoBustoMs, ritardoMinuti).previstoMs?.ora() ?: "—"
+    orarioProiettato(orarioArrivoDestinazioneMs, ritardoMinuti).previstoMs?.ora() ?: "—"
 
 /**
  * Soglie di larghezza fra i tre formati: 2×2 compatto, 3×2 con avanzamento, 4×2 lista.
@@ -315,7 +315,7 @@ private fun PillolaSegui(t: ProssimoTreno, seguito: Boolean) {
             .cornerRadius(3.dp)
             .clickable(
                 actionRunCallback<SeguiTrenoAction>(
-                    actionParametersOf(PARAM_NUMERO_TRENO to t.numeroTreno, PARAM_DATA to s.data, PARAM_ARRIVO to s.arrivoBustoMs),
+                    actionParametersOf(PARAM_NUMERO_TRENO to t.numeroTreno, PARAM_DATA to s.data, PARAM_ARRIVO to s.arrivoDestinazioneMs),
                 ),
             )
             .padding(horizontal = 8.dp, vertical = 3.dp),
@@ -388,7 +388,7 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
     }
 }
 
-/** 3×2: orario, treno, binario, badge e la barra di avanzamento verso Busto. */
+/** 3×2: orario, treno, binario, badge e la barra di avanzamento verso la destinazione. */
 @Composable
 private fun Medio(esito: EsitoWidget, altezza: Dp) {
     if (esito !is EsitoWidget.Dati) { Vuoto(esito); return }

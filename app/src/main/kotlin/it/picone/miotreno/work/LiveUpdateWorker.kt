@@ -148,13 +148,13 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
         ),
     )
 
-    val arrivato = ok != null && ok.indiceBusto >= 0 && ok.indiceCorrente >= ok.indiceBusto
+    val arrivato = ok != null && ok.indiceDestinazione >= 0 && ok.indiceCorrente >= ok.indiceDestinazione
     if (arrivato) Deps.impostazioni.smettiDiSeguire()
     // ultimo fotogramma: resta visibile, non si continua a interrogare un treno finito
     if (arrivato || treno.cancellato) return Giro.Finito
 
     // si guarda all'evento più vicino: prima della partenza è la partenza, dopo è l'arrivo
-    val minutiAllArrivo = treno.orarioArrivoBustoMs
+    val minutiAllArrivo = treno.orarioArrivoDestinazioneMs
         ?.let { ((it + treno.ritardoMinuti * 60_000L - adesso) / 60_000L).toInt() }
         ?: Int.MAX_VALUE
     return Giro.Ancora(passoLive(minOf(if (minuti < 0) Int.MAX_VALUE else minuti, minutiAllArrivo)))

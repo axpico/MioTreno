@@ -366,7 +366,7 @@ private fun CardProssimaPartenza(
             Column(Modifier.weight(1f)) {
                 Text("ARRIVO", style = Testo.micro, color = tb.ter)
                 OrarioConRitardo(
-                    orario = orarioProiettato(treno.orarioArrivoBustoMs, treno.ritardoMinuti),
+                    orario = orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti),
                     stile = Testo.numero,
                 )
             }
@@ -408,23 +408,23 @@ private fun CardProssimaPartenza(
 private fun BarraViaggio(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioTreno.Ok?, modifier: Modifier = Modifier) {
     val tb = LocalTb.current
 
-    // Fermate intermedie fra origine (indice 0) e Busto (indiceBusto): la barra va da
+    // Fermate intermedie fra origine (indice 0) e destinazione (indiceDestinazione): la barra va da
     // un capo all'altro, non fino all'ultima fermata della corsa (che può proseguire
-    // oltre Busto) — il numero di pallini deve combaciare con le fermate reali di *questo* tratto.
-    val indiceBusto = dettaglio?.indiceBusto?.takeIf { it > 0 }
-    val fermateIntermedie = if (indiceBusto != null && indiceBusto > 1) (1 until indiceBusto) else IntRange.EMPTY
+    // oltre la destinazione) — il numero di pallini deve combaciare con le fermate reali di *questo* tratto.
+    val indiceDestinazione = dettaglio?.indiceDestinazione?.takeIf { it > 0 }
+    val fermateIntermedie = if (indiceDestinazione != null && indiceDestinazione > 1) (1 until indiceDestinazione) else IntRange.EMPTY
 
-    // La barra deve riempirsi sulla stessa tratta dei pallini (origine → Busto), non sull'intera
-    // corsa che può proseguire oltre Busto: altrimenti il riempimento resta indietro rispetto ai
-    // pallini già "passati", che usano indiceBusto come base.
+    // La barra deve riempirsi sulla stessa tratta dei pallini (origine → destinazione), non sull'intera
+    // corsa che può proseguire oltre la destinazione: altrimenti il riempimento resta indietro rispetto ai
+    // pallini già "passati", che usano indiceDestinazione come base.
     //
     // In viaggio fra due fermate il riempimento non deve incollarsi al pallino di quella
     // precedente: si interpola sull'orologio fra l'orario reale di partenza da lì e l'orario
     // previsto di arrivo alla prossima, così la barra avanza con continuità invece di scattare
     // da un pallino all'altro solo alla conferma della fermata successiva.
     val posizioneCorrente = dettaglio?.let { posizioneInTratta(it, ora) }
-    val avanzamento = if (posizioneCorrente != null && indiceBusto != null) {
-        (posizioneCorrente / indiceBusto).coerceIn(0f, 1f)
+    val avanzamento = if (posizioneCorrente != null && indiceDestinazione != null) {
+        (posizioneCorrente / indiceDestinazione).coerceIn(0f, 1f)
     } else if (dettaglio != null) {
         ((dettaglio.indiceCorrente + 1).toFloat() / dettaglio.fermate.size.coerceAtLeast(1)).coerceIn(0f, 1f)
     } else {
@@ -446,11 +446,11 @@ private fun BarraViaggio(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioTr
                     color = tb.accento, trackColor = tb.bordoForte,
                     // Material3 disegna di default un "traguardo" a fine barra: qui i pallini
                     // sopra già marcano le fermate, un secondo pallino fisso in fondo è ridondante
-                    // e sembra un pallino fuori posto quando il viaggio non è ancora a Busto.
+                    // e sembra un pallino fuori posto quando il viaggio non è ancora a destinazione.
                     drawStopIndicator = {},
                 )
                 for (i in fermateIntermedie) {
-                    val frazione = i.toFloat() / indiceBusto!!
+                    val frazione = i.toFloat() / indiceDestinazione!!
                     val passata = i <= dettaglio!!.indiceCorrente
                     Box(
                         Modifier

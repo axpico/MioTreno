@@ -76,7 +76,7 @@ private fun builderTreno(
     // Gli orari in notifica vanno proiettati come in app: annunciare l'orario di tabella
     // mentre il treno ha +12 significa dare l'ora sbagliata a chi sta correndo in stazione.
     val partenza = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti)
-    val arrivoOrario = orarioProiettato(treno.orarioArrivoBustoMs, treno.ritardoMinuti)
+    val arrivoOrario = orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti)
     val ora = partenza.previstoMs?.comeOraNotifica().orEmpty()
     val arrivo = arrivoOrario.previstoMs?.comeOraNotifica()
     /** " (orario 14:20)" quando il previsto si discosta dalla tabella; niente se puntuale. */
@@ -178,7 +178,7 @@ private fun progressoTratte(
 ): ProgressoTratte? {
     val ok = dettaglio as? DettaglioTreno.Ok ?: return null
     val inizio = ok.fermate.indexOfFirst { it.codice in codiciPartenza }.coerceAtLeast(0)
-    val fine = ok.indiceBusto.takeIf { it > inizio } ?: ok.fermate.lastIndex
+    val fine = ok.indiceDestinazione.takeIf { it > inizio } ?: ok.fermate.lastIndex
     val tratte = (fine - inizio).coerceAtLeast(1)
     val fatte = (ok.indiceCorrente - inizio).coerceIn(0, tratte)
     val sottotitolo = when {

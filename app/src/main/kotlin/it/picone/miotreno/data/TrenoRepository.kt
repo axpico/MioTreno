@@ -211,7 +211,7 @@ class TrenoRepository(
                     codPartenza = codPartenza,
                     dataPartenzaTrenoMs = p.dataPartenzaTreno ?: partenzaMs,
                     orarioPartenzaMs = partenzaMs,
-                    orarioArrivoBustoMs = arrivoMs,
+                    orarioArrivoDestinazioneMs = arrivoMs,
                     ritardoMinuti = ritardo,
                     binario = binEff
                         ?: p.binarioProgrammatoPartenzaDescrizione?.trim()?.takeIf { it.isNotEmpty() },
@@ -251,7 +251,7 @@ class TrenoRepository(
             fermate = fermate,
             ritardoMinuti = dto.ritardo ?: treno.ritardoMinuti,
             indiceCorrente = fermate.indexOfLast { it.passata },
-            indiceBusto = fermate.indexOfFirst { it.codice == codDestinazione },
+            indiceDestinazione = fermate.indexOfFirst { it.codice == codDestinazione },
         )
     }
 

@@ -31,7 +31,7 @@ fun seguitoAttivo(
  * Un treno merita ancora di stare in lista?
  *
  * Di norma no appena è partito: non lo prendi più. Ma la corsa **seguita** resta finché non
- * arriva a Busto — è esattamente il momento in cui sei a bordo e vuoi sapere quanto manca.
+ * arriva a destinazione — è esattamente il momento in cui sei a bordo e vuoi sapere quanto manca.
  * Senza questa eccezione la barra di avanzamento non poteva riempirsi mai, perché ogni treno
  * in lista doveva ancora partire.
  */
@@ -50,7 +50,7 @@ fun trenoAncoraUtile(
 fun ProssimoTreno.comeSeguito(zona: ZoneId = ZoneId.systemDefault()): TrenoSeguito = TrenoSeguito(
     numeroTreno = numeroTreno,
     data = Instant.ofEpochMilli(orarioPartenzaMs).atZone(zona).toLocalDate().toString(),
-    arrivoBustoMs = orarioArrivoBustoMs ?: (orarioPartenzaMs + 90 * 60_000L),
+    arrivoDestinazioneMs = orarioArrivoDestinazioneMs ?: (orarioPartenzaMs + 90 * 60_000L),
     categoria = categoria,
     destinazione = destinazione,
     codOrigine = codOrigine,
@@ -69,7 +69,7 @@ fun TrenoSeguito.comeProssimoTreno(): ProssimoTreno? {
     return ProssimoTreno(
         numeroTreno = numeroTreno, categoria = categoria ?: "TRENO", destinazione = destinazione.orEmpty(),
         codOrigine = origine, dataPartenzaTrenoMs = dataCorsa, orarioPartenzaMs = partenza,
-        orarioArrivoBustoMs = arrivoBustoMs, ritardoMinuti = ritardoMinuti, binario = binario,
+        orarioArrivoDestinazioneMs = arrivoDestinazioneMs, ritardoMinuti = ritardoMinuti, binario = binario,
         binarioConfermato = binarioConfermato, stato = StatoTreno.Regolare,
     )
 }

@@ -97,7 +97,7 @@ class ProssimiTreniTest {
         val t0 = 10_000_000L
         val repo = repository(FakeViaggiaTrenoApi())
         val seguito = TrenoSeguito(
-            numeroTreno = 42, data = "2026-09-16", arrivoBustoMs = t0 + 5_000,
+            numeroTreno = 42, data = "2026-09-16", arrivoDestinazioneMs = t0 + 5_000,
             codOrigine = "S09999", dataPartenzaTrenoMs = t0, orarioPartenzaMs = t0,
         )
         val treni = repo.prossimiTreni(listOf("S09999"), DESTINAZIONE_TEST, Date(t0), seguito = seguito)

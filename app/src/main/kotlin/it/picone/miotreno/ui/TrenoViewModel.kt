@@ -226,7 +226,7 @@ class TrenoViewModel : ViewModel() {
         val treno = treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno } ?: return
         viewModelScope.launch {
             val d = runCatching { repo.dettaglio(treno, codDestinazione) }.getOrNull() as? DettaglioTreno.Ok ?: return@launch
-            if (d.indiceBusto >= 0 && d.indiceCorrente >= d.indiceBusto) {
+            if (d.indiceDestinazione >= 0 && d.indiceCorrente >= d.indiceDestinazione) {
                 Deps.impostazioni.smettiDiSeguire()
                 runCatching { aggiornaWidget(Deps.app, seguito = 0) }
             }
@@ -315,7 +315,7 @@ class TrenoViewModel : ViewModel() {
                     .getOrDefault(DettaglioTreno.DatiNonDisponibili)
                 _state.update { it.copy(dettaglio = d, caricamentoDettaglio = false) }
                 val ok = d as? DettaglioTreno.Ok
-                if (ok != null && ok.indiceBusto >= 0 && ok.indiceCorrente >= ok.indiceBusto) {
+                if (ok != null && ok.indiceDestinazione >= 0 && ok.indiceCorrente >= ok.indiceDestinazione) {
                     if (_state.value.seguito?.numeroTreno == treno.numeroTreno) {
                         Deps.impostazioni.smettiDiSeguire()
                         runCatching { aggiornaWidget(Deps.app, seguito = 0) }
