@@ -9,6 +9,11 @@ notifica pre-partenza.
 Dati da [ViaggiaTreno](http://www.viaggiatreno.it) (API non ufficiale RFI) e dal
 [feed RSS scioperi del MIT](https://scioperi.mit.gov.it/mit2/public/scioperi/rss).
 
+> **App non ufficiale.** Non affiliata né approvata da Trenitalia, RFI o Ferrovie dello
+> Stato Italiane. I marchi citati appartengono ai rispettivi titolari.
+
+[Informativa sulla privacy](https://axpico.github.io/MioTreno/privacy) · [Licenza MIT](LICENSE)
+
 ## Build
 
 Serve il JDK 21 (il default di sistema è più recente di quanto AGP 8.x supporti); `mise.toml`
@@ -16,7 +21,8 @@ lo fissa già per questa directory.
 
 ```sh
 mise install
-./gradlew test           # 24 unit test su fixture reali dell'API
+./gradlew test           # 107 unit test, in parte su fixture reali dell'API
+./gradlew ktlintCheck    # stile (regole in .editorconfig)
 ./gradlew assembleDebug
 ./gradlew installDebug
 ```
