@@ -14,6 +14,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.getSystemService
 import it.picone.miotreno.R
 import it.picone.miotreno.domain.DettaglioTreno
+import it.picone.miotreno.domain.OrarioFermata
+import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StatoTreno
@@ -44,6 +46,11 @@ private const val TAG = "Notifiche"
 
 private val ORA = DateTimeFormatter.ofPattern("HH:mm")
 
+private fun Long.comeOraNotifica(): String =
+    ORA.format(Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()))
+
+private fun OrarioFermata.programmaMs(): String? = programmataMs?.comeOraNotifica()
+
 fun creaCanale(context: Context) {
     val canale = NotificationChannel(
         CANALE_TRENI,
@@ -66,9 +73,15 @@ private fun builderTreno(
     sciopero: Sciopero?,
     destinazioneNome: String,
 ): NotificationCompat.Builder {
-    val ora = ORA.format(Instant.ofEpochMilli(treno.orarioPartenzaMs).atZone(ZoneId.systemDefault()))
-    val arrivo = treno.orarioArrivoBustoMs
-        ?.let { ORA.format(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())) }
+    // Gli orari in notifica vanno proiettati come in app: annunciare l'orario di tabella
+    // mentre il treno ha +12 significa dare l'ora sbagliata a chi sta correndo in stazione.
+    val partenza = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti)
+    val arrivoOrario = orarioProiettato(treno.orarioArrivoBustoMs, treno.ritardoMinuti)
+    val ora = partenza.previstoMs?.comeOraNotifica().orEmpty()
+    val arrivo = arrivoOrario.previstoMs?.comeOraNotifica()
+    /** " (orario 14:20)" quando il previsto si discosta dalla tabella; niente se puntuale. */
+    fun OrarioFermata.scarto(): String =
+        if (inRitardo) programmaMs()?.let { " (orario $it)" }.orEmpty() else ""
 
     val titolo = when {
         treno.stato is StatoTreno.Cancellato ->
@@ -78,11 +91,15 @@ private fun builderTreno(
     }
 
     val righe = buildList {
-        add("$ora da $stazione · ${if (treno.ritardoMinuti > 0) "+${treno.ritardoMinuti} min" else "in orario"}")
+        add(
+            "$ora da $stazione · " +
+                (if (treno.ritardoMinuti > 0) "+${treno.ritardoMinuti} min" else "in orario") +
+                partenza.scarto(),
+        )
         treno.binario?.let {
             add("Binario $it (${if (treno.binarioConfermato) "confermato" else "previsto"})")
         }
-        arrivo?.let { add("Arrivo a $destinazioneNome alle $it") }
+        arrivo?.let { add("Arrivo a $destinazioneNome alle $it" + arrivoOrario.scarto()) }
         when (val s = treno.stato) {
             is StatoTreno.Cancellato -> add("⚠ ${s.dettaglio}")
             is StatoTreno.Deviato -> add("⚠ Deviato: ${s.dettaglio}")

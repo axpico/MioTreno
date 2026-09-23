@@ -55,6 +55,7 @@ import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
+import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.comeSeguito
 import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.progressoReale
@@ -76,6 +77,19 @@ const val EXTRA_SEGUI = "segui_treno"
 
 private val ORA = DateTimeFormatter.ofPattern("HH:mm")
 private fun Long.ora(): String = ORA.format(Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()))
+
+/**
+ * Orari proiettati col ritardo corrente.
+ *
+ * Nel widget il ritardo si vede solo dal colore della barretta: stampare l'orario di tabella
+ * accanto a una barretta arancione lascia leggere "parte alle 8:12" a chi invece partirà alle
+ * 8:24. Lo spazio non basta per due orari, quindi si mostra quello che conta.
+ */
+private fun ProssimoTreno.oraPartenza(): String =
+    orarioProiettato(orarioPartenzaMs, ritardoMinuti).previstoMs?.ora() ?: "—"
+
+private fun ProssimoTreno.oraArrivo(): String =
+    orarioProiettato(orarioArrivoBustoMs, ritardoMinuti).previstoMs?.ora() ?: "—"
 
 /**
  * Soglie di larghezza fra i tre formati: 2×2 compatto, 3×2 con avanzamento, 4×2 lista.
@@ -337,7 +351,7 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
             style = stile(tb.ter, 8, bold = true),
         )
         Text(
-            t.orarioPartenzaMs.ora(),
+            t.oraPartenza(),
             modifier = GlanceModifier.padding(top = 2.dp),
             style = TextStyle(
                 color = ColorProvider(tb.tx), fontSize = 30.sp, fontWeight = FontWeight.Bold,
@@ -360,11 +374,11 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
                 style = stile(tb.tx, 11, bold = true),
             )
             esito.seguitoNonDisponibile?.let { Text("treno $it non disponibile", maxLines = 1, style = stile(tb.ambra, 9, bold = true)) }
-            if (altezza >= 160.dp) Text("a ${esito.destinazione} ${t.orarioArrivoBustoMs?.ora() ?: "—"}", style = stile(tb.sub, 10))
+            if (altezza >= 160.dp) Text("a ${esito.destinazione} ${t.oraArrivo()}", style = stile(tb.sub, 10))
             esito.treni.drop(1).take(extra).forEach {
                 Box(GlanceModifier.padding(top = 5.dp)) {
                     Text(
-                        "${it.orarioPartenzaMs.ora()} · Bin ${it.binario ?: "—"}" + if (it.cancellato) " · canc." else "",
+                        "${it.oraPartenza()} · Bin ${it.binario ?: "—"}" + if (it.cancellato) " · canc." else "",
                         maxLines = 1, style = stile(if (it.cancellato) tb.rosso else tb.sub, 11, bold = true),
                     )
                 }
@@ -390,7 +404,7 @@ private fun Medio(esito: EsitoWidget, altezza: Dp) {
         Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
             Column {
                 Text(
-                    t.orarioPartenzaMs.ora(),
+                    t.oraPartenza(),
                     style = TextStyle(
                         color = ColorProvider(tb.tx), fontSize = 24.sp, fontWeight = FontWeight.Bold,
                         textDecoration = if (t.cancellato) TextDecoration.LineThrough else TextDecoration.None,
@@ -433,7 +447,7 @@ private fun Medio(esito: EsitoWidget, altezza: Dp) {
 private fun Avanzamento(t: ProssimoTreno, stazione: String, destinazione: String, avanzamentoReale: Float? = null) {
     val ora = System.currentTimeMillis()
     val minuti = t.minutiAllaPartenza(ora)
-    val arrivo = t.orarioArrivoBustoMs?.ora() ?: "—"
+    val arrivo = t.oraArrivo()
     Column(GlanceModifier.fillMaxWidth()) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
             Text(sigla(stazione), style = stile(tb.ter, 8, bold = true))
@@ -505,7 +519,7 @@ private fun RigaCompatta(t: ProssimoTreno, context: Context) {
         GlanceModifier.fillMaxWidth().clickable(apriTreno(context, t.numeroTreno)).padding(vertical = 3.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
-        Text(t.orarioPartenzaMs.ora(), modifier = GlanceModifier.width(44.dp), style = stile(tb.tx, 12, bold = true))
+        Text(t.oraPartenza(), modifier = GlanceModifier.width(44.dp), style = stile(tb.tx, 12, bold = true))
         Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1,
             modifier = GlanceModifier.defaultWeight(), style = stile(tb.sub, 11))
         BadgeStato(t, piccolo = true)
@@ -525,7 +539,7 @@ private fun RigaTreno(t: ProssimoTreno, context: Context, destinazione: String, 
     ) {
         Column(GlanceModifier.width(46.dp)) {
             Text(
-                t.orarioPartenzaMs.ora(),
+                t.oraPartenza(),
                 style = TextStyle(
                     color = ColorProvider(tb.tx), fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     textDecoration = if (t.cancellato) TextDecoration.LineThrough else TextDecoration.None,
@@ -540,7 +554,7 @@ private fun RigaTreno(t: ProssimoTreno, context: Context, destinazione: String, 
         Spacer(GlanceModifier.width(10.dp))
         Column(GlanceModifier.defaultWeight()) {
             Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1, style = stile(tb.tx, 11, bold = true))
-            Text("a $destinazione ${t.orarioArrivoBustoMs?.ora() ?: "—"}", maxLines = 1, style = stile(tb.sub, 9))
+            Text("a $destinazione ${t.oraArrivo()}", maxLines = 1, style = stile(tb.sub, 9))
         }
         BadgeStato(t, piccolo = true)
         Spacer(GlanceModifier.width(6.dp))
