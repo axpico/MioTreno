@@ -164,6 +164,7 @@ fun HomeScreen(
                                         atteso = state.ritardiAttesi[t.numeroTreno]?.testo,
                                         passaPerEtichetta = state.stazionePassaggioNome
                                             ?.takeIf { t.numeroTreno in state.treniConPassaggio },
+                                        partenzaEtichetta = state.etichettePartenza[t.codPartenza],
                                         modifier = Modifier.animateItem(placementSpec = Molla.ui()).sharedBounds(
                                             rememberSharedContentState(chiaveTreno(t.numeroTreno)), animatedScope,
                                         ),

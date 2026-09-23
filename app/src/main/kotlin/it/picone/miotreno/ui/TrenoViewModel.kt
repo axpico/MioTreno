@@ -8,6 +8,7 @@ import it.picone.miotreno.data.NOMI_REGIONI
 import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ElementoStazione
+import it.picone.miotreno.domain.etichetteCluster
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.RitardoAtteso
 import it.picone.miotreno.domain.ritardiAttesi
@@ -90,7 +91,13 @@ data class UiState(
     val selettoreFiltroStazione: Boolean = false,
     /** One-shot: consumato da MainActivity non appena mostra l'interstitial. */
     val mostraInterstitial: Boolean = false,
-)
+) {
+    /**
+     * Come distinguere in elenco i treni di scali gemelli (Garibaldi superficie vs
+     * sotterranea). Derivato: non c'è stato da tenere in sincrono.
+     */
+    val etichettePartenza: Map<String, String> get() = etichetteCluster(stazione?.nomi.orEmpty())
+}
 
 private const val POLL_DETTAGLIO_MS = 30_000L
 private const val TICK_MS = 10_000L

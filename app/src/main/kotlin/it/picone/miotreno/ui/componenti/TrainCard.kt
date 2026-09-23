@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
+import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.StatoTreno
 import it.picone.miotreno.domain.etichettaStato
@@ -66,6 +67,8 @@ fun TrainCard(
     atteso: String? = null,
     /** Nome della stazione di passaggio confermata (es. "via Legnano"); null = non verificata/non passa. */
     passaPerEtichetta: String? = null,
+    /** Quale stazione del cluster (superficie/sotterranea): vedi [etichetteCluster]. */
+    partenzaEtichetta: String? = null,
     /** Percorso reale (fermate passate/prossime): solo sulla card in evidenza, null finché non arriva. */
     dettaglio: DettaglioTreno.Ok? = null,
 ) {
@@ -85,6 +88,7 @@ fun TrainCard(
             dettaglio = dettaglio,
             atteso = atteso,
             passaPerEtichetta = passaPerEtichetta,
+            partenzaEtichetta = partenzaEtichetta,
             onClick = onClick,
             modifier = modifier,
         )
@@ -95,7 +99,8 @@ fun TrainCard(
         RigaTreno(
             treno = treno, ora = ora, seguito = seguito, semaforo = semaforo,
             cancellato = cancellato, minuti = minuti, onClick = onClick,
-            atteso = atteso, passaPerEtichetta = passaPerEtichetta, modifier = modifier,
+            atteso = atteso, passaPerEtichetta = passaPerEtichetta,
+            partenzaEtichetta = partenzaEtichetta, modifier = modifier,
         )
         return
     }
@@ -115,14 +120,14 @@ fun TrainCard(
                     Text("${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
                     if (seguito) Chip("SEGUI", colore = tb.accento, pieno = true)
                     if (passaPerEtichetta != null) Chip("via $passaPerEtichetta", colore = tb.accento2)
+                    if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra)
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        treno.orarioPartenzaMs.comeOra(),
-                        style = Testo.hero,
-                        color = tb.tx,
-                        textDecoration = if (cancellato) TextDecoration.LineThrough else null,
+                    OrarioConRitardo(
+                        orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
+                        stile = Testo.hero,
+                        cancellato = cancellato,
                     )
                     Binario(treno, Modifier.padding(bottom = 4.dp))
                 }
@@ -177,6 +182,7 @@ private fun RigaTreno(
     onClick: () -> Unit,
     atteso: String?,
     passaPerEtichetta: String?,
+    partenzaEtichetta: String?,
     modifier: Modifier = Modifier,
 ) {
     val tb = LocalTb.current
@@ -210,12 +216,12 @@ private fun RigaTreno(
             )
             Spacer(Modifier.width(10.dp))
 
-            Text(
-                treno.orarioPartenzaMs.comeOra(),
-                style = Testo.numero,
-                color = coloreOrario,
-                textDecoration = if (cancellato) TextDecoration.LineThrough else null,
-                modifier = Modifier.width(48.dp),
+            OrarioConRitardo(
+                orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
+                stile = Testo.numero,
+                modifier = Modifier.width(56.dp),
+                colore = coloreOrario,
+                cancellato = cancellato,
             )
 
             Icon(
@@ -233,6 +239,7 @@ private fun RigaTreno(
                     Text("${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
                     if (seguito) Chip("SEGUI", colore = tb.accento, pieno = true)
                     if (passaPerEtichetta != null) Chip("via $passaPerEtichetta", colore = tb.accento2)
+                    if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra)
                     if (semaforo == Semaforo.Cancellato || semaforo == Semaforo.Irregolare) {
                         Text(
                             treno.etichettaStato() + (nota?.let { " · $it" } ?: ""),
@@ -287,6 +294,7 @@ private fun CardProssimaPartenza(
     dettaglio: DettaglioTreno.Ok?,
     atteso: String?,
     passaPerEtichetta: String?,
+    partenzaEtichetta: String?,
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
@@ -306,6 +314,9 @@ private fun CardProssimaPartenza(
             Icon(iconaCategoria(treno.categoria), contentDescription = null, tint = tb.sub, modifier = Modifier.size(18.dp))
             Text("${treno.categoria} · ${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.sub)
             if (seguito) Chip("SEGUI", colore = tb.accento, pieno = true)
+            if (partenzaEtichetta != null) {
+                Text("da $partenzaEtichetta", style = Testo.micro, color = tb.ambra)
+            }
             if (passaPerEtichetta != null) {
                 Text("via $passaPerEtichetta", style = Testo.micro, color = tb.accento2)
             }
@@ -327,11 +338,10 @@ private fun CardProssimaPartenza(
             verticalAlignment = Alignment.Bottom,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    treno.orarioPartenzaMs.comeOra(),
-                    style = Testo.display,
-                    color = tb.tx,
-                    textDecoration = if (cancellato) TextDecoration.LineThrough else null,
+                OrarioConRitardo(
+                    orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
+                    stile = Testo.display,
+                    cancellato = cancellato,
                 )
                 Text("PARTENZA", style = Testo.micro, color = tb.ter)
             }
@@ -355,10 +365,9 @@ private fun CardProssimaPartenza(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("ARRIVO", style = Testo.micro, color = tb.ter)
-                Text(
-                    treno.orarioArrivoBustoMs?.comeOra() ?: "—",
-                    style = Testo.numero,
-                    color = tb.tx,
+                OrarioConRitardo(
+                    orario = orarioProiettato(treno.orarioArrivoBustoMs, treno.ritardoMinuti),
+                    stile = Testo.numero,
                 )
             }
             Box(Modifier.width(1.dp).height(30.dp).background(tb.bordoForte))

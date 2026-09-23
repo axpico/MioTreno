@@ -167,8 +167,11 @@ class TrenoRepository(
         val codDestinazioni = codiciClusterDestinazione(codDestinazione)
         coroutineScope {
             val codStazione = codStazioni.first()
+            // il codice di partenza va tenuto accoppiato al treno: nel cluster non è unico
+            // (superficie vs sotterranea) e l'utente deve sapere dove presentarsi
             val partenzeReq = async {
-                codStazioni.map { async { api.partenze(it, adesso) } }.flatMap { it.await() }
+                codStazioni.map { cod -> async { api.partenze(cod, adesso).map { cod to it } } }
+                    .flatMap { it.await() }
             }
             val arriviOra = async {
                 codDestinazioni.map { async { api.arrivi(it, adesso) } }.flatMap { it.await() }
@@ -181,7 +184,7 @@ class TrenoRepository(
                 .filter { it.numeroTreno != null }
                 .associateBy { it.numeroTreno!! }
 
-            partenzeReq.await().mapNotNull { p ->
+            partenzeReq.await().mapNotNull { (codPartenza, p) ->
                 val numero = p.numeroTreno ?: return@mapNotNull null
                 val arrivo = arriviPerTreno[numero] ?: return@mapNotNull null
                 val partenzaMs = p.orarioPartenza ?: return@mapNotNull null
@@ -205,6 +208,7 @@ class TrenoRepository(
                     destinazione = (p.destinazione ?: arrivo.destinazione).orEmpty()
                         .trim().nomeStazione(),
                     codOrigine = p.codOrigine ?: codStazione,
+                    codPartenza = codPartenza,
                     dataPartenzaTrenoMs = p.dataPartenzaTreno ?: partenzaMs,
                     orarioPartenzaMs = partenzaMs,
                     orarioArrivoBustoMs = arrivoMs,

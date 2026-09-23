@@ -12,6 +12,12 @@ data class StazioneCorrente(
     val origine: Origine,
     /** Distanza dalla posizione, solo quando [origine] è GPS. */
     val distanzaMetri: Int? = null,
+    /**
+     * Nome per ciascun codice del cluster. Serve a distinguere i treni di scali gemelli
+     * (superficie/sotterranea) in elenco — vedi [etichetteCluster]. Vuoto quando il cluster
+     * viene dall'ultima nota salvata, che i nomi per codice non li conserva.
+     */
+    val nomi: Map<String, String> = emptyMap(),
 ) {
     enum class Origine { Gps, Manuale, UltimaNota }
 
@@ -33,10 +39,12 @@ fun scegliStazione(
     manuale.isNotEmpty() -> StazioneCorrente(
         manuale.first().stazione.nome, manuale.map { it.stazione.codice },
         StazioneCorrente.Origine.Manuale,
+        nomi = manuale.associate { it.stazione.codice to it.stazione.nome },
     )
     gps.isNotEmpty() -> StazioneCorrente(
         gps.first().stazione.nome, gps.map { it.stazione.codice },
         StazioneCorrente.Origine.Gps, gps.first().distanzaMetri,
+        nomi = gps.associate { it.stazione.codice to it.stazione.nome },
     )
     ultima != null -> StazioneCorrente(ultima.nome, ultima.codici, StazioneCorrente.Origine.UltimaNota)
     else -> null

@@ -23,6 +23,13 @@ data class ProssimoTreno(
     val categoria: String,
     val destinazione: String,
     val codOrigine: String,
+    /**
+     * Codice della stazione da cui si sale, che nel cluster non è unico: a Milano Porta
+     * Garibaldi i treni si dividono fra superficie (S01645) e sotterranea/Passante (S01647).
+     * Serve a dire all'utente su quale dei due binari presentarsi. Null nello snapshot del
+     * treno seguito, che non lo registra.
+     */
+    val codPartenza: String? = null,
     val dataPartenzaTrenoMs: Long,
     val orarioPartenzaMs: Long,
     val orarioArrivoBustoMs: Long?,

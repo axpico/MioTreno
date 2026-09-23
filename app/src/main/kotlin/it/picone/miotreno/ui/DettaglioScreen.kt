@@ -115,6 +115,7 @@ fun DettaglioScreen(
                     Modifier.sharedBounds(rememberSharedContentState(chiaveTreno(treno.numeroTreno)), animatedScope),
                     atteso = state.ritardiAttesi[treno.numeroTreno]?.testo,
                     destinazioneNome = state.destinazioneNome,
+                    partenzaEtichetta = state.etichettePartenza[treno.codPartenza],
                 )
             }
         }
@@ -206,6 +207,7 @@ fun DettaglioScreen(
 private fun CardIntestazione(
     treno: ProssimoTreno, ora: Long, seguito: Boolean, modifier: Modifier, atteso: String?,
     destinazioneNome: String?,
+    partenzaEtichetta: String?,
 ) {
     val tb = LocalTb.current
     val semaforo = treno.semaforo()
@@ -235,6 +237,9 @@ private fun CardIntestazione(
                 if (treno.binarioConfermato) "binario confermato" else "binario previsto",
                 style = Testo.etichetta, color = tb.sub,
             )
+            // a Garibaldi superficie e sotterranea sono due piazzali diversi: il solo
+            // numero di binario non basta a sapere dove andare
+            if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra)
         }
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

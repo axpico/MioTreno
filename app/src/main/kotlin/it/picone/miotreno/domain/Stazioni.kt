@@ -50,3 +50,27 @@ fun stazioniVicine(
     val prima = perDistanza.firstOrNull() ?: return emptyList()
     return perDistanza.takeWhile { it.distanzaMetri - prima.distanzaMetri <= raggioMetri }
 }
+
+/**
+ * Etichette che distinguono fra loro le stazioni di uno stesso cluster.
+ *
+ * Nel cluster i treni arrivano da codici diversi dello stesso scalo e la lista li mescola:
+ * a Milano Porta Garibaldi le linee S passano dal Passante (sotterranea) e le altre dalla
+ * superficie, ma in elenco sembrano la stessa cosa. Qui si ricava la parte di nome che
+ * davvero cambia — "Sotterranea" — togliendo il prefisso comune a tutto il cluster.
+ *
+ * Chi non ha resto non riceve etichetta: a Garibaldi la superficie si chiama esattamente
+ * come lo scalo, e marcarla "Superficie" sarebbe una parola inventata da noi, non un dato.
+ * L'assenza di chip è già il segnale: chip = sotterranea, niente chip = superficie.
+ */
+fun etichetteCluster(nomiPerCodice: Map<String, String>): Map<String, String> {
+    if (nomiPerCodice.size < 2) return emptyMap()
+    val parole = nomiPerCodice.values.map { it.trim().split(" ").filter(String::isNotEmpty) }
+    val comuni = parole.minOf { it.size }.let { max ->
+        (0 until max).takeWhile { i -> parole.all { it[i].equals(parole[0][i], ignoreCase = true) } }.count()
+    }
+    return nomiPerCodice.mapNotNull { (codice, nome) ->
+        val resto = nome.trim().split(" ").filter(String::isNotEmpty).drop(comuni).joinToString(" ")
+        if (resto.isEmpty()) null else codice to resto
+    }.toMap()
+}
