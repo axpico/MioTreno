@@ -275,7 +275,10 @@ class TrenoViewModel : ViewModel() {
             val esito = coroutineScope {
                 treni.map { t ->
                     async {
-                        val chiave = "${t.numeroTreno}@${t.dataPartenzaTrenoMs}"
+                        // la stazione di passaggio fa parte della chiave: lo stesso treno
+                        // passa per Rho e non per Gallarate, e senza il codice il verdetto
+                        // calcolato per la vecchia scelta verrebbe riusato per la nuova
+                        val chiave = "${t.numeroTreno}@${t.dataPartenzaTrenoMs}@$codice"
                         val passa = passaggioCache.getOrPut(chiave) {
                             runCatching { passaPer(repo.dettaglio(t, codDestinazione), codice) }.getOrDefault(false)
                         }
@@ -453,9 +456,18 @@ class TrenoViewModel : ViewModel() {
         val idRegione = vecchiaDestinazioneCodice?.let { repo.regioneDi(it) }
         idRegione?.let { repo.salvaRegioneDestinazione(it) }
 
-        Deps.impostazioni.setStazioneManuale(vecchiaDestinazioneCodice)
-        Deps.impostazioni.setStazioneDestinazione(vecchiaOrigine.codice)
-        Deps.impostazioni.setStazionePassaggio(null)
+        // La stazione di passaggio sopravvive all'inversione: il viaggio di ritorno percorre
+        // la stessa tratta al contrario, quindi il vincolo "passa per X" vale ancora. Si
+        // azzera solo se X è diventata uno dei due capolinea, dove non vincolerebbe nulla.
+        val passaggio = state.value.impostazioni.stazionePassaggio
+        val nuovaOrigine = vecchiaDestinazioneCodice
+        val nuovaDestinazione = vecchiaOrigine.codice
+        val passaggioSuperfluo = passaggio != null &&
+            (passaggio == nuovaOrigine || passaggio == nuovaDestinazione)
+
+        Deps.impostazioni.setStazioneManuale(nuovaOrigine)
+        Deps.impostazioni.setStazioneDestinazione(nuovaDestinazione)
+        if (passaggioSuperfluo) Deps.impostazioni.setStazionePassaggio(null)
         if (state.value.seguito != null) Deps.impostazioni.smettiDiSeguire()
 
         _state.update {
@@ -463,7 +475,9 @@ class TrenoViewModel : ViewModel() {
                 treni = emptyList(),
                 destinazioneNome = nuovaDestinazioneStazione?.nome ?: vecchiaOrigine.nome,
                 regioneScioperiNome = idRegione?.let { r -> NOMI_REGIONI[r] } ?: it.regioneScioperiNome,
-                stazionePassaggioNome = null,
+                stazionePassaggioNome = if (passaggioSuperfluo) null else it.stazionePassaggioNome,
+                // i badge vanno riverificati sui treni della nuova tratta
+                treniConPassaggio = emptySet(),
             )
         }
         aggiorna()
