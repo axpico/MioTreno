@@ -40,6 +40,7 @@ import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.StatoTreno
+import it.picone.miotreno.domain.etichettaBreve
 import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
@@ -128,7 +129,6 @@ fun TrainCard(
                     Text("${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
                     if (seguito) Chip("SEGUI", colore = tb.accento, pieno = true)
                     if (passaPerEtichetta != null) Chip("via $passaPerEtichetta", colore = tb.accento2)
-                    if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra)
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -137,7 +137,10 @@ fun TrainCard(
                         stile = Testo.hero,
                         cancellato = cancellato,
                     )
-                    Binario(treno, Modifier.padding(bottom = 4.dp))
+                    Binario(
+                        treno, Modifier.padding(bottom = 4.dp),
+                        prefisso = partenzaEtichetta?.let(::etichettaBreve),
+                    )
                 }
                 Text(
                     treno.destinazione,
@@ -244,15 +247,10 @@ private fun RigaTreno(
                     treno.destinazione, style = Testo.corpo, color = tb.tx,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
                     if (seguito) Chip("SEGUI", colore = tb.accento, pieno = true)
                     if (passaPerEtichetta != null) Chip("via $passaPerEtichetta", colore = tb.accento2)
-                    if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra)
                     if (semaforo == Semaforo.Cancellato || semaforo == Semaforo.Irregolare) {
                         Text(
                             treno.etichettaStato() + (nota?.let { " · $it" } ?: ""),
@@ -265,7 +263,7 @@ private fun RigaTreno(
             }
 
             Spacer(Modifier.width(8.dp))
-            Binario(treno)
+            Binario(treno, prefisso = partenzaEtichetta?.let(::etichettaBreve))
             Spacer(Modifier.width(10.dp))
 
             Box(Modifier.width(44.dp), contentAlignment = Alignment.CenterEnd) {
@@ -525,7 +523,13 @@ fun RigaAtteso(testo: String, modifier: Modifier = Modifier) {
  * (stessa molla del badge di stato) segna il momento in cui il binario diventa definitivo.
  */
 @Composable
-fun Binario(treno: ProssimoTreno, modifier: Modifier = Modifier, grande: Boolean = false) {
+fun Binario(
+    treno: ProssimoTreno,
+    modifier: Modifier = Modifier,
+    grande: Boolean = false,
+    /** Sostituisce "BIN": dove salire quando lo scalo ha piu' piazzali (vedi [etichetteCluster]). */
+    prefisso: String? = null,
+) {
     val tb = LocalTb.current
     val confermato = treno.binarioConfermato
     val sfondo by animateColorAsState(if (confermato) tb.accentoSoft else Color.Transparent, Molla.piatta(), label = "binSfondo")
@@ -551,7 +555,7 @@ fun Binario(treno: ProssimoTreno, modifier: Modifier = Modifier, grande: Boolean
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Text("BIN", style = Testo.micro, color = testo)
+        Text(if (prefisso != null) "$prefisso ·" else "BIN", style = Testo.micro, color = testo)
         Text(
             treno.binario ?: "—",
             style = if (grande) Testo.numero else Testo.numeroPiccolo,

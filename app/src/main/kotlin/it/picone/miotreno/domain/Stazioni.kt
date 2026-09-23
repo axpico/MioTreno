@@ -74,3 +74,14 @@ fun etichetteCluster(nomiPerCodice: Map<String, String>): Map<String, String> {
         if (resto.isEmpty()) null else codice to resto
     }.toMap()
 }
+
+/**
+ * Etichetta di [etichetteCluster] ridotta a misura di badge.
+ *
+ * "Sotterranea" per esteso non sta accanto al numero di binario senza mandare la riga a capo,
+ * e una riga che va a capo in mezzo a una lista si legge come un errore di layout. Taglio
+ * secco a quattro lettere: "SOTT" resta leggibile e non inventa un'abbreviazione diversa
+ * per ogni stazione.
+ */
+fun etichettaBreve(etichetta: String, max: Int = 5): String =
+    etichetta.trim().uppercase().let { if (it.length <= max) it else it.take(4) }
