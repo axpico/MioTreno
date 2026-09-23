@@ -24,9 +24,6 @@ import it.picone.miotreno.domain.filtraPerPeriodo
 import it.picone.miotreno.domain.filtraPerStazione
 import it.picone.miotreno.domain.passaPer
 import it.picone.miotreno.widget.aggiornaWidget
-import it.picone.miotreno.work.liveUpdateDisponibile
-import it.picone.miotreno.work.mostraTrackingTreno
-import it.picone.miotreno.work.mostraLiveUpdate
 import it.picone.miotreno.work.ricalcolaNotifica
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -314,7 +311,6 @@ class TrenoViewModel : ViewModel() {
                 val d = runCatching { repo.dettaglio(treno, codDestinazione) }
                     .getOrDefault(DettaglioTreno.DatiNonDisponibili)
                 _state.update { it.copy(dettaglio = d, caricamentoDettaglio = false) }
-                aggiornaLiveUpdate(d)
                 val ok = d as? DettaglioTreno.Ok
                 if (ok != null && ok.indiceBusto >= 0 && ok.indiceCorrente >= ok.indiceBusto) {
                     if (_state.value.seguito?.numeroTreno == treno.numeroTreno) {
@@ -325,31 +321,6 @@ class TrenoViewModel : ViewModel() {
                 }
                 delay(POLL_DETTAGLIO_MS)
             }
-        }
-    }
-
-    /**
-     * Con l'app aperta sul dettaglio della corsa seguita, la Live Update usa gli stessi dati
-     * del polling: niente seconda richiesta. Solo dentro la finestra di preavviso, come il worker.
-     */
-    private suspend fun aggiornaLiveUpdate(d: DettaglioTreno) {
-        val s = _state.value
-        val treno = s.trenoSelezionato ?: return
-        val stazione = s.stazione ?: return
-        if (s.seguito?.numeroTreno != treno.numeroTreno || !s.impostazioni.notifiche) return
-        val minuti = treno.minutiAllaPartenza(System.currentTimeMillis())
-        if (minuti > s.impostazioni.anticipoMinuti) return
-        val sciopero = repo.scioperiInCache().rilevanteOggiODomani().takeIf { s.impostazioni.avvisiSciopero }
-        if (liveUpdateDisponibile(Deps.app)) {
-            mostraLiveUpdate(
-                Deps.app, treno, minuti, stazione.nome, stazione.codici, sciopero, d,
-                destinazioneNome = s.destinazioneNome ?: "destinazione",
-            )
-        } else {
-            mostraTrackingTreno(
-                Deps.app, treno, minuti, stazione.nome, stazione.codici, sciopero, d,
-                destinazioneNome = s.destinazioneNome ?: "destinazione",
-            )
         }
     }
 

@@ -86,7 +86,7 @@ class NotificaWorker(context: Context, params: WorkerParameters) :
         val seguito = Deps.impostazioni.seguito.first()
         val treni = runCatching { Deps.repository.prossimiTreni(stazione.codici, codDestinazione, seguito = seguito) }
             .getOrNull()
-            ?.filter { it.minutiAllaPartenza(System.currentTimeMillis()) > 0 }
+            ?.let { candidatiAvviso(it, seguito?.numeroTreno, System.currentTimeMillis()) }
             ?: return null
         val treno = trenoInEvidenza(treni, seguito) ?: return null
         return treno to stazione.nome
@@ -142,3 +142,18 @@ class AvvisoTrenoWorker(context: Context, params: WorkerParameters) :
         return Result.success()
     }
 }
+
+/**
+ * Treni fra cui scegliere il soggetto dell'avviso.
+ *
+ * Il filtro scartava tutto ciò che era già partito, corsa seguita compresa: da lì in poi
+ * l'avviso finiva per riguardare un treno qualsiasi mentre l'utente era a bordo di un altro.
+ * La corsa seguita resta candidata anche dopo la partenza, così [trenoInEvidenza] la sceglie
+ * e il chiamante passa la mano al tracking invece di pubblicare un avviso statico.
+ */
+internal fun candidatiAvviso(
+    treni: List<ProssimoTreno>,
+    seguitoNumero: Int?,
+    adesso: Long,
+): List<ProssimoTreno> =
+    treni.filter { it.minutiAllaPartenza(adesso) > 0 || it.numeroTreno == seguitoNumero }

@@ -20,13 +20,32 @@ import kotlinx.coroutines.flow.first
 const val LAVORO_LIVE = "live-update"
 private const val TAG = "LiveTrackingWorker"
 
-/** Passo fra un aggiornamento e l'altro mentre la corsa seguita è in viaggio. */
-private const val PASSO_LIVE_MS = 2 * 60_000L
+/** Passo minimo/massimo fra un aggiornamento e l'altro mentre la corsa seguita è in viaggio. */
+private const val PASSO_MIN_MS = 30_000L
+private const val PASSO_MAX_MS = 5 * 60_000L
+
+/** Entro quanti minuti da un evento (partenza o arrivo) si aggiorna al passo minimo. */
+private const val FINESTRA_STRETTA_MIN = 5
+
+/**
+ * Ogni quanto ricontrollare, in base a quanto manca all'evento più vicino.
+ *
+ * Aggiornare ogni 30 s per tutto il viaggio è sprecato: a mezz'ora dall'arrivo il ritardo
+ * cambia di rado e la batteria la paga l'utente. Sotto i cinque minuti, invece, è proprio
+ * quando serve sapere il binario e il minuto esatto.
+ */
+internal fun passoLive(minutiAllEvento: Int): Long = when {
+    minutiAllEvento <= FINESTRA_STRETTA_MIN -> PASSO_MIN_MS
+    minutiAllEvento >= 30 -> PASSO_MAX_MS
+    // fra 5 e 30 minuti: interpolazione lineare fra i due estremi
+    else -> PASSO_MIN_MS +
+        (PASSO_MAX_MS - PASSO_MIN_MS) * (minutiAllEvento - FINESTRA_STRETTA_MIN) / (30 - FINESTRA_STRETTA_MIN)
+}
 
 /**
  * Tiene aggiornata la notifica di tracking della corsa seguita finché non arriva a destinazione
  * (o l'utente smette di seguirla): un unico worker "a lunga esecuzione" che ricontrolla treno e
- * andamento ogni [PASSO_LIVE_MS] e ripubblica, invece di una catena di one-shot.
+ * andamento a passo variabile (vedi [passoLive]) e ripubblica, invece di una catena di one-shot.
  *
  * `setForeground` promuove il worker a foreground service dall'interno di `doWork` — è la via
  * ufficiale di WorkManager per farlo, e l'unica che non incappa nel divieto Android 12+ di
@@ -42,68 +61,103 @@ class LiveTrackingWorker(context: Context, params: WorkerParameters) : Coroutine
         Deps.init(applicationContext)
         setForeground(info(notificaTrackingIniziale(applicationContext)))
         while (true) {
-            val continua = runCatching { unGiro(applicationContext) }
-                .getOrElse { e -> Log.w(TAG, "giro di tracking fallito, riprovo", e); true }
-            if (!continua) break
-            delay(PASSO_LIVE_MS)
+            val esito = runCatching { unGiro(applicationContext, ::pubblica) }
+                .getOrElse { e -> Log.w(TAG, "giro di tracking fallito, riprovo", e); Giro.Ancora(PASSO_MAX_MS) }
+            if (esito !is Giro.Ancora) break
+            delay(esito.fraMs)
         }
         return Result.success()
     }
 
+    /**
+     * Aggiorna la notifica **passando da setForeground**, non da notify().
+     *
+     * È la stessa notifica del foreground service: aggiornandola per conto proprio, la
+     * ForegroundInfo che WorkManager tiene in cache resterebbe quella dell'avvio — il
+     * placeholder — e il dispatcher potrebbe ripubblicarla sopra il contenuto aggiornato.
+     */
+    private suspend fun pubblica(notification: Notification) = setForeground(info(notification))
+
     private fun info(notification: Notification): ForegroundInfo =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(ID_NOTIFICA_TRENO, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            ForegroundInfo(ID_NOTIFICA_TRACKING, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
-            ForegroundInfo(ID_NOTIFICA_TRENO, notification)
+            ForegroundInfo(ID_NOTIFICA_TRACKING, notification)
         }
 }
 
+/** Esito di un giro: o si continua fra [Giro.Ancora.fraMs], o il tracking è finito. */
+private sealed interface Giro {
+    data class Ancora(val fraMs: Long) : Giro
+    data object Finito : Giro
+}
+
 /**
- * Un giro di tracking. Ritorna `true` se va ripetuto dopo [PASSO_LIVE_MS], `false` se ha finito
- * (arrivo confermato, cancellato, o non c'è più nulla da seguire).
+ * Un giro di tracking: ricontrolla la corsa, aggiorna la notifica, dice quando ripassare.
  */
-private suspend fun unGiro(ctx: Context): Boolean {
+private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Unit): Giro {
     val imp = Deps.impostazioni.flow.first()
     val seguito = Deps.impostazioni.seguito.first()
     val codDestinazione = imp.stazioneDestinazione
     if (!imp.notifiche || seguito == null || codDestinazione == null) {
         Log.d(TAG, "tracking chiuso: notifiche=${imp.notifiche} seguito=${seguito != null}")
-        rimuoviNotificaTreno(ctx)
-        return false
+        rimuoviNotificaTracking(ctx)
+        return Giro.Finito
     }
 
     val stazione = Deps.stazione.risolvi(usaUltimaNota = true) ?: run {
         Log.w(TAG, "tracking: stazione non risolvibile, riprovo al giro successivo")
-        return true
+        return Giro.Ancora(PASSO_MIN_MS)
     }
-    val treno = runCatching { Deps.repository.prossimiTreni(stazione.codici, codDestinazione, seguito = seguito) }
+    val dalFeed = runCatching { Deps.repository.prossimiTreni(stazione.codici, codDestinazione, seguito = seguito) }
         .getOrNull()?.firstOrNull { it.numeroTreno == seguito.numeroTreno } ?: run {
         Log.w(TAG, "tracking: snapshot mancante per ${seguito.numeroTreno}, riprovo al giro successivo")
-        return true
+        return Giro.Ancora(PASSO_MIN_MS)
     }
+
+    val dettaglio = runCatching { Deps.repository.dettaglio(dalFeed, codDestinazione) }.getOrNull()
+    val ok = dettaglio as? DettaglioTreno.Ok
+
+    /*
+     * Qui stava il motivo per cui la notifica non si aggiornava mai.
+     *
+     * Appena la corsa parte, `partenze` smette di elencarla e prossimiTreni() ripiega sullo
+     * snapshot salvato in DataStore, che nessuno riscrive: ogni giro riceveva un oggetto
+     * identico al precedente e ricostruiva una notifica byte per byte uguale. Il worker
+     * lavorava, la rete lavorava, il testo non cambiava di una virgola.
+     *
+     * Il ritardo vero, dopo la partenza, lo dà solo andamentoTreno — che era già stato
+     * scaricato qui sopra e buttato via.
+     */
+    val treno = if (ok != null) dalFeed.copy(ritardoMinuti = ok.ritardoMinuti) else dalFeed
 
     val adesso = System.currentTimeMillis()
+    val minuti = treno.minutiAllaPartenza(adesso)
     // non ancora nella finestra di preavviso: ci pensa AvvisoTrenoWorker a riaccenderlo
-    if (treno.minutiAllaPartenza(adesso) > imp.anticipoMinuti) {
-        rimuoviNotificaTreno(ctx)
-        return false
+    if (minuti > imp.anticipoMinuti) {
+        rimuoviNotificaTracking(ctx)
+        return Giro.Finito
     }
 
-    val dettaglio = runCatching { Deps.repository.dettaglio(treno, codDestinazione) }.getOrNull()
     val sciopero = Deps.repository.scioperiInCache().rilevanteOggiODomani().takeIf { imp.avvisiSciopero }
     val nomeDestinazione = Deps.repository.stazioni().firstOrNull { it.codice == codDestinazione }?.nome ?: "destinazione"
-    val minuti = treno.minutiAllaPartenza(adesso)
-    if (liveUpdateDisponibile(ctx)) {
-        mostraLiveUpdate(ctx, treno, minuti, stazione.nome, stazione.codici, sciopero, dettaglio, destinazioneNome = nomeDestinazione)
-    } else {
-        mostraTrackingTreno(ctx, treno, minuti, stazione.nome, stazione.codici, sciopero, dettaglio, destinazioneNome = nomeDestinazione)
-    }
+    pubblica(
+        costruisciNotificaTracking(
+            ctx, treno, minuti, stazione.nome, stazione.codici, sciopero, dettaglio,
+            destinazioneNome = nomeDestinazione,
+        ),
+    )
 
-    val ok = dettaglio as? DettaglioTreno.Ok
     val arrivato = ok != null && ok.indiceBusto >= 0 && ok.indiceCorrente >= ok.indiceBusto
     if (arrivato) Deps.impostazioni.smettiDiSeguire()
     // ultimo fotogramma: resta visibile, non si continua a interrogare un treno finito
-    return !(arrivato || treno.cancellato)
+    if (arrivato || treno.cancellato) return Giro.Finito
+
+    // si guarda all'evento più vicino: prima della partenza è la partenza, dopo è l'arrivo
+    val minutiAllArrivo = treno.orarioArrivoBustoMs
+        ?.let { ((it + treno.ritardoMinuti * 60_000L - adesso) / 60_000L).toInt() }
+        ?: Int.MAX_VALUE
+    return Giro.Ancora(passoLive(minOf(if (minuti < 0) Int.MAX_VALUE else minuti, minutiAllArrivo)))
 }
 
 /** Avvia (o lascia proseguire, se già in corso) il tracking della corsa seguita. */
@@ -117,5 +171,5 @@ fun avviaLiveUpdate(context: Context) {
 
 fun fermaLiveUpdate(context: Context) {
     WorkManager.getInstance(context).cancelUniqueWork(LAVORO_LIVE)
-    rimuoviNotificaTreno(context)
+    rimuoviNotificaTracking(context)
 }

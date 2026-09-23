@@ -1,5 +1,6 @@
 package it.picone.miotreno.work
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -28,6 +29,16 @@ import java.time.format.DateTimeFormatter
 
 const val CANALE_TRENI = "treni"
 const val ID_NOTIFICA_TRENO = 1001
+
+/**
+ * La notifica di tracking ha un id suo.
+ *
+ * Con un solo id l'avviso pre-partenza e il tracking si sovrascrivevano a vicenda: ogni 15
+ * minuti [NotificaWorker] ripubblicava sullo stesso slot l'avviso statico di *un altro* treno
+ * (quello seguito, essendo partito, era gia fuori dal suo filtro) e la corsa in viaggio
+ * spariva da sotto gli occhi.
+ */
+const val ID_NOTIFICA_TRACKING = 1002
 
 private const val TAG = "Notifiche"
 
@@ -168,7 +179,7 @@ private fun progressoTratte(
  * indeterminata, non inventata. Richiede API 36 e permesso di promozione: altrimenti va usata
  * [mostraTrackingTreno].
  */
-fun mostraLiveUpdate(
+private fun costruisciLiveUpdate(
     context: Context,
     treno: ProssimoTreno,
     minuti: Int,
@@ -177,12 +188,8 @@ fun mostraLiveUpdate(
     sciopero: Sciopero?,
     dettaglio: DettaglioTreno?,
     destinazioneNome: String = "destinazione",
-) {
+): Notification {
     creaCanale(context)
-    if (!liveUpdateDisponibile(context)) {
-        Log.w(TAG, "live update treno ${treno.numeroTreno} saltata: non disponibile")
-        return
-    }
 
     val colore = ScuroTb.colore(treno.semaforo()).toArgb()
     val stile = NotificationCompat.ProgressStyle().setStyledByProgress(true)
@@ -213,8 +220,7 @@ fun mostraLiveUpdate(
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
         .setRequestPromotedOngoing(true)
     b.mActions.clear() // "Segui treno" non ha senso: la Live Update esiste solo per la corsa già seguita
-    runCatching { NotificationManagerCompat.from(context).notify(ID_NOTIFICA_TRENO, b.build()) }
-        .onFailure { Log.w(TAG, "notify() live update fallita per il treno ${treno.numeroTreno}", it) }
+    return b.build()
 }
 
 /**
@@ -224,7 +230,7 @@ fun mostraLiveUpdate(
  * come la notifica pre-partenza. Senza questa, seguire una corsa su un dispositivo comune non
  * dava alcun aggiornamento dopo la partenza.
  */
-fun mostraTrackingTreno(
+private fun costruisciTrackingTreno(
     context: Context,
     treno: ProssimoTreno,
     minuti: Int,
@@ -233,12 +239,8 @@ fun mostraTrackingTreno(
     sciopero: Sciopero?,
     dettaglio: DettaglioTreno?,
     destinazioneNome: String = "destinazione",
-) {
+): Notification {
     creaCanale(context)
-    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-        Log.w(TAG, "tracking treno ${treno.numeroTreno} saltato: notifiche disabilitate dal sistema")
-        return
-    }
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
     val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome)
         .setSubText(p?.sottotitolo)
@@ -249,19 +251,45 @@ fun mostraTrackingTreno(
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
     if (p != null) b.setProgress(p.tratte, p.fatte, false)
     b.mActions.clear()
-    runCatching { NotificationManagerCompat.from(context).notify(ID_NOTIFICA_TRENO, b.build()) }
-        .onFailure { Log.w(TAG, "notify() tracking fallita per il treno ${treno.numeroTreno}", it) }
+    return b.build()
 }
+
+/**
+ * La notifica di tracking da dare a `setForeground`, nella variante migliore disponibile.
+ *
+ * Costruisce e basta, non pubblica: la notifica del tracking **è** quella del foreground
+ * service, e va aggiornata passando da `setForeground`. Con una `notify()` diretta WorkManager
+ * resta convinto che valga ancora la ForegroundInfo che gli è stata data all'avvio e può
+ * ripubblicare il placeholder "Aggiornamento della corsa in corso…" sopra il dato vero.
+ */
+fun costruisciNotificaTracking(
+    context: Context,
+    treno: ProssimoTreno,
+    minuti: Int,
+    stazione: String,
+    codiciPartenza: List<String>,
+    sciopero: Sciopero?,
+    dettaglio: DettaglioTreno?,
+    destinazioneNome: String = "destinazione",
+): Notification =
+    if (liveUpdateDisponibile(context)) {
+        costruisciLiveUpdate(context, treno, minuti, stazione, codiciPartenza, sciopero, dettaglio, destinazioneNome)
+    } else {
+        costruisciTrackingTreno(context, treno, minuti, stazione, codiciPartenza, sciopero, dettaglio, destinazioneNome)
+    }
 
 fun rimuoviNotificaTreno(context: Context) =
     NotificationManagerCompat.from(context).cancel(ID_NOTIFICA_TRENO)
+
+fun rimuoviNotificaTracking(context: Context) =
+    NotificationManagerCompat.from(context).cancel(ID_NOTIFICA_TRACKING)
 
 /**
  * Placeholder per `startForeground()`: un servizio in foreground deve mostrare una notifica
  * nell'istante in cui parte, prima che [LiveTrackingService] abbia già fatto il primo giro e
  * sappia cosa scrivere davvero — sostituita subito dopo da [mostraLiveUpdate]/[mostraTrackingTreno].
  */
-fun notificaTrackingIniziale(context: Context): android.app.Notification {
+fun notificaTrackingIniziale(context: Context): Notification {
     creaCanale(context)
     return NotificationCompat.Builder(context, CANALE_TRENI)
         .setSmallIcon(R.drawable.ic_notifica)
