@@ -11,7 +11,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
-import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -23,10 +22,8 @@ import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StatoTreno
 import it.picone.miotreno.domain.orarioProiettato
-import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.MainActivity
 import it.picone.miotreno.ui.componenti.colore
-import it.picone.miotreno.ui.theme.ChiaroTb
 import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
 import it.picone.miotreno.widget.EXTRA_SEGUI
 import java.time.Instant
@@ -156,7 +153,7 @@ private fun builderTreno(
 
     return NotificationCompat.Builder(context, CANALE_TRENI)
         .setSmallIcon(R.drawable.ic_notifica)
-        .setColor(ChiaroTb.accento.toArgb())
+        .setColor(COLORE_NOTIFICA)
         .setContentTitle(titolo)
         .setContentText(righe.first())
         .setStyle(NotificationCompat.InboxStyle().also { st -> righe.forEach(st::addLine) })
@@ -242,7 +239,9 @@ private fun costruisciLiveUpdate(
 ): Notification {
     creaCanale(context)
 
-    val colore = ChiaroTb.colore(treno.semaforo()).toArgb()
+    // Colore del marchio, non del semaforo: lo stato è già scritto nel testo ("+4′", "canc."),
+    // e un verde per "in orario" nascondeva del tutto il blu dell'app.
+    val colore = COLORE_NOTIFICA
     val stile = NotificationCompat.ProgressStyle().setStyledByProgress(true)
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
     if (p == null) {
@@ -294,7 +293,7 @@ private fun costruisciTrackingTreno(
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
     val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false)
         .setSubText(p?.sottotitolo)
-        .setColor(ChiaroTb.colore(treno.semaforo()).toArgb())
+        .setColor(COLORE_NOTIFICA)
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .setAutoCancel(false)
@@ -333,6 +332,9 @@ fun rimuoviNotificaTreno(context: Context) =
 fun rimuoviNotificaTracking(context: Context) =
     NotificationManagerCompat.from(context).cancel(ID_NOTIFICA_TRACKING)
 
+/** Rail blue a metà fra la variante chiara e la scura: si legge su entrambe le tendine. */
+private val COLORE_NOTIFICA = 0xFF4A6BFF.toInt()
+
 /**
  * Placeholder per `startForeground()`: un servizio in foreground deve mostrare una notifica
  * nell'istante in cui parte, prima che [LiveTrackingService] abbia già fatto il primo giro e
@@ -342,6 +344,7 @@ fun notificaTrackingIniziale(context: Context): Notification {
     creaCanale(context)
     return NotificationCompat.Builder(context, CANALE_TRENI)
         .setSmallIcon(R.drawable.ic_notifica)
+        .setColor(COLORE_NOTIFICA)
         .setContentTitle("Aggiornamento della corsa in corso…")
         .setOngoing(true)
         .setOnlyAlertOnce(true)
