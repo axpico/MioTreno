@@ -2,11 +2,16 @@ package it.picone.miotreno.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,14 +29,17 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,14 +51,17 @@ import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.orario
 import it.picone.miotreno.domain.semaforo
+import it.picone.miotreno.ui.componenti.ALPHA_TINTA
 import it.picone.miotreno.ui.componenti.AnimatedCountdown
 import it.picone.miotreno.ui.componenti.Binario
 import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.BottonePrimario
+import it.picone.miotreno.ui.componenti.BottoneSecondario
 import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.DeltaRitardo
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
+import it.picone.miotreno.ui.componenti.Overline
 import it.picone.miotreno.ui.componenti.RigaAtteso
 import it.picone.miotreno.ui.componenti.StatoVuoto
 import it.picone.miotreno.ui.componenti.StatusBadge
@@ -59,6 +70,7 @@ import it.picone.miotreno.ui.componenti.TipoFermata
 import it.picone.miotreno.ui.componenti.colore
 import it.picone.miotreno.ui.componenti.comeOra
 import it.picone.miotreno.ui.componenti.conferma
+import it.picone.miotreno.ui.componenti.ombraMorbida
 import it.picone.miotreno.ui.componenti.rememberHaptic
 import it.picone.miotreno.ui.componenti.shimmer
 import it.picone.miotreno.ui.theme.Forme
@@ -86,121 +98,175 @@ fun DettaglioScreen(
     val notificaAttiva = seguito && state.impostazioni.notifiche
     val haptic = rememberHaptic()
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(Spazio.m),
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = ALTEZZA_BARRA_AZIONI),
+            verticalArrangement = Arrangement.spacedBy(Spazio.l),
+        ) {
+            item(key = "barra") {
+                Row(
+                    Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.s),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    BottoneIcona(Icone.Indietro, "Indietro", onIndietro)
+                    Column(Modifier.weight(1f)) {
+                        Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.sottotitolo, color = tb.tx)
+                        Text(
+                            "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            item(key = chiaveTreno(treno.numeroTreno)) {
+                with(sharedScope) {
+                    CardIntestazione(
+                        treno, ora, seguito,
+                        Modifier.sharedBounds(rememberSharedContentState(chiaveTreno(treno.numeroTreno)), animatedScope),
+                        atteso = state.ritardiAttesi[treno.numeroTreno]?.testo,
+                        destinazioneNome = state.destinazioneNome,
+                        partenzaEtichetta = state.etichettePartenza[treno.codPartenza],
+                    )
+                }
+            }
+
+            when {
+                state.caricamentoDettaglio -> item { Caricamento() }
+                dettaglio !is DettaglioTreno.Ok -> item {
+                    StatoVuoto(
+                        Icone.Treno, "Percorso non disponibile",
+                        "ViaggiaTreno non ha ancora i dati di corsa di questo treno. Di solito arrivano poco prima della partenza.",
+                        colore = tb.ter,
+                    )
+                }
+                else -> {
+                    item(key = "avanzamento") { Avanzamento(dettaglio, state.destinazioneNome) }
+                    item(key = "fermate") { Fermate(dettaglio, state.impostazioni.stazioneDestinazione) }
+                    item(key = "nota") {
+                        Text(
+                            "Aggiornamento automatico ogni 30 secondi",
+                            Modifier.fillMaxWidth(),
+                            style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
+
+        BarraAzioni(
+            seguito = seguito,
+            notificaAttiva = notificaAttiva,
+            anticipo = state.impostazioni.anticipoMinuti,
+            conferma = if (notificaAttiva) {
+                if (state.notifichePermesse) {
+                    val quando = treno.orarioPartenzaMs + (treno.ritardoMinuti - state.impostazioni.anticipoMinuti) * 60_000L
+                    "Ti avviso alle ${quando.comeOra()} · widget e notifica seguono questa corsa"
+                } else {
+                    "Notifiche bloccate dal sistema: la corsa resta seguita qui e nel widget"
+                }
+            } else {
+                null
+            },
+            confermaOk = state.notifichePermesse,
+            onSegui = { haptic.conferma(); onSegui() },
+            onAvvisa = {
+                haptic.conferma()
+                // il permesso notifiche si chiede qui, la prima volta che serve davvero
+                if (!notificaAttiva) onChiediNotifiche()
+                when {
+                    !seguito -> { onSegui(); if (!state.impostazioni.notifiche) onNotifiche(true) }
+                    notificaAttiva -> onNotifiche(false)
+                    else -> onNotifiche(true)
+                }
+            },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+/** Spazio in fondo alla lista per non finire sotto la barra azioni. */
+private val ALTEZZA_BARRA_AZIONI = 160.dp
+
+/**
+ * Azioni della corsa nella zona del pollice, sempre visibili. "Segui" è l'azione primaria;
+ * "Avvisami" è secondaria. Quando la corsa è seguita, il segno di spunta entra con un
+ * rimbalzo: è il piccolo momento di soddisfazione dello schermo.
+ */
+@Composable
+private fun BarraAzioni(
+    seguito: Boolean,
+    notificaAttiva: Boolean,
+    anticipo: Int,
+    conferma: String?,
+    confermaOk: Boolean,
+    onSegui: () -> Unit,
+    onAvvisa: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tb = LocalTb.current
+    val scala = remember { Animatable(1f) }
+    LaunchedEffect(seguito) {
+        if (!seguito || Molla.riduci) return@LaunchedEffect
+        scala.snapTo(0.9f)
+        scala.animateTo(1f, Molla.stato())
+    }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .ombraMorbida(tb, Forme.foglio, 16.dp)
+            .clip(Forme.foglio)
+            .background(tb.sf)
+            .let { if (tb.scuro) it.border(1.dp, tb.bordo, Forme.foglio) else it }
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(start = Spazio.l, end = Spazio.l, top = Spazio.l, bottom = Spazio.s),
     ) {
-        item(key = "barra") {
-            Row(
-                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.s),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                BottoneIcona(Icone.Indietro, "Indietro", onIndietro)
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Chip(treno.categoria, colore = tb.accento2, pieno = true)
-                        Text("${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.tx)
-                    }
-                    Text(
-                        "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+        AnimatedVisibility(visible = conferma != null, enter = fadeIn(Molla.piatta()) + expandVertically(Molla.ui())) {
+            Text(
+                conferma.orEmpty(),
+                Modifier.fillMaxWidth().padding(bottom = Spazio.m),
+                style = Testo.etichetta, color = if (confermaOk) tb.verde else tb.ambra, textAlign = TextAlign.Center,
+            )
         }
-
-        item(key = chiaveTreno(treno.numeroTreno)) {
-            with(sharedScope) {
-                CardIntestazione(
-                    treno, ora, seguito,
-                    Modifier.sharedBounds(rememberSharedContentState(chiaveTreno(treno.numeroTreno)), animatedScope),
-                    atteso = state.ritardiAttesi[treno.numeroTreno]?.testo,
-                    destinazioneNome = state.destinazioneNome,
-                    partenzaEtichetta = state.etichettePartenza[treno.codPartenza],
-                )
-            }
-        }
-
-        item(key = "cta") {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spazio.s)) {
-                BottonePrimario(
-                    if (seguito) "Seguo" else "Segui",
-                    onClick = { haptic.conferma(); onSegui() },
-                    icona = if (seguito) Icone.Spunta else Icone.Treno,
-                    attivo = seguito,
-                    modifier = Modifier.weight(1f),
-                )
-                BottonePrimario(
-                    if (notificaAttiva) "Avviso attivo" else "Avvisami ${state.impostazioni.anticipoMinuti}′",
-                    onClick = {
-                        haptic.conferma()
-                        // il permesso notifiche si chiede qui, la prima volta che serve davvero
-                        if (!notificaAttiva) onChiediNotifiche()
-                        when {
-                            !seguito -> { onSegui(); if (!state.impostazioni.notifiche) onNotifiche(true) }
-                            notificaAttiva -> onNotifiche(false)
-                            else -> onNotifiche(true)
-                        }
-                    },
-                    icona = Icone.Campanella,
-                    attivo = notificaAttiva,
-                    colore = tb.accento2,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spazio.s)) {
+            BottonePrimario(
+                if (seguito) "Seguita" else "Segui questa corsa",
+                onClick = onSegui,
+                icona = if (seguito) Icone.Spunta else Icone.Treno,
+                attivo = seguito,
+                modifier = Modifier.weight(1f).scale(scala.value),
+            )
             if (notificaAttiva) {
-                val quando = treno.orarioPartenzaMs + (treno.ritardoMinuti - state.impostazioni.anticipoMinuti) * 60_000L
-                Text(
-                    if (state.notifichePermesse) {
-                        "Ti avviso alle ${quando.comeOra()} · widget e notifica seguono questa corsa"
-                    } else {
-                        "Notifiche bloccate dal sistema: nessun avviso, ma la corsa resta seguita qui e nel widget"
-                    },
-                    Modifier.fillMaxWidth().padding(top = 6.dp), style = Testo.micro,
-                    color = if (state.notifichePermesse) tb.verde else tb.ambra,
-                    textAlign = TextAlign.Center,
-                )
+                BottonePrimario("$anticipo′", onClick = onAvvisa, icona = Icone.Campanella, attivo = true)
+            } else {
+                BottoneSecondario("$anticipo′", onClick = onAvvisa, icona = Icone.Campanella)
             }
         }
+    }
+}
 
-        when {
-            state.caricamentoDettaglio -> item { Caricamento() }
-            dettaglio !is DettaglioTreno.Ok -> item {
-                StatoVuoto(
-                    Icone.Treno, "Percorso non disponibile",
-                    "ViaggiaTreno non ha ancora i dati di corsa di questo treno. Di solito arrivano poco prima della partenza.",
-                    colore = tb.ter,
-                )
+/** Le fermate in un'unica card: la linea della timeline scorre continua da una riga all'altra. */
+@Composable
+private fun Fermate(dettaglio: DettaglioTreno.Ok, codDestinazione: String?) {
+    val fermate = dettaglio.fermate
+    GlassCard(Modifier.fillMaxWidth(), padding = Spazio.l) {
+        Overline("Fermate", Modifier.padding(start = 4.dp, bottom = Spazio.s))
+        fermate.forEachIndexed { i, f ->
+            val tipo = when {
+                f.codice == codDestinazione -> TipoFermata.Target
+                i == dettaglio.indiceCorrente + 1 -> TipoFermata.Prossima
+                f.passata -> TipoFermata.Passata
+                else -> TipoFermata.Futura
             }
-            else -> {
-                item(key = "avanzamento") { Avanzamento(dettaglio) }
-                val fermate = dettaglio.fermate
-                val codDestinazione = state.impostazioni.stazioneDestinazione
-                itemsIndexed(fermate, key = { i, f -> "${f.codice}-$i" }) { i, f ->
-                    val tipo = when {
-                        f.codice == codDestinazione -> TipoFermata.Target
-                        i == dettaglio.indiceCorrente + 1 -> TipoFermata.Prossima
-                        f.passata -> TipoFermata.Passata
-                        else -> TipoFermata.Futura
-                    }
-                    TimelineStop(
-                        nome = f.nome, tipo = tipo,
-                        orario = f.orario(dettaglio.ritardoMinuti),
-                        primo = i == 0,
-                        ultimo = i == fermate.lastIndex,
-                        nota = null,
-                    )
-                }
-                item(key = "nota") {
-                    Text(
-                        "aggiornamento automatico ogni 30 s",
-                        Modifier.fillMaxWidth().padding(top = Spazio.l).windowInsetsPadding(WindowInsets.navigationBars),
-                        style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
-                    )
-                }
-            }
+            TimelineStop(
+                nome = f.nome, tipo = tipo,
+                orario = f.orario(dettaglio.ritardoMinuti),
+                primo = i == 0,
+                ultimo = i == fermate.lastIndex,
+                nota = null,
+            )
         }
     }
 }
@@ -260,8 +326,12 @@ private fun CardIntestazione(
 }
 
 @Composable
-private fun Avanzamento(d: DettaglioTreno.Ok) {
+private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?) {
     val tb = LocalTb.current
+    if (d.indiceDestinazione >= 0 && d.indiceCorrente >= d.indiceDestinazione) {
+        Arrivato(d.fermate[d.indiceDestinazione].nome.ifBlank { destinazioneNome.orEmpty() }, d.ritardoMinuti)
+        return
+    }
     val totale = d.fermate.size.coerceAtLeast(1)
     val fatte = (d.indiceCorrente + 1).coerceAtLeast(0)
     val ultima = d.fermate.getOrNull(d.indiceCorrente)
@@ -269,11 +339,10 @@ private fun Avanzamento(d: DettaglioTreno.Ok) {
     val arrivo = d.fermate.getOrNull(d.indiceDestinazione)?.orario(d.ritardoMinuti)
     val destinazione = d.fermate.getOrNull(d.indiceDestinazione)?.nome ?: "destinazione"
 
-    GlassCard(Modifier.fillMaxWidth(), padding = 14.dp) {
+    GlassCard(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 val stato = when {
-                    d.indiceDestinazione >= 0 && d.indiceCorrente >= d.indiceDestinazione -> "Arrivato a $destinazione"
                     d.indiceCorrente < 0 -> "In attesa di partenza"
                     prossima != null -> "In viaggio da ${ultima?.nome.orEmpty()} a ${prossima.nome}"
                     else -> "Percorso in aggiornamento"
@@ -331,6 +400,42 @@ private fun Caricamento() {
                 Spacer(Modifier.width(14.dp))
                 Box(Modifier.weight(1f).height(16.dp).clip(Forme.chip).shimmer(tb, i * 90))
             }
+        }
+    }
+}
+
+/**
+ * Fine viaggio: l'ultimo ricordo dell'app per questa corsa. Card verde, spunta che entra con
+ * un rimbalzo, e un riepilogo onesto (in orario o quanti minuti di ritardo).
+ */
+@Composable
+private fun Arrivato(destinazione: String, ritardo: Int) {
+    val tb = LocalTb.current
+    val scala = remember { Animatable(if (Molla.riduci) 1f else 0.4f) }
+    LaunchedEffect(Unit) { scala.animateTo(1f, Molla.stato()) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(Forme.card)
+            .background(tb.verde.copy(alpha = ALPHA_TINTA))
+            .padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spazio.l),
+    ) {
+        Box(
+            Modifier.size(48.dp).scale(scala.value).clip(CircleShape).background(tb.verde),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icone.Spunta, contentDescription = null, tint = tb.suStato, modifier = Modifier.size(28.dp)) }
+        Column(Modifier.weight(1f)) {
+            Text("Sei arrivato a $destinazione", style = Testo.sottotitolo, color = tb.tx)
+            Text(
+                when {
+                    ritardo <= 0 -> "In orario. Buona giornata!"
+                    ritardo == 1 -> "Con 1 minuto di ritardo."
+                    else -> "Con $ritardo minuti di ritardo."
+                },
+                style = Testo.etichetta, color = tb.verde,
+            )
         }
     }
 }

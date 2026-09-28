@@ -2,7 +2,6 @@ package it.picone.miotreno.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,11 +12,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -72,6 +73,8 @@ fun SelettoreStazione(
     mostraIconaOpzioneVuota: Boolean = true,
     mostraOpzioneVuota: Boolean = true,
     ricercaLive: (suspend (String) -> List<ElementoStazione>)? = null,
+    /** Mostrate a ricerca vuota: una ricerca non parte mai da una schermata bianca. */
+    recenti: List<ElementoStazione> = emptyList(),
 ) {
     val tb = LocalTb.current
     val haptic = rememberHaptic()
@@ -104,22 +107,22 @@ fun SelettoreStazione(
         sheetState = sheet,
         containerColor = tb.sf,
         contentColor = tb.tx,
-        shape = Forme.card,
+        shape = Forme.foglio,
         dragHandle = {
-            Box(Modifier.padding(top = 12.dp, bottom = 4.dp).width(36.dp).height(4.dp).clip(Forme.chip).background(tb.bordoForte))
+            Box(Modifier.padding(top = 12.dp, bottom = 8.dp).width(40.dp).height(4.dp).clip(Forme.chip).background(tb.bordoForte))
         },
     ) {
         Column(Modifier.fillMaxHeight(0.9f).padding(horizontal = Spazio.pagina)) {
             Overline(overline)
-            Text(titolo, style = Testo.titolo, color = tb.tx, modifier = Modifier.padding(bottom = 12.dp))
+            Text(titolo, style = Testo.titolo, color = tb.tx, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
 
             Row(
-                Modifier.fillMaxWidth().clip(Forme.pillola).background(tb.sf2).border(1.dp, tb.bordo, Forme.pillola)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Forme.chip).background(tb.sf2)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icone.Cerca, contentDescription = null, tint = tb.ter, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
+                Icon(Icone.Cerca, contentDescription = null, tint = tb.sub, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
                 BasicTextField(
                     value = query, onValueChange = { query = it },
                     textStyle = Testo.corpo.copy(color = tb.tx), cursorBrush = SolidColor(tb.accento),
@@ -132,7 +135,7 @@ fun SelettoreStazione(
                 if (query.isNotEmpty()) {
                     Icon(
                         Icone.Chiudi, contentDescription = "Cancella", tint = tb.sub,
-                        modifier = Modifier.size(18.dp).clickable { query = "" },
+                        modifier = Modifier.clip(CircleShape).clickable { query = "" }.padding(4.dp).size(20.dp),
                     )
                 }
             }
@@ -152,11 +155,20 @@ fun SelettoreStazione(
                 }
                 if (ricercaLive != null) {
                     if (query.isBlank()) {
-                        item {
-                            Text(
-                                "Cerca una stazione per nome.", style = Testo.etichetta,
-                                color = tb.sub, modifier = Modifier.padding(12.dp),
-                            )
+                        if (recenti.isEmpty()) {
+                            item {
+                                Text(
+                                    "Scrivi il nome di una stazione: le ultime scelte compariranno qui.",
+                                    style = Testo.etichetta, color = tb.sub, modifier = Modifier.padding(12.dp),
+                                )
+                            }
+                        } else {
+                            item(key = "recenti") { Overline("Recenti", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)) }
+                            items(recenti, key = { "r-${it.codice}" }) { s ->
+                                Riga(s.nome, "", icona = false, selezionata = s.codice == correnteCodice, recente = true) {
+                                    haptic.conferma(); onScegli(s.codice)
+                                }
+                            }
                         }
                     } else if (cercando) {
                         item {
@@ -194,7 +206,14 @@ private fun NessunaStazioneTrovata(tb: it.picone.miotreno.ui.theme.TbColors) {
 }
 
 @Composable
-private fun Riga(nome: String, sotto: String, icona: Boolean, selezionata: Boolean, onClick: () -> Unit) {
+private fun Riga(
+    nome: String,
+    sotto: String,
+    icona: Boolean,
+    selezionata: Boolean,
+    recente: Boolean = false,
+    onClick: () -> Unit,
+) {
     val tb = LocalTb.current
     val sfondo by animateColorAsState(
         if (selezionata) tb.accentoSoft else androidx.compose.ui.graphics.Color.Transparent,
@@ -207,11 +226,21 @@ private fun Riga(nome: String, sotto: String, icona: Boolean, selezionata: Boole
                 role = Role.RadioButton
                 contentDescription = if (selezionata) "$nome, selezionata" else nome
             }
-            .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
+            .clickable(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (icona) Icon(Icone.Posizione, contentDescription = null, tint = tb.accento2, modifier = Modifier.size(20.dp))
+        if (icona || recente) {
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).background(tb.accentoSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (icona) Icone.Posizione else Icone.Aggiorna, contentDescription = null,
+                    tint = tb.accento, modifier = Modifier.size(18.dp),
+                )
+            }
+        }
         Column(Modifier.weight(1f)) {
             Text(nome, style = Testo.corpoMedio, color = tb.tx)
             if (sotto.isNotBlank()) Text(sotto, style = Testo.micro, color = tb.ter)

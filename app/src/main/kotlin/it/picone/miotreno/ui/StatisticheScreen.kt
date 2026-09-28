@@ -1,5 +1,7 @@
 package it.picone.miotreno.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,23 +12,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.Statistiche
 import it.picone.miotreno.ui.componenti.BarraOrizzontale
+import it.picone.miotreno.ui.componenti.ChipFiltro
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.NumeroAnimato
@@ -35,6 +43,7 @@ import it.picone.miotreno.ui.componenti.Sparkline
 import it.picone.miotreno.ui.componenti.StatChart
 import it.picone.miotreno.ui.componenti.StatoVuoto
 import it.picone.miotreno.ui.theme.LocalTb
+import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Spazio
 import it.picone.miotreno.ui.theme.Testo
 import java.util.Locale
@@ -78,22 +87,22 @@ fun StatisticheScreen(
         verticalArrangement = Arrangement.spacedBy(Spazio.l),
     ) {
         item {
-            Column(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.m)) {
-                Overline("Storico locale")
+            Column(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l)) {
                 Text("Ritardi", style = Testo.titolo, color = tb.tx)
+                Text("Storico locale dei tuoi treni", style = Testo.etichetta, color = tb.sub)
             }
         }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(PeriodoFiltro.entries) { p ->
-                    FilterChip(selected = p == filtroPeriodo, onClick = { onFiltroPeriodo(p) }, label = { Text(p.etichetta) })
+                    ChipFiltro(p.etichetta, selezionata = p == filtroPeriodo, onClick = { onFiltroPeriodo(p) })
                 }
                 item {
-                    FilterChip(
-                        selected = nomeStazioneFiltro != null,
+                    ChipFiltro(
+                        nomeStazioneFiltro ?: "Tutte le stazioni",
+                        selezionata = nomeStazioneFiltro != null,
                         onClick = onFiltroStazione,
-                        label = { Text(nomeStazioneFiltro ?: "Tutte le stazioni") },
-                        leadingIcon = { Icon(Icone.Posizione, contentDescription = null, modifier = Modifier.height(16.dp)) },
+                        icona = Icone.Posizione,
                     )
                 }
             }
@@ -110,23 +119,8 @@ fun StatisticheScreen(
         }
 
         item {
-            GlassCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth()) {
-                    Column(Modifier.weight(1f)) {
-                        Overline("Viaggi")
-                        NumeroAnimato("${stat.rilevazioni}", stile = Testo.numeroGrande, colore = tb.tx)
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Overline("Stazioni")
-                        NumeroAnimato("${stat.stazioniCoinvolte}", stile = Testo.numeroGrande, colore = tb.tx)
-                    }
-                }
-            }
-        }
-
-        item {
-            GlassCard(Modifier.fillMaxWidth(), padding = 20.dp) {
-                Row(verticalAlignment = Alignment.Top) {
+            GlassCard(Modifier.fillMaxWidth(), padding = 24.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Overline("Puntualità")
                         Row(verticalAlignment = Alignment.Bottom) {
@@ -136,18 +130,23 @@ fun StatisticheScreen(
                             )
                             Text("%", style = Testo.numeroGrande, color = tb.sub, modifier = Modifier.padding(bottom = 6.dp, start = 2.dp))
                         }
-                        Text("entro 5 minuti · ${stat.rilevazioni} rilevazioni", style = Testo.etichetta, color = tb.sub)
+                        Text("dei treni entro 5 minuti", style = Testo.etichetta, color = tb.sub)
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Overline("Ritardo medio")
-                        Text(stat.ritardoMedio.minuti(), style = Testo.numeroGrande, color = colore(stat.ritardoMedio))
-                    }
+                    Anello(stat.quotaEntro5Min.toFloat(), colorePuntualita(stat.quotaEntro5Min))
                 }
                 if (stat.andamento.size >= 2) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spazio.l))
                     Sparkline(stat.andamento, colore = tb.accento)
-                    Text("ritardo medio, ultimi ${stat.andamento.size} giorni", style = Testo.micro, color = tb.ter)
+                    Text("Ritardo medio, ultimi ${stat.andamento.size} giorni", style = Testo.micro, color = tb.ter)
                 }
+            }
+        }
+
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spazio.m)) {
+                Kpi("${stat.rilevazioni}", "Viaggi", Modifier.weight(1f))
+                Kpi("${stat.stazioniCoinvolte}", "Stazioni", Modifier.weight(1f))
+                Kpi(stat.ritardoMedio.minuti(), "Ritardo medio", Modifier.weight(1f), colore(stat.ritardoMedio))
             }
         }
 
@@ -180,5 +179,30 @@ fun StatisticheScreen(
                 style = Testo.micro, color = tb.ter,
             )
         }
+    }
+}
+
+/** Tessera KPI: il valore sopra, grande; l'etichetta sotto, piccola. */
+@Composable
+private fun Kpi(valore: String, etichetta: String, modifier: Modifier = Modifier, colore: Color = LocalTb.current.tx) {
+    GlassCard(modifier, padding = Spazio.l) {
+        NumeroAnimato(valore, stile = Testo.numeroGrande, colore = colore)
+        Text(etichetta, style = Testo.etichetta, color = LocalTb.current.sub, maxLines = 1)
+    }
+}
+
+/** Anello di avanzamento sottile per la quota di puntualità. */
+@Composable
+private fun Anello(quota: Float, colore: Color) {
+    val tb = LocalTb.current
+    val entrata = remember { Animatable(0f) }
+    LaunchedEffect(quota) { entrata.animateTo(quota.coerceIn(0f, 1f), Molla.ui()) }
+    Canvas(Modifier.size(72.dp)) {
+        val spessore = 8.dp.toPx()
+        val stile = Stroke(spessore, cap = StrokeCap.Round)
+        val inset = spessore / 2
+        val area = Size(size.width - spessore, size.height - spessore)
+        drawArc(tb.sf2, 0f, 360f, false, Offset(inset, inset), area, style = stile)
+        drawArc(colore, -90f, 360f * entrata.value, false, Offset(inset, inset), area, style = stile)
     }
 }

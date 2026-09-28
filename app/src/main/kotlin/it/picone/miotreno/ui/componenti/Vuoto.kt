@@ -1,7 +1,6 @@
 package it.picone.miotreno.ui.componenti
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +23,7 @@ import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Testo
 
 /**
- * Stato vuoto / errore / permesso: icona in un disco piatto, titolo, testo, e un'azione
+ * Stato vuoto / errore / permesso: icona in due dischi tinti (illustrazione senza asset), titolo, testo, e un'azione
  * opzionale. Un solo componente per tutti i casi.
  */
 @Composable
@@ -39,18 +38,22 @@ fun StatoVuoto(
 ) {
     val tb = LocalTb.current
     Column(
-        modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 40.dp),
+        modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
             Modifier
-                .size(88.dp)
+                .size(112.dp)
                 .clip(CircleShape)
-                .background(tb.sf2)
-                .border(1.dp, tb.bordo, CircleShape),
+                .background(colore.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
-        ) { Icon(icona, contentDescription = null, tint = colore, modifier = Modifier.size(40.dp)) }
-        Spacer(Modifier.height(20.dp))
+        ) {
+            Box(
+                Modifier.size(72.dp).clip(CircleShape).background(colore.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) { Icon(icona, contentDescription = null, tint = colore, modifier = Modifier.size(36.dp)) }
+        }
+        Spacer(Modifier.height(24.dp))
         Text(titolo, style = Testo.titolo, color = tb.tx, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(testo, style = Testo.corpo, color = tb.sub, textAlign = TextAlign.Center)

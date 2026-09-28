@@ -76,6 +76,7 @@ private fun Arco(state: PullToRefreshState, caricamento: Boolean, modifier: Modi
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+            drawCircle(tb.sf, radius = size.minDimension / 2 + 6.dp.toPx())
             drawCircle(tb.sf2, style = Stroke(3.dp.toPx()))
             drawArc(
                 tb.accento, startAngle = -90f,

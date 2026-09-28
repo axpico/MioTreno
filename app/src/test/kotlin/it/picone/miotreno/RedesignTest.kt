@@ -2,6 +2,7 @@ package it.picone.miotreno
 
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.PeriodoFiltro
+import it.picone.miotreno.domain.RisultatoStazione
 import it.picone.miotreno.domain.RitardoRecord
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.StatoTreno
@@ -9,6 +10,7 @@ import it.picone.miotreno.domain.Stazione
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.domain.StazioneVicina
 import it.picone.miotreno.domain.UltimoCluster
+import it.picone.miotreno.domain.aggiornaRecenti
 import it.picone.miotreno.domain.calcolaStatistiche
 import it.picone.miotreno.domain.filtraPerPeriodo
 import it.picone.miotreno.domain.filtraPerStazione
@@ -160,5 +162,19 @@ class ProgressoRealeTest {
     fun `Busto non in lista fermate da' progresso null`() {
         val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = 1, indiceDestinazione = -1)
         assertNull(dettaglio.progressoReale())
+    }
+}
+
+class RecentiTest {
+    private val a = RisultatoStazione("Milano Centrale", "S01700")
+    private val b = RisultatoStazione("Gallarate", "S01030")
+
+    @Test
+    fun `la scelta va in testa, senza doppioni, al massimo cinque`() {
+        assertEquals(listOf(b, a), aggiornaRecenti(listOf(a), b))
+        assertEquals(listOf(a, b), aggiornaRecenti(listOf(b, a), a))
+        val molte = (1..5).map { RisultatoStazione("S$it", "C$it") }
+        assertEquals(5, aggiornaRecenti(molte, a).size)
+        assertEquals(a, aggiornaRecenti(molte, a).first())
     }
 }

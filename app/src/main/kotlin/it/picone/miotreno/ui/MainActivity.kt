@@ -20,6 +20,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -29,16 +30,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -52,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -71,6 +73,7 @@ import it.picone.miotreno.Deps
 import it.picone.miotreno.data.AdsManager
 import it.picone.miotreno.data.URL_BUY_ME_A_COFFEE
 import it.picone.miotreno.ui.componenti.Icone
+import it.picone.miotreno.ui.componenti.ombraMorbida
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.MioTrenoTheme
@@ -285,6 +288,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         onRefresh = { vm.aggiorna() },
                         onScegliStazione = vm::apriSelettoreStazione,
                         onScambia = vm::scambiaOrigineDestinazione,
+                        onScegliDestinazione = vm::apriSelettoreDestinazione,
                     )
                     Schermata.Dettaglio -> DettaglioScreen(
                         state = state, ora = ora,
@@ -331,6 +335,13 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
             }
         }
 
+        // Il contenuto scorre edge-to-edge: sotto la status bar serve un velo, o l'orologio
+        // finisce sopra i titoli.
+        Box(
+            Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
+                .background(tb.bg.copy(alpha = 0.92f)),
+        )
+
         AnimatedVisibility(
             visible = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.Onboarding,
             modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = LARGHEZZA_MAX_BARRA),
@@ -344,6 +355,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                 onScegli = vm::scegliStazione,
                 onChiudi = vm::chiudiSelettoreStazione,
                 ricercaLive = vm::cercaStazioni,
+                recenti = state.stazioniRecenti,
             )
         }
 
@@ -356,6 +368,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                 overline = "Destinazione",
                 mostraOpzioneVuota = false,
                 ricercaLive = vm::cercaStazioni,
+                recenti = state.stazioniRecenti,
             )
         }
 
@@ -397,21 +410,24 @@ private val TAB = listOf(
     Tab("Impostazioni", Icone.Impostazioni, Schermata.Impostazioni),
 )
 
-/** Barra flottante, staccata dai bordi: fondo pieno, bordo sottile a tinta unita. */
+/**
+ * Barra flottante a pillola con ombra tinta. La tab attiva si allarga in una capsula tinta
+ * con icona + nome; le altre restano solo icona e nome attenuato.
+ */
 @Composable
 private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
     val tb = LocalTb.current
     Row(
         Modifier
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 40.dp, vertical = 12.dp)
+            .padding(horizontal = 24.dp, vertical = 12.dp)
             .fillMaxWidth()
-            .shadow(12.dp, Forme.barra, ambientColor = Color.Black.copy(alpha = 0.32f), spotColor = Color.Black.copy(alpha = 0.42f))
+            .ombraMorbida(tb, Forme.barra, 16.dp)
             .clip(Forme.barra)
             .background(tb.sf)
-            .border(1.dp, tb.bordo, Forme.barra)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .let { if (tb.scuro) it.border(1.dp, tb.bordoForte, Forme.barra) else it }
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TAB.forEach { tab ->
@@ -420,24 +436,26 @@ private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
                 if (attivo) tb.accentoSoft else Color.Transparent,
                 Molla.piatta(), label = "nav-${tab.nome}",
             )
-            Column(
+            val colore by animateColorAsState(if (attivo) tb.accento else tb.ter, Molla.piatta(), label = "navc-${tab.nome}")
+            Row(
                 Modifier
-                    .weight(1f)
-                    .clip(Forme.pillola)
+                    .weight(if (attivo) 1.6f else 1f)
+                    .animateContentSize(Molla.ui())
+                    .heightIn(min = 48.dp)
+                    .clip(Forme.barra)
                     .background(sfondo)
                     .selectable(selected = attivo, role = Role.Tab, onClick = { onVai(tab.schermata) })
-                    .padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    tab.icona, contentDescription = tab.nome,
-                    tint = if (attivo) tb.accento else tb.ter,
-                    modifier = Modifier.size(22.dp),
-                )
-                Text(
-                    tab.nome, style = Testo.micro, color = if (attivo) tb.accento else tb.ter,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+                Icon(tab.icona, contentDescription = if (attivo) null else tab.nome, tint = colore, modifier = Modifier.size(22.dp))
+                if (attivo) {
+                    Text(
+                        tab.nome, style = Testo.etichettaBold, color = colore, maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
         }
     }

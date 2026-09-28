@@ -28,10 +28,9 @@ private fun recursive(peso: Int, mono: Float = 0f) = Font(
     ),
 )
 
-val Recursive = FontFamily(recursive(400), recursive(500), recursive(700))
+val Recursive = FontFamily(recursive(500), recursive(700))
 private val RecursiveMono = FontFamily(recursive(500, mono = 1f), recursive(700, mono = 1f))
 
-val Regular = FontWeight(400)
 val Medium = FontWeight(500)
 val Bold = FontWeight(700)
 
@@ -48,21 +47,25 @@ private fun numero(size: Int, line: Int = size + 4, spacing: Float = -0.5f) = Te
     letterSpacing = spacing.sp, fontFeatureSettings = TABULARI,
 )
 
-/** Scala tipografica MioTreno: tre pesi, cifre sempre tabulari. */
+/**
+ * Scala tipografica MioTreno. Testo: quattro corpi (13, 15, 18, 24) e due pesi (500, 700).
+ * Le cifre (orari, countdown, ritardi) sono una famiglia a parte, mono e tabulari: sono
+ * valori, e i valori devono pesare più delle etichette.
+ */
 object Testo {
-    val display = numero(44, 48, -1.5f)
-    val hero = numero(34, 38, -1f)
-    val numeroGrande = numero(26, 30)
+    val display = numero(48, 52, -1.5f)
+    val hero = numero(36, 40, -1f)
+    val numeroGrande = numero(24, 28)
     val numero = numero(18, 22)
     val numeroPiccolo = numero(13, 16, 0f)
-    val titolo = stile(22, Bold, 26, -0.3f)
-    val sottotitolo = stile(16, Medium, 20)
-    val corpo = stile(15, Regular, 21)
-    val corpoMedio = stile(15, Medium, 21)
-    val etichetta = stile(12, Medium, 16)
-    val etichettaBold = stile(12, Bold, 16)
-    val micro = stile(11, Medium, 14, 0.2f)
-    val overline = stile(11, Bold, 14, 1.2f)
+    val titolo = stile(24, Bold, 30, -0.4f)
+    val sottotitolo = stile(18, Bold, 24, -0.2f)
+    val corpo = stile(15, Medium, 22)
+    val corpoMedio = stile(15, Bold, 22)
+    val etichetta = stile(13, Medium, 18)
+    val etichettaBold = stile(13, Bold, 18)
+    val micro = stile(13, Medium, 16)
+    val overline = stile(13, Bold, 18)
     val bottone = stile(15, Bold, 20)
 }
 

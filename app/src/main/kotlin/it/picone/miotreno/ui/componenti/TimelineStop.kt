@@ -35,7 +35,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.OrarioFermata
-import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Testo
@@ -83,15 +82,15 @@ fun TimelineStop(
 
     // height(IntrinsicSize.Min): senza, i segmenti con weight collassano e restano solo i nodi
     Row(
-        modifier.fillMaxWidth().heightIn(min = 52.dp).height(IntrinsicSize.Min)
+        modifier.fillMaxWidth().heightIn(min = 56.dp).height(IntrinsicSize.Min)
             .semantics(mergeDescendants = true) { contentDescription = descrizione },
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Column(Modifier.width(20.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.width(2.dp).weight(1f).background(if (primo) Color.Transparent else coloreLinea))
+        Column(Modifier.width(24.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.width(3.dp).weight(1f).background(if (primo) Color.Transparent else coloreLinea))
             Nodo(tipo)
             Box(
-                Modifier.width(2.dp).weight(1f)
+                Modifier.width(3.dp).weight(1f)
                     .background(
                         if (ultimo) {
                             Color.Transparent
@@ -164,23 +163,23 @@ private fun Nodo(tipo: TipoFermata) {
                 if (Molla.riduci) {
                     Box(Modifier.size(24.dp).alpha(0.3f).clip(CircleShape).background(tb.accento))
                 } else {
-                    Box(Modifier.size(14.dp).scale(scala).alpha(alpha).clip(CircleShape).background(tb.accento))
+                    Box(Modifier.size(16.dp).scale(scala).alpha(alpha).clip(CircleShape).background(tb.accento))
                 }
-                Box(Modifier.size(14.dp).clip(CircleShape).background(tb.accento))
+                Box(Modifier.size(16.dp).clip(CircleShape).background(tb.accento).border(3.dp, tb.sf, CircleShape))
             }
         }
         TipoFermata.Target -> Box(
-            Modifier.size(16.dp).clip(CircleShape)
-                .background(tb.bg).border(3.dp, tb.verde, CircleShape),
+            Modifier.size(20.dp).clip(CircleShape)
+                .background(tb.sf).border(4.dp, tb.verde, CircleShape),
         )
         TipoFermata.Cambio -> Box(
-            Modifier.size(18.dp).clip(Forme.chip)
+            Modifier.size(20.dp).clip(CircleShape)
                 .background(tb.ambra),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icone.Cambio, contentDescription = null, tint = tb.bg, modifier = Modifier.size(12.dp)) }
-        TipoFermata.Passata -> Box(Modifier.size(10.dp).clip(CircleShape).background(tb.accento))
+        ) { Icon(Icone.Cambio, contentDescription = null, tint = tb.suStato, modifier = Modifier.size(12.dp)) }
+        TipoFermata.Passata -> Box(Modifier.size(12.dp).clip(CircleShape).background(tb.accento))
         TipoFermata.Futura -> Box(
-            Modifier.size(10.dp).clip(CircleShape).background(tb.bg).border(2.dp, tb.ter, CircleShape),
+            Modifier.size(12.dp).clip(CircleShape).background(tb.sf).border(2.dp, tb.ter, CircleShape),
         )
     }
 }

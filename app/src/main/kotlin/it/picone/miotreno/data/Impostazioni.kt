@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import it.picone.miotreno.domain.ProssimoTreno
+import it.picone.miotreno.domain.RisultatoStazione
 import it.picone.miotreno.domain.TrenoSeguito
+import it.picone.miotreno.domain.aggiornaRecenti
 import it.picone.miotreno.domain.comeSeguito
 import it.picone.miotreno.domain.seguitoAttivo
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +47,18 @@ class ImpostazioniStore(private val context: Context) {
     private val adsAbilitate = booleanPreferencesKey("ads_abilitate")
     private val onboardingCompletato = booleanPreferencesKey("onboarding_completato")
     private val contatoreCambioStazione = intPreferencesKey("contatore_cambio_stazione")
+    private val recentiKey = stringPreferencesKey("stazioni_recenti")
+
+    /** Ultime stazioni scelte nei selettori, per non aprire mai una ricerca vuota. Una per riga: "codice\tnome". */
+    val recenti: Flow<List<RisultatoStazione>> = context.dataStore.data.map { leggiRecenti(it[recentiKey]) }
+
+    suspend fun aggiungiRecente(stazione: RisultatoStazione) = context.dataStore.edit { p ->
+        p[recentiKey] = aggiornaRecenti(leggiRecenti(p[recentiKey]), stazione).joinToString("\n") { "${it.codice}\t${it.nome}" }
+    }.let {}
+
+    private fun leggiRecenti(testo: String?): List<RisultatoStazione> = testo.orEmpty().lines().mapNotNull { riga ->
+        riga.split('\t').takeIf { it.size == 2 }?.let { (codice, nome) -> RisultatoStazione(nome, codice) }
+    }
 
     val flow: Flow<Impostazioni> = context.dataStore.data.map { p ->
         Impostazioni(

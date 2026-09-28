@@ -62,6 +62,8 @@ fun AnimatedCountdown(
     modifier: Modifier = Modifier,
     grande: Boolean = true,
     colore: Color = LocalTb.current.tx,
+    /** Sostituisce lo stile di [grande]: la card hero usa il display. */
+    stile: TextStyle? = null,
 ) {
     val tb = LocalTb.current
     val partito = minuti < 0
@@ -75,7 +77,7 @@ fun AnimatedCountdown(
         } else {
             NumeroAnimato(
                 minuti.toString(),
-                stile = if (grande) Testo.hero else Testo.numeroGrande,
+                stile = stile ?: if (grande) Testo.hero else Testo.numeroGrande,
                 colore = colore,
             )
             Text(

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -28,6 +29,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,11 +45,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -77,6 +82,7 @@ import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Spazio
+import it.picone.miotreno.ui.theme.TbColors
 import it.picone.miotreno.ui.theme.Testo
 import kotlinx.coroutines.delay
 
@@ -99,6 +105,7 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     onScegliStazione: () -> Unit,
     onScambia: () -> Unit,
+    onScegliDestinazione: () -> Unit,
 ) {
     val tb = LocalTb.current
     val haptic = rememberHaptic()
@@ -121,12 +128,11 @@ fun HomeScreen(
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA),
-                verticalArrangement = Arrangement.spacedBy(Spazio.m),
             ) {
                 item(key = "header") {
-                    Intestazione(state, onScegliStazione, onScambia)
+                    Intestazione(state, onScegliStazione, onScegliDestinazione, onScambia)
                 }
-                state.sciopero?.let { item(key = "sciopero") { BannerSciopero(it) } }
+                state.sciopero?.let { item(key = "sciopero") { BannerSciopero(it, Modifier.padding(top = Spazio.l)) } }
 
                 when {
                     state.permessoNegato && state.impostazioni.stazioneManuale == null -> item(key = "priming") {
@@ -138,20 +144,31 @@ fun HomeScreen(
                             colore = tb.arancio, azione = "Riprova", onAzione = onRiprova,
                         )
                     }
-                    state.caricamento && state.treni.isEmpty() -> items(3, key = { "skel$it" }) { Scheletro(it) }
+                    state.caricamento && state.treni.isEmpty() -> items(3, key = {
+                        "skel$it"
+                    }) { Scheletro(it, Modifier.padding(top = Spazio.l)) }
                     state.treni.isEmpty() -> item {
                         StatoVuoto(
                             Icone.Treno, "Nessun treno diretto",
                             "Da ${state.stazione?.nome.orEmpty()} non risultano treni diretti a " +
-                                "${state.destinazioneNome.orEmpty()} nelle prossime ore.",
-                            azione = "Aggiorna", onAzione = onRiprova,
+                                "${state.destinazioneNome.orEmpty()} nelle prossime ore. Prova un'altra destinazione.",
+                            azione = "Cambia destinazione", onAzione = onScegliDestinazione,
                         )
                     }
                     else -> {
                         val evidenza = trenoInEvidenza(state.treni, state.seguito)
+                        // Le righe compatte consecutive formano un'unica card: il bordo arrotondato
+                        // sta solo sopra la prima e sotto l'ultima del gruppo.
+                        val compatte = state.treni.mapIndexed { i, t -> i != 0 && t.numeroTreno != evidenza?.numeroTreno }
                         itemsIndexed(state.treni, key = { _, t -> chiaveTreno(t.numeroTreno) }) { indice, t ->
                             val seguito = state.seguito?.numeroTreno == t.numeroTreno
-                            Column(verticalArrangement = Arrangement.spacedBy(Spazio.s)) {
+                            val compatta = compatte[indice]
+                            val inizioGruppo = compatta && !compatte.getOrElse(indice - 1) { false }
+                            val fineGruppo = compatta && !compatte.getOrElse(indice + 1) { false }
+                            Column(
+                                Modifier.padding(top = if (compatta && !inizioGruppo) 0.dp else Spazio.l),
+                                verticalArrangement = Arrangement.spacedBy(Spazio.s),
+                            ) {
                                 if (indice == 0) Overline(if (seguito) "La corsa che segui" else "Prossima partenza")
                                 if (indice == 1) Overline("Partenze successive", Modifier.padding(top = Spazio.s))
                                 with(sharedScope) {
@@ -159,16 +176,19 @@ fun HomeScreen(
                                         t, ora, seguito = seguito,
                                         onClick = { haptic.tocco(); onApri(t) },
                                         principale = indice == 0,
-                                        compatta = indice != 0 && t.numeroTreno != evidenza?.numeroTreno,
+                                        compatta = compatta,
+                                        divisore = !fineGruppo,
                                         dettaglio = state.dettagliViaggio[t.numeroTreno],
                                         atteso = state.ritardiAttesi[t.numeroTreno]?.testo,
                                         passaPerEtichetta = state.stazionePassaggioNome
                                             ?.takeIf { t.numeroTreno in state.treniConPassaggio },
                                         partenzaEtichetta = state.etichettePartenza[t.codPartenza]
                                             ?.takeIf { e -> e.isNotBlank() },
-                                        modifier = Modifier.animateItem(placementSpec = Molla.ui()).sharedBounds(
-                                            rememberSharedContentState(chiaveTreno(t.numeroTreno)), animatedScope,
-                                        ),
+                                        modifier = Modifier.animateItem(placementSpec = Molla.ui())
+                                            .let { if (compatta) it.gruppo(tb, inizioGruppo, fineGruppo) else it }
+                                            .sharedBounds(
+                                                rememberSharedContentState(chiaveTreno(t.numeroTreno)), animatedScope,
+                                            ),
                                     )
                                 }
                             }
@@ -180,8 +200,8 @@ fun HomeScreen(
                     item(key = "footer") {
                         Text(
                             "Dati ViaggiaTreno" + (state.aggiornatoAlle?.let { " · agg. ${it.comeOra()}" } ?: ""),
-                            Modifier.fillMaxWidth().padding(top = Spazio.s),
-                            style = Testo.micro, color = tb.ter,
+                            Modifier.fillMaxWidth().padding(top = Spazio.l),
+                            style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -209,62 +229,96 @@ private fun AdMobBanner() {
     )
 }
 
+/** Superficie di un gruppo di righe: angoli arrotondati solo agli estremi, niente ombra fra le righe. */
+private fun Modifier.gruppo(tb: TbColors, inizio: Boolean, fine: Boolean): Modifier {
+    val r = 20.dp
+    val forma = RoundedCornerShape(
+        topStart = if (inizio) r else 0.dp, topEnd = if (inizio) r else 0.dp,
+        bottomStart = if (fine) r else 0.dp, bottomEnd = if (fine) r else 0.dp,
+    )
+    return clip(forma).background(tb.sf).padding(horizontal = Spazio.l)
+}
+
+/**
+ * Il percorso come in una app di mappe: "da" sopra, "a" sotto, inverti in mezzo a destra.
+ * Entrambe le righe si toccano: cambiare destinazione non richiede più di passare dalle
+ * Impostazioni.
+ */
 @Composable
-private fun Intestazione(state: UiState, onScegliStazione: () -> Unit, onScambia: () -> Unit) {
+private fun Intestazione(
+    state: UiState,
+    onScegliStazione: () -> Unit,
+    onScegliDestinazione: () -> Unit,
+    onScambia: () -> Unit,
+) {
     val tb = LocalTb.current
     val s = state.stazione
-    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.m)) {
-        Overline("Il tuo viaggio")
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Verso ${state.destinazioneNome ?: "…"}", style = Testo.titolo, color = tb.tx,
-                modifier = Modifier.weight(1f),
-            )
-            BottoneIcona(
-                Icone.Cambio, "Inverti partenza e destinazione",
-                onClick = { if (s != null) onScambia() },
-                modifier = if (s != null) Modifier else Modifier.alpha(0.35f),
-            )
-        }
-        Spacer(Modifier.height(Spazio.s))
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(Forme.cardPiccola)
-                .background(tb.sf)
-                .border(1.dp, tb.bordo, Forme.cardPiccola)
-                .semantics { role = Role.Button; contentDescription = "Cambia stazione" }
-                .clickable(onClick = onScegliStazione)
-                .padding(horizontal = Spazio.m, vertical = Spazio.s),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Parti da", style = Testo.micro, color = tb.ter)
-                Text(
-                    s?.nome ?: if (state.caricamento) "Cerco la stazione…" else "Stazione",
-                    style = Testo.sottotitolo,
-                    color = tb.tx, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    Icon(Icone.Posizione, null, tint = tb.accento2, modifier = Modifier.size(14.dp))
-                    Text(
-                        when (s?.origine) {
+    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l)) {
+        Text("Il tuo viaggio", style = Testo.titolo, color = tb.tx, modifier = Modifier.padding(bottom = Spazio.l))
+        GlassCard(Modifier.fillMaxWidth(), padding = 0.dp) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    RigaPercorso(
+                        etichetta = "Da",
+                        nome = s?.nome ?: if (state.caricamento) "Cerco la stazione…" else "Scegli la partenza",
+                        dettaglio = when (s?.origine) {
                             StazioneCorrente.Origine.Gps -> "più vicina · ${distanzaLeggibile(s.distanzaMetri ?: 0)}"
                             StazioneCorrente.Origine.Manuale -> "scelta a mano"
                             StazioneCorrente.Origine.UltimaNota -> "ultima nota"
                             null -> "in attesa del GPS"
                         },
-                        style = Testo.etichetta, color = tb.sub,
+                        icona = Icone.Posizione,
+                        descrizione = "Cambia stazione di partenza",
+                        onClick = onScegliStazione,
+                    )
+                    Box(Modifier.padding(start = 56.dp).fillMaxWidth().height(1.dp).background(tb.bordo))
+                    RigaPercorso(
+                        etichetta = "A",
+                        nome = state.destinazioneNome ?: "Scegli la destinazione",
+                        dettaglio = null,
+                        icona = Icone.Treno,
+                        descrizione = "Cambia destinazione",
+                        onClick = onScegliDestinazione,
                     )
                 }
+                BottoneIcona(
+                    Icone.Cambio, "Inverti partenza e destinazione",
+                    onClick = { if (s != null) onScambia() },
+                    modifier = Modifier.padding(end = Spazio.s).let { if (s != null) it else it.alpha(0.35f) },
+                )
             }
-            Icon(
-                Icone.Avanti, contentDescription = null, tint = tb.accento,
-                modifier = Modifier.size(20.dp),
-            )
+        }
+    }
+}
+
+@Composable
+private fun RigaPercorso(
+    etichetta: String,
+    nome: String,
+    dettaglio: String?,
+    icona: ImageVector,
+    descrizione: String,
+    onClick: () -> Unit,
+) {
+    val tb = LocalTb.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .semantics { role = Role.Button; contentDescription = "$descrizione, ora $nome" }
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spazio.l, vertical = Spazio.m),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spazio.m),
+    ) {
+        Box(
+            Modifier.size(32.dp).clip(CircleShape).background(tb.accentoSoft),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icona, contentDescription = null, tint = tb.accento, modifier = Modifier.size(18.dp)) }
+        Column(Modifier.weight(1f)) {
+            Text(etichetta, style = Testo.etichetta, color = tb.ter)
+            Text(nome, style = Testo.sottotitolo, color = tb.tx, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            dettaglio?.let { Text(it, style = Testo.etichetta, color = tb.sub, maxLines = 1) }
         }
     }
 }
@@ -276,11 +330,11 @@ private fun Intestazione(state: UiState, onScegliStazione: () -> Unit, onScambia
  * la lista "salta" quando i dati arrivano.
  */
 @Composable
-private fun Scheletro(indice: Int = 0) {
+private fun Scheletro(indice: Int = 0, modifier: Modifier = Modifier) {
     val tb = LocalTb.current
     val ritardo = indice * 90
     if (indice == 0) {
-        GlassCard(Modifier.fillMaxWidth().height(120.dp)) {
+        GlassCard(modifier.fillMaxWidth().height(248.dp)) {
             Box(Modifier.width(60.dp).height(12.dp).clip(Forme.chip).shimmer(tb, ritardo))
             Spacer(Modifier.height(14.dp))
             Box(Modifier.width(120.dp).height(28.dp).clip(Forme.chip).shimmer(tb, ritardo))
@@ -289,7 +343,7 @@ private fun Scheletro(indice: Int = 0) {
         }
     } else {
         Row(
-            Modifier.fillMaxWidth().height(52.dp).padding(vertical = 10.dp),
+            modifier.fillMaxWidth().clip(Forme.card).background(tb.sf).height(64.dp).padding(horizontal = 16.dp, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.width(48.dp).height(18.dp).clip(Forme.chip).shimmer(tb, ritardo))
@@ -303,7 +357,7 @@ private fun Scheletro(indice: Int = 0) {
 
 /** Banner sciopero: colore e trama a righe propri, distinti dal semaforo dei ritardi. */
 @Composable
-private fun BannerSciopero(sciopero: Sciopero) {
+private fun BannerSciopero(sciopero: Sciopero, modifier: Modifier = Modifier) {
     val tb = LocalTb.current
     val context = LocalContext.current
     val haptic = rememberHaptic()
@@ -315,7 +369,12 @@ private fun BannerSciopero(sciopero: Sciopero) {
         visibile = true
         haptic.conferma()
     }
-    AnimatedVisibility(visible = visibile, enter = fadeIn(Molla.piatta()) + slideInVertically(Molla.ui()) { -it / 3 }) {
+    AnimatedVisibility(
+        visible = visibile, modifier = modifier,
+        enter = fadeIn(Molla.piatta()) + slideInVertically(Molla.ui()) {
+            -it / 3
+        },
+    ) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -330,10 +389,10 @@ private fun BannerSciopero(sciopero: Sciopero) {
                         x += passo * 2
                     }
                 }
-                .border(1.dp, tb.sciopero.copy(alpha = 0.45f), Forme.card)
-                .padding(16.dp),
+                .border(1.dp, tb.sciopero.copy(alpha = 0.3f), Forme.card)
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Icon(Icone.Sciopero, contentDescription = "Sciopero", tint = tb.sciopero, modifier = Modifier.size(28.dp))
             Column(Modifier.weight(1f)) {

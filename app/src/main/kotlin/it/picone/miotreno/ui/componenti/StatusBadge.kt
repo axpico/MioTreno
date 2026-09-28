@@ -64,14 +64,14 @@ fun StatusBadge(
             .scale(scala.value)
             .clip(Forme.chip)
             .background(if (pieno) colore else colore.copy(alpha = ALPHA_TINTA))
-            .padding(horizontal = if (compatto) 8.dp else 10.dp, vertical = if (compatto) 3.dp else 5.dp)
+            .padding(horizontal = if (compatto) 10.dp else 12.dp, vertical = if (compatto) 4.dp else 6.dp)
             .semantics { contentDescription = descrizione },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (pieno) {
             Icon(
                 Icone.Cancellato, contentDescription = null,
-                tint = tb.bg, modifier = Modifier.size(12.dp).padding(end = 0.dp),
+                tint = tb.suStato, modifier = Modifier.size(14.dp),
             )
             Box(Modifier.size(4.dp))
         } else {
@@ -80,8 +80,8 @@ fun StatusBadge(
         }
         Text(
             testo,
-            style = if (compatto) Testo.micro else Testo.etichettaBold,
-            color = if (pieno) tb.bg else colore,
+            style = Testo.etichettaBold,
+            color = if (pieno) tb.suStato else colore,
             maxLines = 1,
         )
     }

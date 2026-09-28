@@ -1,10 +1,10 @@
 <resources>
-    <!-- Solo scuro: la finestra è già nera prima che Compose disegni, niente flash bianco. -->
-    <style name="Theme.MioTreno.Base" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#0A0A0F</item>
+    <!-- La finestra ha già il colore di fondo del tema prima che Compose disegni: niente flash. -->
+    <style name="Theme.MioTreno.Base" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/mt_bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightStatusBar">@bool/mt_barre_chiare</item>
     </style>
 
     <style name="Theme.MioTreno" parent="Theme.MioTreno.Base" />

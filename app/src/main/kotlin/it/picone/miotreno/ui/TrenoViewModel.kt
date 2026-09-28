@@ -10,6 +10,7 @@ import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ElementoStazione
 import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.ProssimoTreno
+import it.picone.miotreno.domain.RisultatoStazione
 import it.picone.miotreno.domain.RitardoAtteso
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.Statistiche
@@ -71,6 +72,8 @@ data class UiState(
     // scelta della destinazione
     val selettoreDestinazione: Boolean = false,
     val destinazioneNome: String? = null,
+    /** Ultime stazioni scelte, mostrate nei selettori a ricerca vuota. */
+    val stazioniRecenti: List<RisultatoStazione> = emptyList(),
     /** Nome regione usato per il filtro scioperi, per il testo in Impostazioni. */
     val regioneScioperiNome: String? = null,
     // stazione di passaggio obbligata
@@ -160,6 +163,9 @@ class TrenoViewModel : ViewModel() {
         }
         viewModelScope.launch {
             Deps.impostazioni.seguito.collect { s -> _state.update { it.copy(seguito = s) } }
+        }
+        viewModelScope.launch {
+            Deps.impostazioni.recenti.collect { r -> _state.update { it.copy(stazioniRecenti = r) } }
         }
     }
 
@@ -407,7 +413,7 @@ class TrenoViewModel : ViewModel() {
 
     /** null = torna al GPS. */
     fun scegliStazione(codice: String?) = viewModelScope.launch {
-        codice?.let { repo.risolviStazione(it) }
+        codice?.let { repo.risolviStazione(it) }?.let { Deps.impostazioni.aggiungiRecente(RisultatoStazione(it.nome, it.codice)) }
         Deps.impostazioni.setStazioneManuale(codice)
         _state.update { it.copy(selettoreStazione = false, treni = emptyList()) }
         aggiorna()
@@ -427,6 +433,7 @@ class TrenoViewModel : ViewModel() {
     fun scegliDestinazione(codice: String) = viewModelScope.launch {
         val primaVolta = _state.value.impostazioni.stazioneDestinazione == null
         val stazione = repo.risolviStazione(codice)
+        stazione?.let { Deps.impostazioni.aggiungiRecente(RisultatoStazione(it.nome, it.codice)) }
         val idRegione = repo.regioneDi(codice)
         idRegione?.let { repo.salvaRegioneDestinazione(it) }
         Deps.impostazioni.setStazioneDestinazione(codice)

@@ -62,7 +62,7 @@ fun StatChart(
             voci.forEachIndexed { i, v ->
                 val x = i * (larghezza + gap) + (larghezza - spessore) / 2
                 val h = (size.height * (v.valore / max).toFloat() * entrata.value).coerceAtLeast(3.dp.toPx())
-                drawRoundRect(tb.sf2.copy(alpha = 0.7f), Offset(x, 0f), Size(spessore, size.height), CornerRadius(spessore / 2))
+                drawRoundRect(tb.sf2, Offset(x, 0f), Size(spessore, size.height), CornerRadius(spessore / 2))
                 if (v.rilevazioni == 0) return@forEachIndexed
                 drawRoundRect(
                     Brush.verticalGradient(listOf(colore(v.valore), colore(v.valore).copy(alpha = 0.55f))),

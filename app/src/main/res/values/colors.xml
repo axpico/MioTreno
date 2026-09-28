@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Specchio di ChiaroTb (Colori.kt) per ciò che Compose non disegna: finestra e widget. -->
+<resources>
+    <color name="mt_bg">#F5F7FB</color>
+    <color name="mt_sf">#FFFFFF</color>
+    <color name="mt_sf2">#EEF2F8</color>
+    <color name="mt_bordo">#140E1526</color>
+    <color name="mt_accento">#2448E0</color>
+    <color name="mt_accento_soft">#0F2448E0</color>
+    <bool name="mt_barre_chiare">true</bool>
+</resources>

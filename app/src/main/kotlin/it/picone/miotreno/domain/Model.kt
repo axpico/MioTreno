@@ -111,6 +111,10 @@ data class StazioneVicina(val stazione: Stazione, val distanzaMetri: Int)
 /** Riga di risultato della ricerca nazionale: solo nome e codice, niente coordinate. */
 data class RisultatoStazione(override val nome: String, override val codice: String) : ElementoStazione
 
+/** Ultime stazioni scelte, la più recente prima, senza doppioni, al massimo [max]. */
+fun aggiornaRecenti(recenti: List<RisultatoStazione>, scelta: RisultatoStazione, max: Int = 5): List<RisultatoStazione> =
+    (listOf(scelta) + recenti.filter { it.codice != scelta.codice }).take(max)
+
 /**
  * Ultimo gruppo di stazioni risolto da una posizione vera.
  *

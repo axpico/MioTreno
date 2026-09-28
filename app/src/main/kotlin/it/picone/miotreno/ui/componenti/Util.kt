@@ -7,23 +7,18 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.Semaforo
-import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.TbColors
 import java.time.Instant
@@ -51,10 +46,6 @@ fun TbColors.colore(s: Semaforo): Color = when (s) {
     Semaforo.Cancellato -> rosso
 }
 
-/** Superficie piatta: fondo pieno, bordo 1dp a tinta unita. Niente vetro, niente ombra Material. */
-fun Modifier.vetro(tb: TbColors, forma: Shape = Forme.card, sfondo: Color = tb.sf): Modifier =
-    this.clip(forma).background(sfondo).border(1.dp, tb.bordo, forma)
-
 /**
  * Placeholder di caricamento: base [tb.sf2] più una banda chiara che lo attraversa in diagonale.
  * [ritardoMs] sfalsa l'inizio così più box in fila non lampeggiano in sincrono, ma in onda.
@@ -71,7 +62,7 @@ fun Modifier.shimmer(tb: TbColors, ritardoMs: Int = 0): Modifier = composed {
         val banda = size.width * 0.35f
         val centro = progresso * size.width
         val brush = Brush.linearGradient(
-            colors = listOf(tb.sf2, Color.White.copy(alpha = 0.06f), tb.sf2),
+            colors = listOf(tb.sf2, if (tb.scuro) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.7f), tb.sf2),
             start = Offset(centro - banda, 0f),
             end = Offset(centro + banda, size.height),
         )
