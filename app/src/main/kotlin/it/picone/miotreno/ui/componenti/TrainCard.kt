@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,10 +34,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
@@ -220,16 +231,20 @@ private fun RigaTreno(
                 .fillMaxWidth()
                 .let { if (cancellato) it.alpha(0.55f) else it }
                 .let { if (!cancellato) it.clickable(onClick = onClick) else it }
+                .heightIn(min = 72.dp)
+                // la corsa seguita ha una barra accento sul bordo sinistro, fuori dal contenuto:
+                // così le colonne restano allineate fra tutte le righe
+                .drawBehind {
+                    if (seguito) {
+                        drawRoundRect(
+                            tb.accento, topLeft = Offset(-12.dp.toPx(), size.height * 0.25f),
+                            size = Size(4.dp.toPx(), size.height * 0.5f), cornerRadius = CornerRadius(2.dp.toPx()),
+                        )
+                    }
+                }
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                Modifier
-                    .width(3.dp).height(32.dp)
-                    .background(if (seguito) tb.accento else Color.Transparent, Forme.chip),
-            )
-            Spacer(Modifier.width(10.dp))
-
             OrarioConRitardo(
                 orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
                 stile = Testo.numero,
@@ -245,37 +260,34 @@ private fun RigaTreno(
                     treno.destinazione, style = Testo.corpo, color = tb.tx,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                // FlowRow: con "via X" il chip non ci sta accanto al numero e veniva schiacciato
-                // a una pillola vuota; ora va a capo intero.
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
-                    if (seguito) Chip("Segui", colore = tb.accento, pieno = true)
-                    if (passaPerEtichetta != null) Chip("via $passaPerEtichetta", colore = tb.accento2)
-                    if (semaforo == Semaforo.Cancellato || semaforo == Semaforo.Irregolare) {
-                        Text(
-                            treno.etichettaStato() + (nota?.let { " · $it" } ?: ""),
-                            style = Testo.micro, color = tb.colore(semaforo),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
+                // Una sola riga secondaria per tutte le righe: con un chip "via X" a parte le righe
+                // con il passaggio erano più alte delle altre e la lista perdeva il ritmo.
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(color = tb.ter)) { append("${treno.categoria} ${treno.numeroTreno}") }
+                        if (seguito) withStyle(SpanStyle(color = tb.accento)) { append(" · seguita") }
+                        if (passaPerEtichetta != null) withStyle(SpanStyle(color = tb.accento)) { append(" · via $passaPerEtichetta") }
+                        if (semaforo == Semaforo.Cancellato || semaforo == Semaforo.Irregolare) {
+                            withStyle(SpanStyle(color = tb.colore(semaforo))) {
+                                append(" · " + treno.etichettaStato() + (nota?.let { " · $it" } ?: ""))
+                            }
+                        }
+                    },
+                    style = Testo.micro, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
 
             Spacer(Modifier.width(8.dp))
             Binario(treno, prefisso = partenzaEtichetta?.let(::etichettaBreve))
             Spacer(Modifier.width(10.dp))
 
-            Box(Modifier.width(44.dp), contentAlignment = Alignment.CenterEnd) {
+            Box(Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) {
                 if (!cancellato) {
                     AnimatedCountdown(minuti, grande = false, colore = if (minuti in 0..2) tb.ambra else tb.tx)
                 }
             }
         }
-        if (atteso != null && !cancellato) RigaAtteso(atteso, Modifier.padding(start = 83.dp, bottom = 8.dp))
+        if (atteso != null && !cancellato) RigaAtteso(atteso, Modifier.padding(start = 80.dp, bottom = 8.dp))
         if (divisore) Box(Modifier.fillMaxWidth().height(1.dp).background(tb.bordo))
     }
 }
@@ -349,56 +361,50 @@ private fun CardProssimaPartenza(
             modifier = Modifier.padding(top = 16.dp),
         )
 
-        // Il countdown è la risposta alla domanda da banchina ("quanto manca?"): è il numero
-        // più grande della card. Orario e binario lo affiancano, un gradino sotto.
-        Row(
-            Modifier.fillMaxWidth().padding(top = 8.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
+        // Due colonne speculari, etichetta sopra e valore sotto: a sinistra quanto manca (il
+        // numero protagonista, in accento), a destra l'orario. Le etichette stanno sulla stessa
+        // riga, i valori partono alla stessa altezza.
+        Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                if (!cancellato) {
-                    AnimatedCountdown(
-                        minuti = minuti,
-                        stile = Testo.display,
-                        colore = if (minuti in 0..2) tb.ambra else tb.accento,
-                    )
-                } else {
-                    Text("Cancellato", style = Testo.titolo, color = tb.rosso)
+                Text(if (cancellato) "Stato" else "Parte tra", style = Testo.etichetta, color = tb.ter)
+                when {
+                    cancellato -> Text("Cancellato", style = Testo.titolo, color = tb.rosso)
+                    minuti < 0 -> Text("In viaggio", style = Testo.titolo, color = tb.accento)
+                    else -> Row(verticalAlignment = Alignment.Bottom) {
+                        NumeroAnimato(
+                            "$minuti", stile = Testo.display,
+                            colore = if (minuti in 0..2) tb.ambra else tb.accento,
+                        )
+                        Text(
+                            if (minuti == 1) " minuto" else " min", style = Testo.sottotitolo, color = tb.sub,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
                 }
             }
-            Column(horizontalAlignment = Alignment.End) {
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                 Text("Partenza", style = Testo.etichetta, color = tb.ter)
                 OrarioConRitardo(
                     orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
-                    stile = Testo.numeroGrande,
+                    // un gradino sotto il countdown: "quanto manca" resta il numero protagonista
+                    stile = Testo.hero,
                     cancellato = cancellato,
+                    allineaFine = true,
                 )
             }
         }
 
         Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp)
-                .clip(Forme.cardPiccola)
-                .background(tb.sf2)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.fillMaxWidth().padding(top = 16.dp).height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("Binario", style = Testo.etichetta, color = tb.ter)
-                Binario(treno, Modifier.padding(top = 4.dp), grande = true)
+            Tessera("Binario", Modifier.weight(1f)) {
+                Binario(treno, grande = true)
             }
-            Box(Modifier.width(1.dp).height(32.dp).background(tb.bordoForte))
-            Column(
-                Modifier.weight(1f).padding(start = 16.dp),
-                horizontalAlignment = Alignment.End,
-            ) {
-                Text("Arrivo", style = Testo.etichetta, color = tb.ter)
+            Tessera("Arrivo", Modifier.weight(1f)) {
                 OrarioConRitardo(
                     orario = orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti),
                     stile = Testo.numero,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
@@ -419,6 +425,19 @@ private fun CardProssimaPartenza(
             )
         }
         if (atteso != null && !cancellato) RigaAtteso(atteso)
+    }
+}
+
+/** Tessera informativa della card hero: etichetta sopra, valore sotto, stessa altezza della gemella. */
+@Composable
+private fun Tessera(etichetta: String, modifier: Modifier = Modifier, valore: @Composable () -> Unit) {
+    val tb = LocalTb.current
+    Column(
+        modifier.fillMaxHeight().clip(Forme.cardPiccola).background(tb.sf2).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(etichetta, style = Testo.etichetta, color = tb.ter)
+        valore()
     }
 }
 
@@ -455,44 +474,48 @@ private fun BarraViaggio(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioTr
     }
 
     Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                dettaglio?.fermate?.firstOrNull()?.nome.orEmpty(),
-                style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+        BoxWithConstraints(Modifier.fillMaxWidth().height(6.dp)) {
+            LinearProgressIndicator(
+                progress = { avanzamento },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(Forme.chip),
+                color = tb.accento, trackColor = tb.sf2,
+                // Material3 disegna di default un "traguardo" a fine barra: qui i pallini
+                // sopra già marcano le fermate, un secondo pallino fisso in fondo è ridondante.
+                drawStopIndicator = {},
             )
-            Spacer(Modifier.width(8.dp))
-            BoxWithConstraints(Modifier.weight(2f).height(6.dp)) {
-                LinearProgressIndicator(
-                    progress = { avanzamento },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(Forme.chip),
-                    color = tb.accento, trackColor = tb.sf2,
-                    // Material3 disegna di default un "traguardo" a fine barra: qui i pallini
-                    // sopra già marcano le fermate, un secondo pallino fisso in fondo è ridondante
-                    // e sembra un pallino fuori posto quando il viaggio non è ancora a destinazione.
-                    drawStopIndicator = {},
+            for (i in fermateIntermedie) {
+                val frazione = i.toFloat() / indiceDestinazione!!
+                val passata = i <= dettaglio!!.indiceCorrente
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = maxWidth * frazione - 3.dp)
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .let {
+                            if (passata) {
+                                it.background(tb.accento)
+                            } else {
+                                it.background(tb.sf).border(1.5.dp, tb.ter, CircleShape)
+                            }
+                        },
                 )
-                for (i in fermateIntermedie) {
-                    val frazione = i.toFloat() / indiceDestinazione!!
-                    val passata = i <= dettaglio!!.indiceCorrente
-                    Box(
-                        Modifier
-                            .align(Alignment.CenterStart)
-                            .offset(x = maxWidth * frazione - 3.dp)
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .let {
-                                if (passata) {
-                                    it.background(tb.accento)
-                                } else {
-                                    it.background(tb.sf).border(1.5.dp, tb.ter, CircleShape)
-                                }
-                            },
-                    )
-                }
             }
-            Spacer(Modifier.width(8.dp))
-            Text("Arrivo", style = Testo.micro, color = tb.ter, maxLines = 1)
+        }
+        // Capolinea sotto la barra, uno per lato, con lo stesso peso: la barra resta a piena
+        // larghezza invece di rimpicciolirsi quando il nome dell'origine è lungo.
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Text(
+                dettaglio?.fermate?.firstOrNull()?.nome ?: "Partenza",
+                style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                indiceDestinazione?.let { dettaglio.fermate.getOrNull(it)?.nome } ?: "Arrivo",
+                style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End, modifier = Modifier.weight(1f),
+            )
         }
     }
 }

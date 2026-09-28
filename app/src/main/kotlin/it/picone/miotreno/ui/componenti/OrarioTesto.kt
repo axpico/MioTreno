@@ -29,13 +29,15 @@ fun OrarioConRitardo(
     modifier: Modifier = Modifier,
     colore: Color? = null,
     cancellato: Boolean = false,
+    /** A destra in una colonna allineata a fine: anche la riga della programmata va a destra. */
+    allineaFine: Boolean = false,
 ) {
     val tb = LocalTb.current
     val previsto = orario.previstoMs?.comeOra()
     val programmata = orario.programmataMs
     val ritardo = orario.ritardoMinuti
 
-    Column(modifier) {
+    Column(modifier, horizontalAlignment = if (allineaFine) Alignment.End else Alignment.Start) {
         Text(
             when {
                 previsto == null -> "—"
