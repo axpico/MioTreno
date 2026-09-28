@@ -32,6 +32,7 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
+import androidx.glance.color.ColorProvider
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -61,7 +62,9 @@ import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.progressoReale
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.MainActivity
+import it.picone.miotreno.ui.componenti.ALPHA_TINTA
 import it.picone.miotreno.ui.componenti.colore
+import it.picone.miotreno.ui.theme.ChiaroTb
 import it.picone.miotreno.ui.theme.ScuroTb
 import it.picone.miotreno.ui.theme.TbColors
 import kotlinx.coroutines.flow.first
@@ -222,7 +225,8 @@ class TrenoWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TrenoWidget()
 }
 
-private val tb: TbColors = ScuroTb
+/** Colore giorno/notte: il widget segue il tema del launcher, non quello dell'app. */
+private fun col(sel: (TbColors) -> Color): ColorProvider = ColorProvider(day = sel(ChiaroTb), night = sel(ScuroTb))
 private val apriApp = actionStartActivity(MainActivity::class.java)
 
 private fun apriTreno(context: Context, numeroTreno: Int) = actionStartActivity(
@@ -240,8 +244,8 @@ private fun String.etichettaWidget(max: Int = 14): String {
     return if (u.length <= max) u else u.take(max - 1) + "…"
 }
 
-private fun stile(colore: Color, size: Int, bold: Boolean = false) = TextStyle(
-    color = ColorProvider(colore), fontSize = size.sp,
+private fun stile(colore: ColorProvider, size: Int, bold: Boolean = false) = TextStyle(
+    color = colore, fontSize = size.sp,
     fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
 )
 
@@ -273,8 +277,8 @@ private fun Vuoto(esito: EsitoWidget) {
         verticalAlignment = Alignment.Vertical.CenterVertically,
         horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
     ) {
-        Text(titolo, style = stile(tb.tx, 12, bold = permesso || erroreRete))
-        Text(sottotitolo, style = stile(tb.sub, 10))
+        Text(titolo, style = stile(col { it.tx }, 12, bold = permesso || erroreRete))
+        Text(sottotitolo, style = stile(col { it.sub }, 10))
     }
 }
 
@@ -282,26 +286,25 @@ private fun Vuoto(esito: EsitoWidget) {
 @Composable
 private fun BadgeStato(t: ProssimoTreno, piccolo: Boolean = false) {
     val s = t.semaforo()
-    val c = tb.colore(s)
     val pieno = s == Semaforo.Cancellato
     Text(
         t.etichettaStato(),
         maxLines = 1,
         modifier = GlanceModifier
-            .background(if (pieno) c else c.copy(alpha = 0.18f))
-            .cornerRadius(2.dp)
+            .background(col { if (pieno) it.colore(s) else it.colore(s).copy(alpha = ALPHA_TINTA) })
+            .cornerRadius(12.dp)
             .padding(horizontal = if (piccolo) 6.dp else 8.dp, vertical = if (piccolo) 1.dp else 3.dp),
-        style = stile(if (pieno) tb.bg else c, if (piccolo) 9 else 10, bold = true),
+        style = stile(col { if (pieno) it.suStato else it.colore(s) }, if (piccolo) 10 else 11, bold = true),
     )
 }
 
 @Composable
-private fun Pillola(testo: String, colore: Color = tb.sub) {
+private fun Pillola(testo: String, colore: (TbColors) -> Color = { it.sub }) {
     Text(
         testo, maxLines = 1,
-        modifier = GlanceModifier.background(colore.copy(alpha = 0.16f)).cornerRadius(2.dp)
+        modifier = GlanceModifier.background(col { colore(it).copy(alpha = ALPHA_TINTA) }).cornerRadius(12.dp)
             .padding(horizontal = 7.dp, vertical = 2.dp),
-        style = stile(colore, 10, bold = true),
+        style = stile(col(colore), 10, bold = true),
     )
 }
 
@@ -314,15 +317,15 @@ private fun PillolaSegui(t: ProssimoTreno, seguito: Boolean) {
         if (seguito) "● seguo" else "segui",
         maxLines = 1,
         modifier = GlanceModifier
-            .background(if (seguito) tb.accento else tb.accento.copy(alpha = 0.16f))
-            .cornerRadius(3.dp)
+            .background(col { if (seguito) it.accento else it.accento.copy(alpha = 0.16f) })
+            .cornerRadius(12.dp)
             .clickable(
                 actionRunCallback<SeguiTrenoAction>(
                     actionParametersOf(PARAM_NUMERO_TRENO to t.numeroTreno, PARAM_DATA to s.data, PARAM_ARRIVO to s.arrivoDestinazioneMs),
                 ),
             )
             .padding(horizontal = 8.dp, vertical = 3.dp),
-        style = stile(if (seguito) tb.onAccento else tb.accento, 9, bold = true),
+        style = stile(col { if (seguito) it.onAccento else it.accento }, 9, bold = true),
     )
 }
 
@@ -332,9 +335,9 @@ private fun Intestazione(esito: EsitoWidget.Dati, testo: String) {
         Text(
             if (esito.seguito != null) "● SEGUI · $testo" else "→ $testo",
             maxLines = 1, modifier = GlanceModifier.defaultWeight(),
-            style = stile(tb.accento, 9, bold = true),
+            style = stile(col { it.accento }, 9, bold = true),
         )
-        if (esito.sciopero) Text("⚠ sciopero", style = stile(tb.sciopero, 9, bold = true))
+        if (esito.sciopero) Text("⚠ sciopero", style = stile(col { it.sciopero }, 9, bold = true))
     }
 }
 
@@ -354,20 +357,20 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
         Text(
             if (esito.seguito == t.numeroTreno) "LA TUA CORSA" else "PROSSIMA PARTENZA",
             modifier = GlanceModifier.padding(top = 8.dp),
-            style = stile(tb.ter, 8, bold = true),
+            style = stile(col { it.ter }, 8, bold = true),
         )
         Text(
             t.oraPartenza(),
             modifier = GlanceModifier.padding(top = 2.dp),
             style = TextStyle(
-                color = ColorProvider(tb.tx), fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                color = col { it.tx }, fontSize = 30.sp, fontWeight = FontWeight.Bold,
                 textDecoration = if (t.cancellato) TextDecoration.LineThrough else TextDecoration.None,
             ),
         )
         Row(GlanceModifier.padding(top = 6.dp)) {
-            Pillola(t.categoria, tb.accento2)
+            Pillola(t.categoria) { it.accento2 }
             Spacer(GlanceModifier.width(5.dp))
-            Pillola("Bin ${t.binario ?: "—"}", if (t.binarioConfermato) tb.accento else tb.sub)
+            Pillola("Bin ${t.binario ?: "—"}") { if (t.binarioConfermato) it.accento else it.sub }
         }
         Row(GlanceModifier.padding(top = 8.dp), verticalAlignment = Alignment.Vertical.CenterVertically) {
             BadgeStato(t)
@@ -378,16 +381,18 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
             if (!t.cancellato) {
                 Text(
                     if (minuti > 0) "tra $minuti min" else "in viaggio",
-                    style = stile(tb.tx, 11, bold = true),
+                    style = stile(col { it.tx }, 11, bold = true),
                 )
             }
-            esito.seguitoNonDisponibile?.let { Text("treno $it non disponibile", maxLines = 1, style = stile(tb.ambra, 9, bold = true)) }
-            if (altezza >= 160.dp) Text("a ${esito.destinazione} ${t.oraArrivo()}", style = stile(tb.sub, 10))
+            esito.seguitoNonDisponibile?.let {
+                Text("treno $it non disponibile", maxLines = 1, style = stile(col { it.ambra }, 9, bold = true))
+            }
+            if (altezza >= 160.dp) Text("a ${esito.destinazione} ${t.oraArrivo()}", style = stile(col { it.sub }, 10))
             esito.treni.drop(1).take(extra).forEach {
                 Box(GlanceModifier.padding(top = 5.dp)) {
                     Text(
                         "${it.oraPartenza()} · Bin ${it.binario ?: "—"}" + if (it.cancellato) " · canc." else "",
-                        maxLines = 1, style = stile(if (it.cancellato) tb.rosso else tb.sub, 11, bold = true),
+                        maxLines = 1, style = stile(col { c -> if (it.cancellato) c.rosso else c.sub }, 11, bold = true),
                     )
                 }
             }
@@ -417,7 +422,7 @@ private fun Medio(esito: EsitoWidget, altezza: Dp) {
                 Text(
                     t.oraPartenza(),
                     style = TextStyle(
-                        color = ColorProvider(tb.tx), fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                        color = col { it.tx }, fontSize = 24.sp, fontWeight = FontWeight.Bold,
                         textDecoration = if (t.cancellato) TextDecoration.LineThrough else TextDecoration.None,
                     ),
                 )
@@ -425,28 +430,28 @@ private fun Medio(esito: EsitoWidget, altezza: Dp) {
             }
             Spacer(GlanceModifier.width(12.dp))
             Column(GlanceModifier.defaultWeight()) {
-                Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1, style = stile(tb.tx, 11, bold = true))
+                Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1, style = stile(col { it.tx }, 11, bold = true))
                 Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
-                    Text("da ${esito.stazione}", maxLines = 1, modifier = GlanceModifier.defaultWeight(), style = stile(tb.sub, 10))
+                    Text("da ${esito.stazione}", maxLines = 1, modifier = GlanceModifier.defaultWeight(), style = stile(col { it.sub }, 10))
                     Spacer(GlanceModifier.width(6.dp))
                     PillolaSegui(t, esito.seguito == t.numeroTreno)
                 }
             }
             Spacer(GlanceModifier.width(8.dp))
             Column(
-                GlanceModifier.background(if (t.binarioConfermato) tb.accento.copy(alpha = 0.2f) else tb.sf2)
-                    .cornerRadius(2.dp).padding(horizontal = 10.dp, vertical = 5.dp),
+                GlanceModifier.background(col { if (t.binarioConfermato) it.accento.copy(alpha = 0.2f) else it.sf2 })
+                    .cornerRadius(12.dp).padding(horizontal = 10.dp, vertical = 5.dp),
                 horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
             ) {
-                Text("BIN", style = stile(if (t.binarioConfermato) tb.accento else tb.ter, 8, bold = true))
-                Text(t.binario ?: "—", style = stile(tb.tx, 15, bold = true))
+                Text("BIN", style = stile(col { if (t.binarioConfermato) it.accento else it.ter }, 8, bold = true))
+                Text(t.binario ?: "—", style = stile(col { it.tx }, 15, bold = true))
             }
         }
         Spacer(GlanceModifier.height(10.dp))
         Avanzamento(t, esito.stazione, esito.destinazione, esito.avanzamentoReale)
         Column(GlanceModifier.padding(top = 8.dp)) {
             esito.seguitoNonDisponibile?.let {
-                Text("treno $it non disponibile da qui", maxLines = 1, style = stile(tb.ambra, 10, bold = true))
+                Text("treno $it non disponibile da qui", maxLines = 1, style = stile(col { it.ambra }, 10, bold = true))
             }
             esito.treni.drop(1).take(extra).forEach { RigaCompatta(it, context) }
         }
@@ -461,16 +466,16 @@ private fun Avanzamento(t: ProssimoTreno, stazione: String, destinazione: String
     val arrivo = t.oraArrivo()
     Column(GlanceModifier.fillMaxWidth()) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
-            Text(sigla(stazione), style = stile(tb.ter, 8, bold = true))
+            Text(sigla(stazione), style = stile(col { it.ter }, 8, bold = true))
             Spacer(GlanceModifier.width(6.dp))
             LinearProgressIndicator(
                 progress = avanzamentoReale ?: t.avanzamento(ora),
                 modifier = GlanceModifier.defaultWeight().height(5.dp),
-                color = ColorProvider(tb.accento),
-                backgroundColor = ColorProvider(tb.sf2),
+                color = col { it.accento },
+                backgroundColor = col { it.sf2 },
             )
             Spacer(GlanceModifier.width(6.dp))
-            Text(sigla(destinazione), style = stile(tb.verde, 8, bold = true))
+            Text(sigla(destinazione), style = stile(col { it.verde }, 8, bold = true))
         }
         Text(
             when {
@@ -479,7 +484,7 @@ private fun Avanzamento(t: ProssimoTreno, stazione: String, destinazione: String
                 else -> "in viaggio · a $destinazione $arrivo"
             },
             maxLines = 1, modifier = GlanceModifier.padding(top = 4.dp),
-            style = stile(if (t.cancellato) tb.rosso else tb.sub, 9),
+            style = stile(col { if (t.cancellato) it.rosso else it.sub }, 9),
         )
     }
 }
@@ -501,15 +506,15 @@ private fun Lista(esito: EsitoWidget, altezza: Dp) {
             Box(
                 GlanceModifier.size(20.dp).background(ImageProvider(R.drawable.widget_logo)),
                 contentAlignment = Alignment.Center,
-            ) { Text("T", style = stile(Color.White, 10, bold = true)) }
+            ) { Text("T", style = stile(ColorProvider(Color.White), 10, bold = true)) }
             Spacer(GlanceModifier.width(7.dp))
             Box(GlanceModifier.defaultWeight()) { Intestazione(esito, esito.destinazione.etichettaWidget(max = 24)) }
             Spacer(GlanceModifier.width(6.dp))
             Box(
-                GlanceModifier.size(22.dp).background(tb.sf2).cornerRadius(11.dp)
+                GlanceModifier.size(22.dp).background(col { it.sf2 }).cornerRadius(11.dp)
                     .clickable(actionRunCallback<AggiornaWidgetAction>()),
                 contentAlignment = Alignment.Center,
-            ) { Text("⟳", style = stile(tb.accento, 11)) }
+            ) { Text("⟳", style = stile(col { it.accento }, 11)) }
         }
         Spacer(GlanceModifier.height(8.dp))
         Column {
@@ -522,7 +527,7 @@ private fun Lista(esito: EsitoWidget, altezza: Dp) {
             esito.seguitoNonDisponibile?.let { "treno $it non disponibile da qui" }
                 ?: "${esito.stazione} · agg. ${esito.aggiornatoAlle.ora()}",
             maxLines = 1,
-            style = stile(if (esito.seguitoNonDisponibile != null) tb.ambra else tb.ter, 9),
+            style = stile(col { if (esito.seguitoNonDisponibile != null) it.ambra else it.ter }, 9),
         )
     }
 }
@@ -533,10 +538,10 @@ private fun RigaCompatta(t: ProssimoTreno, context: Context) {
         GlanceModifier.fillMaxWidth().clickable(apriTreno(context, t.numeroTreno)).padding(vertical = 3.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
-        Text(t.oraPartenza(), modifier = GlanceModifier.width(44.dp), style = stile(tb.tx, 12, bold = true))
+        Text(t.oraPartenza(), modifier = GlanceModifier.width(44.dp), style = stile(col { it.tx }, 12, bold = true))
         Text(
             "${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1,
-            modifier = GlanceModifier.defaultWeight(), style = stile(tb.sub, 11),
+            modifier = GlanceModifier.defaultWeight(), style = stile(col { it.sub }, 11),
         )
         BadgeStato(t, piccolo = true)
     }
@@ -547,8 +552,8 @@ private fun RigaTreno(t: ProssimoTreno, context: Context, destinazione: String, 
     val minuti = t.minutiAllaPartenza(System.currentTimeMillis())
     Row(
         GlanceModifier.fillMaxWidth()
-            .background(if (evidenziata) tb.accento.copy(alpha = 0.16f) else Color.Transparent)
-            .cornerRadius(3.dp)
+            .background(col { if (evidenziata) it.accentoSoft else Color.Transparent })
+            .cornerRadius(12.dp)
             .clickable(apriTreno(context, t.numeroTreno))
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically,
@@ -557,22 +562,22 @@ private fun RigaTreno(t: ProssimoTreno, context: Context, destinazione: String, 
             Text(
                 t.oraPartenza(),
                 style = TextStyle(
-                    color = ColorProvider(tb.tx), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    color = col { it.tx }, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     textDecoration = if (t.cancellato) TextDecoration.LineThrough else TextDecoration.None,
                 ),
             )
             if (!t.cancellato) {
                 Text(
                     when { minuti > 0 -> "tra $minuti′"; else -> "in viaggio" },
-                    maxLines = 1, style = stile(tb.ter, 8),
+                    maxLines = 1, style = stile(col { it.ter }, 8),
                 )
             }
         }
-        Box(GlanceModifier.width(3.dp).height(30.dp).cornerRadius(2.dp).background(tb.colore(t.semaforo()))) {}
+        Box(GlanceModifier.width(3.dp).height(30.dp).cornerRadius(12.dp).background(col { it.colore(t.semaforo()) })) {}
         Spacer(GlanceModifier.width(10.dp))
         Column(GlanceModifier.defaultWeight()) {
-            Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1, style = stile(tb.tx, 11, bold = true))
-            Text("a $destinazione ${t.oraArrivo()}", maxLines = 1, style = stile(tb.sub, 9))
+            Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1, style = stile(col { it.tx }, 11, bold = true))
+            Text("a $destinazione ${t.oraArrivo()}", maxLines = 1, style = stile(col { it.sub }, 9))
         }
         BadgeStato(t, piccolo = true)
         Spacer(GlanceModifier.width(6.dp))
@@ -580,9 +585,9 @@ private fun RigaTreno(t: ProssimoTreno, context: Context, destinazione: String, 
         Spacer(GlanceModifier.width(6.dp))
         Text(
             t.binario ?: "—",
-            modifier = GlanceModifier.background(if (t.binarioConfermato) tb.accento.copy(alpha = 0.2f) else tb.sf2)
-                .cornerRadius(2.dp).padding(horizontal = 8.dp, vertical = 3.dp),
-            style = stile(tb.tx, 12, bold = true),
+            modifier = GlanceModifier.background(col { if (t.binarioConfermato) it.accento.copy(alpha = 0.2f) else it.sf2 })
+                .cornerRadius(12.dp).padding(horizontal = 8.dp, vertical = 3.dp),
+            style = stile(col { it.tx }, 12, bold = true),
         )
     }
 }

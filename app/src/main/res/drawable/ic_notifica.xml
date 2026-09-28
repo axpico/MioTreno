@@ -2,6 +2,7 @@
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24"
     android:tint="?android:attr/colorControlNormal">
-    <path android:fillColor="#FFFFFF"
-        android:pathData="M12,2C8,2 6,2.5 6,6v8c0,1.7 1.3,3 3,3l-1.3,1.3v0.4h8.6v-0.4L15,17c1.7,0 3,-1.3 3,-3V6C18,2.5 16,2 12,2zM8,14c-0.6,0 -1,-0.4 -1,-1s0.4,-1 1,-1 1,0.4 1,1 -0.4,1 -1,1zM11,10H8V6h3v4zM13,10V6h3v4h-3zM16,14c-0.6,0 -1,-0.4 -1,-1s0.4,-1 1,-1 1,0.4 1,1 -0.4,1 -1,1z" />
+    <!-- lo stesso muso del logo, scalato: parabrezza e fari come fori -->
+    <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M10,2h4a4,4 0 0 1 4,4v9a3,3 0 0 1 -3,3h-6a3,3 0 0 1 -3,-3v-9a4,4 0 0 1 4,-4z M9.5,4.5h5a1.5,1.5 0 0 1 1.5,1.5v3.5a0.8,0.8 0 0 1 -0.8,0.8h-6.4a0.8,0.8 0 0 1 -0.8,-0.8v-3.5a1.5,1.5 0 0 1 1.5,-1.5z M9.5,14.5m-1.2,0a1.2,1.2 0 1,1 2.4,0a1.2,1.2 0 1,1 -2.4,0z M14.5,14.5m-1.2,0a1.2,1.2 0 1,1 2.4,0a1.2,1.2 0 1,1 -2.4,0z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="1.6" android:strokeLineCap="round" android:pathData="M9.5,19.5L8,22 M14.5,19.5L16,22" />
 </vector>

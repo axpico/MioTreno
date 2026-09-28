@@ -26,7 +26,7 @@ import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.MainActivity
 import it.picone.miotreno.ui.componenti.colore
-import it.picone.miotreno.ui.theme.ScuroTb
+import it.picone.miotreno.ui.theme.ChiaroTb
 import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
 import it.picone.miotreno.widget.EXTRA_SEGUI
 import java.time.Instant
@@ -112,7 +112,9 @@ private fun builderTreno(
         treno.stato is StatoTreno.Cancellato ->
             "${treno.categoria} ${treno.numeroTreno} cancellato"
         minuti < 0 -> "In viaggio · ${treno.categoria} ${treno.numeroTreno} per ${treno.destinazione}"
-        else -> "Fra $minuti min · ${treno.categoria} ${treno.numeroTreno} per ${treno.destinazione}"
+        // Il binario è la seconda cosa che serve a chi cammina verso il treno: sta nel titolo.
+        else -> "Fra $minuti min" + (treno.binario?.let { " · Bin $it" } ?: "") +
+            " · ${treno.categoria} ${treno.numeroTreno} per ${treno.destinazione}"
     }
 
     val righe = buildList {
@@ -154,6 +156,7 @@ private fun builderTreno(
 
     return NotificationCompat.Builder(context, CANALE_TRENI)
         .setSmallIcon(R.drawable.ic_notifica)
+        .setColor(ChiaroTb.accento.toArgb())
         .setContentTitle(titolo)
         .setContentText(righe.first())
         .setStyle(NotificationCompat.InboxStyle().also { st -> righe.forEach(st::addLine) })
@@ -239,7 +242,7 @@ private fun costruisciLiveUpdate(
 ): Notification {
     creaCanale(context)
 
-    val colore = ScuroTb.colore(treno.semaforo()).toArgb()
+    val colore = ChiaroTb.colore(treno.semaforo()).toArgb()
     val stile = NotificationCompat.ProgressStyle().setStyledByProgress(true)
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
     if (p == null) {
@@ -291,7 +294,7 @@ private fun costruisciTrackingTreno(
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
     val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false)
         .setSubText(p?.sottotitolo)
-        .setColor(ScuroTb.colore(treno.semaforo()).toArgb())
+        .setColor(ChiaroTb.colore(treno.semaforo()).toArgb())
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .setAutoCancel(false)

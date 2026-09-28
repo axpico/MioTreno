@@ -1,8 +1,7 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- versione monocroma per le icone a tema (Android 13+): pin con foro (evenOdd) e binario,
-         il sistema applica il proprio colore e sfondo -->
-    <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M54,20C41,20 31,31 31,45C31,61 54,88 54,88C54,88 77,61 77,45C77,31 67,20 54,20Z M54,45m-13,0a13,13 0 1,1 26,0a13,13 0 1,1 -26,0Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M43,41h22v2h-22z M43,47h22v2h-22z M46.3,41h1.4v8h-1.4z M53.3,41h1.4v8h-1.4z M60.3,41h1.4v8h-1.4z" />
+    <!-- icona a tema (Android 13+): stesso muso, parabrezza e fari come fori (evenOdd) -->
+    <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M46,30h16a10,10 0 0 1 10,10v24a8,8 0 0 1 -8,8h-20a8,8 0 0 1 -8,-8v-24a10,10 0 0 1 10,-10z M45,36h18a4,4 0 0 1 4,4v10a2,2 0 0 1 -2,2h-22a2,2 0 0 1 -2,-2v-10a4,4 0 0 1 4,-4z M44,63m-3,0a3,3 0 1,1 6,0a3,3 0 1,1 -6,0z M64,63m-3,0a3,3 0 1,1 6,0a3,3 0 1,1 -6,0z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.5" android:strokeLineCap="round" android:pathData="M44,76L38,85 M64,76L70,85" />
 </vector>
