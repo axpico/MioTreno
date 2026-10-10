@@ -79,15 +79,27 @@ schermo() { # n nome raw didascalia
     PNG24:"$OUT/phoneScreenshots/${n}_${nome}.png"
 }
 
-# ritaglio (widget, notifica): largo 960, sotto la didascalia
-ritaglio() { # n nome raw geometria didascalia
-  local n="$1" nome="$2" raw="$3" geo="$4" testo="$5"
+# Ritaglia un elemento dell'interfaccia sui suoi bordi esatti (misurati sui pixel delle
+# catture: vedi RELEASE.md) e ne arrotonda gli angoli con il suo stesso raggio, così non
+# resta nulla dello sfondo dietro: né la tendina, né lo sfondo del launcher.
+pezzo() { # raw geometria raggio larghezza out
+  magick "$RAW/$1" -crop "$2" +repage "$TMP/p.png"
+  arrotonda "$TMP/p.png" "$TMP/p_r.png" "$3"
+  magick "$TMP/p_r.png" -resize "$4x" "$5"
+}
+
+# impila dei pezzi già pronti, centrati, sotto la didascalia; se non ci stanno in altezza
+# vengono ridotti tutti insieme (stessa scala per tutti: le proporzioni restano vere)
+impila() { # n nome didascalia pezzo...
+  local n="$1" nome="$2" testo="$3"; shift 3
   tela "$TMP/tela.png" "$testo"
-  magick "$RAW/$raw" -crop "$geo" +repage -resize 960x "$TMP/c.png"
-  arrotonda "$TMP/c.png" "$TMP/c_r.png" 40
-  magick "$TMP/tela.png" "$TMP/c_r.png" -gravity north -geometry +0+440 -composite \
+  magick -background none "$@" -gravity center -append -resize "1000x1440>" "$TMP/pila.png"
+  magick "$TMP/tela.png" "$TMP/pila.png" -gravity north -geometry +0+410 -composite \
     PNG24:"$OUT/phoneScreenshots/${n}_${nome}.png"
 }
+
+# distanziatore trasparente fra i pezzi di una pila
+spazio() { magick -size "1x$1" xc:none "$2"; }
 
 # ── screenshot telefono (1080x1920, 9:16) ────────────────────────────────────
 schermo 1 home "home_dark.png" "Il tuo treno,
@@ -95,29 +107,38 @@ a colpo d'occhio"
 schermo 2 dettaglio "detail_dark.png" "Fermata per fermata,
 dal punto in cui sali"
 
-# 3: chip in status bar (dalla cattura chiara) + Live Update nella tendina
-tela "$TMP/tela.png" "Quante fermate mancano,
-anche a telefono bloccato"
-magick "$RAW/home_light.png" -crop 1084x112+0+0 +repage -resize 960x "$TMP/chip.png"
-arrotonda "$TMP/chip.png" "$TMP/chip_r.png" 28
-magick "$RAW/shade_real.png" -crop 1010x400+37+768 +repage -resize 960x "$TMP/notifica.png"
-arrotonda "$TMP/notifica.png" "$TMP/notifica_r.png" 40
-magick "$TMP/tela.png" "$TMP/chip_r.png" -gravity north -geometry +0+470 -composite \
-  "$TMP/notifica_r.png" -gravity north -geometry +0+700 -composite \
-  PNG24:"$OUT/phoneScreenshots/3_live_update.png"
+# 3: il chip in status bar, la notifica Live Update e lo stesso conto nell'app
+spazio 34 "$TMP/sp.png"
+magick "$RAW/home_light.png" -crop 640x112+0+0 +repage "$TMP/chip_src.png"
+arrotonda "$TMP/chip_src.png" "$TMP/chip_r.png" 56
+magick "$TMP/chip_r.png" -resize 560x "$TMP/chip.png"
+pezzo shade_real.png 1000x372+42+776 46 960 "$TMP/notifica.png"
+pezzo detail_dark.png 1000x241+42+914 54 960 "$TMP/avanzamento.png"
+pezzo detail_dark.png 1000x557+42+315 54 960 "$TMP/partenza.png"
+impila 3 live_update "Quante fermate mancano,
+anche a telefono bloccato" \
+  "$TMP/chip.png" "$TMP/sp.png" "$TMP/notifica.png" "$TMP/sp.png" "$TMP/avanzamento.png" "$TMP/sp.png" "$TMP/partenza.png"
 
-ritaglio 4 widget "widgets_dark.png" "1084x1600+0+168" "Tre widget
-per la schermata home"
+# 4: i tre widget presi uno per uno sui loro bordi, senza sfondo né icone del launcher
+pezzo widgets_dark.png 762x362+61+180 58 762 "$TMP/w1.png"
+pezzo widgets_dark.png 961x562+62+585 58 961 "$TMP/w2.png"
+pezzo widgets_dark.png 762x564+61+1190 58 762 "$TMP/w3.png"
+spazio 40 "$TMP/sp.png"
+impila 4 widget "Tre widget
+per la schermata home" "$TMP/w1.png" "$TMP/sp.png" "$TMP/w2.png" "$TMP/sp.png" "$TMP/w3.png"
+
 schermo 5 statistiche "stats_dark.png" "I ritardi della tua linea,
 nel tempo"
-ritaglio 6 ricerca "picker_dark.png" "1084x1440+0+120" "Qualsiasi stazione d'Italia,
+# 6: schermo intero come gli altri, tastiera compresa: un ritaglio tagliava una riga a metà
+schermo 6 ricerca "picker_dark.png" "Qualsiasi stazione d'Italia,
 anche col GPS"
 schermo 7 tema_chiaro "home_light.png" "Chiaro o scuro,
 come il tuo telefono"
 
 # ── feature graphic 1024x500 ─────────────────────────────────────────────────
-magick "$RAW/home_dark.png" -crop 1006x896+42+760 +repage -resize x380 "$TMP/hero.png"
-arrotonda "$TMP/hero.png" "$TMP/hero_r.png" 28
+magick "$RAW/home_dark.png" -crop 1000x894+42+757 +repage "$TMP/hero.png"
+arrotonda "$TMP/hero.png" "$TMP/hero_big.png" 54
+magick "$TMP/hero_big.png" -resize x420 "$TMP/hero_r.png"
 magick -size 1024x500 "xc:$BLU" \
   -fill "$ALONE" -draw "circle 790,250 790,560" \
   \( "$TMP/treno.png" -resize 150x150 \) -gravity northwest -geometry +40+60 -composite \
