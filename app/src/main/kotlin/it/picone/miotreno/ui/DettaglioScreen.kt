@@ -153,7 +153,7 @@ fun DettaglioScreen(
                 else -> {
                     val codiciSalita = state.stazione?.codici.orEmpty()
                     item(key = "avanzamento") { Avanzamento(dettaglio, state.destinazioneNome, codiciSalita) }
-                    item(key = "fermate") { Fermate(dettaglio, state.impostazioni.stazioneDestinazione, codiciSalita) }
+                    item(key = "fermate") { Fermate(dettaglio, codiciSalita) }
                     item(key = "nota") {
                         Text(
                             "Aggiornamento automatico ogni 30 secondi",
@@ -269,7 +269,7 @@ private fun BarraAzioni(
  * stazioni a chi sale a Garibaldi.
  */
 @Composable
-private fun Fermate(dettaglio: DettaglioTreno.Ok, codDestinazione: String?, codiciSalita: List<String>) {
+private fun Fermate(dettaglio: DettaglioTreno.Ok, codiciSalita: List<String>) {
     val tb = LocalTb.current
     val fermate = dettaglio.fermate
     val salita = dettaglio.indiceSalita(codiciSalita)
@@ -294,7 +294,7 @@ private fun Fermate(dettaglio: DettaglioTreno.Ok, codDestinazione: String?, codi
         for (i in visibili) {
             val f = fermate[i]
             val tipo = when {
-                f.codice == codDestinazione -> TipoFermata.Target
+                i == dettaglio.indiceDestinazione -> TipoFermata.Target
                 i == dettaglio.indiceCorrente + 1 -> TipoFermata.Prossima
                 i == salita && sali && i > dettaglio.indiceCorrente -> TipoFermata.Salita
                 f.passata -> TipoFermata.Passata

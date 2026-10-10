@@ -1,0 +1,5 @@
+Prima versione di MioTreno.
+• Treni diretti dalla stazione più vicina a qualsiasi destinazione in Italia
+• Ritardi e binari in tempo reale, percorso fermata per fermata
+• Segui una corsa: notifica, widget e fermate mancanti in barra di stato
+• Storico dei ritardi, avvisi sciopero, tema chiaro e scuro

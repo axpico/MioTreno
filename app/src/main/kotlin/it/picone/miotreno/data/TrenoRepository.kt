@@ -240,7 +240,10 @@ class TrenoRepository(
             fermate = fermate,
             ritardoMinuti = dto.ritardo ?: treno.ritardoMinuti,
             indiceCorrente = fermate.indexOfLast { it.passata },
-            indiceDestinazione = fermate.indexOfFirst { it.codice == codDestinazione },
+            // il cluster e non il solo codice scelto: chi va a Garibaldi col Passante scende a
+            // Garibaldi Sotterranea, e senza questo la corsa "non arrivava" mai a destinazione
+            indiceDestinazione = codiciClusterDestinazione(codDestinazione).toSet()
+                .let { cluster -> fermate.indexOfFirst { it.codice in cluster } },
         )
     }
 

@@ -1,6 +1,8 @@
 package it.picone.miotreno
 
 import it.picone.miotreno.data.Andamento
+import it.picone.miotreno.data.AndamentoTrenoDto
+import it.picone.miotreno.data.FermataDto
 import it.picone.miotreno.data.JsonStore
 import it.picone.miotreno.data.LocalitaDto
 import it.picone.miotreno.data.PartenzaArrivoDto
@@ -9,6 +11,9 @@ import it.picone.miotreno.data.ScioperiApi
 import it.picone.miotreno.data.StazioneDto
 import it.picone.miotreno.data.TrenoRepository
 import it.picone.miotreno.data.ViaggiaTrenoApi
+import it.picone.miotreno.domain.DettaglioTreno
+import it.picone.miotreno.domain.ProssimoTreno
+import it.picone.miotreno.domain.StatoTreno
 import it.picone.miotreno.domain.TrenoSeguito
 import it.picone.miotreno.domain.stazioniVicine
 import kotlinx.coroutines.runBlocking
@@ -32,11 +37,12 @@ private class FakeViaggiaTrenoApi(
     private val stazioni: List<StazioneDto> = emptyList(),
     /** Se presente, elenco diverso per regione: come l'API vera. */
     private val stazioniPerRegione: Map<Int, List<StazioneDto>>? = null,
+    private val andamento: AndamentoTrenoDto? = null,
 ) : ViaggiaTrenoApi {
     override suspend fun partenze(codStazione: String, quando: Date) = partenzePerStazione[codStazione].orEmpty()
     override suspend fun arrivi(codStazione: String, quando: Date) = arriviPerStazione[codStazione].orEmpty()
     override suspend fun andamentoTreno(codOrigine: String, numeroTreno: Int, partenzaMs: Long) =
-        Andamento.DatiNonDisponibili
+        andamento?.let { Andamento.Ok(it) } ?: Andamento.DatiNonDisponibili
     override suspend fun elencoStazioni(idRegione: Int) = stazioniPerRegione?.get(idRegione).orEmpty().ifEmpty { stazioni }
     override suspend fun cercaStazione(prefisso: String): List<RicercaStazioneDto> = emptyList()
     override suspend fun regione(codStazione: String): Int? = null
@@ -124,5 +130,29 @@ class StazioniNazionaliTest {
         )
         val vicine = stazioniVicine(repo.stazioni(), lat = 41.9028, lon = 12.4964)
         assertEquals("S08409", vicine.first().stazione.codice)
+    }
+}
+
+class DestinazioneGemellaTest {
+    @Test
+    fun `la corsa arriva anche se ferma al codice gemello della destinazione`() = runBlocking {
+        // Garibaldi superficie (scelta) e sotterranea (dove ferma il Passante) distano 193 m
+        val superficie = StazioneDto("S01645", 45.4846, 9.1873, LocalitaDto(nomeLungo = "MILANO PORTA GARIBALDI"))
+        val sotterranea = StazioneDto("S01647", 45.4849, 9.1897, LocalitaDto(nomeLungo = "MILANO PORTA GARIBALDI SOTTERRANEA"))
+        val repo = repository(
+            FakeViaggiaTrenoApi(
+                stazioni = listOf(superficie, sotterranea),
+                andamento = AndamentoTrenoDto(
+                    fermate = listOf(FermataDto(id = "S01137"), FermataDto(id = "S01647"), FermataDto(id = "S01700")),
+                ),
+            ),
+        )
+        val treno = ProssimoTreno(
+            numeroTreno = 1, categoria = "REG", destinazione = "Treviglio", codOrigine = "S01137",
+            dataPartenzaTrenoMs = 0, orarioPartenzaMs = 0, orarioArrivoDestinazioneMs = 1, ritardoMinuti = 0,
+            binario = null, binarioConfermato = false, stato = StatoTreno.Regolare,
+        )
+        val d = repo.dettaglio(treno, "S01645") as DettaglioTreno.Ok
+        assertEquals(1, d.indiceDestinazione)
     }
 }

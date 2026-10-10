@@ -1,0 +1,38 @@
+MioTreno ti dice quando passa il tuo treno, da dove parte e quanto manca all'arrivo. Scegli una destinazione qualsiasi in Italia: l'app trova la stazione più vicina a te e ti mostra solo i treni diretti che ci arrivano.
+
+IL TUO TRENO, A COLPO D'OCCHIO
+• Prossime partenze con countdown, binario e ritardo in tempo reale
+• Orari già corretti col ritardo: vedi quando parte davvero, non solo l'orario di tabella
+• Il binario passa da "previsto" a "confermato" sotto i tuoi occhi
+• Treni cancellati, deviati o con variazioni segnalati chiaramente
+
+FERMATA PER FERMATA
+• Il percorso parte dalla stazione in cui sali, non dal capolinea del treno
+• Sai dov'è il treno adesso e quante fermate mancano alla tua
+• Orari previsti a ogni fermata, con il ritardo accumulato
+
+SEGUI LA TUA CORSA
+• Tocca "Segui": la corsa resta in evidenza nell'app, nel widget e nella notifica finché non arrivi
+• Avviso prima della partenza, con il preavviso che scegli tu
+• Sui telefoni compatibili, le fermate mancanti compaiono anche nella barra di stato
+
+WIDGET PER LA HOME
+Tre formati, dal piccolo alla lista completa. Da bordo mostrano l'orario d'arrivo e le fermate che mancano. Puoi seguire un treno direttamente dal widget.
+
+I RITARDI DELLA TUA LINEA
+MioTreno ricorda i ritardi dei treni che consulti e ti mostra la puntualità per giorno della settimana, fascia oraria e singolo treno. Sulle card trovi anche un'indicazione come "di solito puntuale".
+
+AVVISI SCIOPERO
+Se è previsto uno sciopero ferroviario nella regione della tua destinazione, lo vedi in cima alla lista, con il link ai treni garantiti.
+
+LEGGIBILE PER TUTTI
+• Font Atkinson Hyperlegible, progettato perché lettere e numeri non si confondano
+• Tema chiaro e scuro, testo grande supportato
+• Compatibile con TalkBack
+
+PRIVACY
+Nessun account. La posizione serve solo a trovare la stazione più vicina e non lascia il telefono; puoi anche scegliere la stazione a mano. Storico e preferenze restano sul dispositivo.
+
+L'app è gratuita e mostra pubblicità leggera (un banner e, di rado, un annuncio a tutto schermo quando cambi stazione), che puoi disattivare dalle Impostazioni.
+
+MioTreno è un'app indipendente e non ufficiale: non è affiliata né approvata da Trenitalia, RFI o Ferrovie dello Stato Italiane. I dati provengono dal servizio pubblico ViaggiaTreno di RFI e dal feed scioperi del Ministero delle Infrastrutture e dei Trasporti.
