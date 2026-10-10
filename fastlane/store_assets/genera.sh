@@ -61,13 +61,18 @@ arrotonda() { # in out raggio
     \( +clone -background "#0B1640" -shadow 45x22+0+18 \) +swap -background none -layers merge +repage "$out"
 }
 
-# tela 1080x1920: sfumatura rail blue, alone morbido dove poggia il telefono, didascalia in alto
+# tela 1080x1920: sfumatura rail blue, alone morbido dove poggia il telefono, didascalia in alto.
+# Didascalia su due righe con due toni: la prima (il cosa) in bianco, la seconda più tenue.
 tela() { # out didascalia
+  local riga1="${2%%$'\n'*}" riga2="${2#*$'\n'}"
   magick -size 1080x1920 "gradient:#2D54F0-#1A33B4" \
     \( -size 1080x1920 xc:none -fill "rgba(255,255,255,0.13)" -draw "circle 540,1180 540,1880" -blur 0x110 \) \
     -composite \
-    \( -size 960x290 -background none -fill white -font "$BOLD" -pointsize 74 -interline-spacing 4 \
-       -gravity center "caption:$2" \) -gravity north -geometry +0+86 -composite "$1"
+    \( -background none -fill white -font "$BOLD" -pointsize 76 "label:$riga1" -trim +repage -resize "960x>" \) \
+    -gravity north -geometry +0+122 -composite \
+    \( -background none -fill "#C9D5FF" -font "$MEDIUM" -pointsize 58 "label:$riga2" -trim +repage -resize "960x>" \) \
+    -gravity north -geometry +0+232 -composite \
+    "$1"
 }
 
 # telefono: schermo arrotondato dentro una cornice scura con un filo di luce sul bordo
@@ -103,54 +108,57 @@ pezzo() { # raw geometria raggio larghezza out
   magick "$TMP/p_r.png" -resize "$4x" "$5"
 }
 
-# impila dei pezzi già pronti, centrati, sotto la didascalia; se non ci stanno in altezza
-# vengono ridotti tutti insieme (stessa scala per tutti: le proporzioni restano vere)
-impila() { # n nome didascalia pezzo...
-  local n="$1" nome="$2" testo="$3"; shift 3
-  tela "$TMP/tela.png" "$testo"
-  magick -background none "$@" -gravity center -append -resize "980x1460>" "$TMP/pila.png"
-  # centrata nello spazio fra la didascalia (finisce a ~380) e il fondo
-  local h y
-  h=$(magick identify -format %h "$TMP/pila.png"); y=$((400 + (1490 - h) / 2))
-  magick "$TMP/tela.png" "$TMP/pila.png" -gravity north -geometry "+0+$y" -composite \
-    PNG24:"$OUT/phoneScreenshots/${n}_${nome}.png"
-}
-
 # distanziatore trasparente fra i pezzi di una pila
 spazio() { magick -size "1x$1" xc:none "$2"; }
 
 # ── screenshot telefono (1080x1920, 9:16) ────────────────────────────────────
-schermo 1 home "home_dark.png" "Il tuo treno,
+schermo 1 home "home_dark.png" "Il tuo treno
 a colpo d'occhio"
-schermo 2 dettaglio "detail_dark.png" "Fermata per fermata,
+schermo 2 dettaglio "detail_dark.png" "Fermata per fermata
 dal punto in cui sali"
 
-# 3: il chip in status bar, la notifica Live Update e lo stesso conto nell'app
-spazio 34 "$TMP/sp.png"
-magick "$RAW/home_light.png" -crop 640x112+0+0 +repage "$TMP/chip_src.png"
-arrotonda "$TMP/chip_src.png" "$TMP/chip_r.png" 56
-magick "$TMP/chip_r.png" -resize 560x "$TMP/chip.png"
-pezzo shade_real.png 1000x372+42+776 46 960 "$TMP/notifica.png"
-pezzo detail_dark.png 1000x241+42+914 54 960 "$TMP/avanzamento.png"
-pezzo detail_dark.png 1000x557+42+315 54 960 "$TMP/partenza.png"
-impila 3 live_update "Quante fermate mancano,
-anche a telefono bloccato" \
-  "$TMP/chip.png" "$TMP/sp.png" "$TMP/notifica.png" "$TMP/sp.png" "$TMP/avanzamento.png" "$TMP/sp.png" "$TMP/partenza.png"
+# Schermo composto: pezzi veri dell'app (già ritagliati e arrotondati) impilati su uno schermo
+# del telefono con la sua vera status bar, così anche queste due pagine stanno nella cornice.
+schermo_composto() { # n nome didascalia raw_statusbar sfondo pezzo...
+  local n="$1" nome="$2" testo="$3" bar="$4" bg="$5"; shift 5
+  magick -background none "$@" -gravity center -append "$TMP/pila.png"
+  # la pila sta al centro della parte di schermo che resta visibile sopra il bordo della tela
+  local h y
+  h=$(magick identify -format %h "$TMP/pila.png"); y=$((140 + (1900 - h) / 2)); [ "$y" -lt 160 ] && y=160
+  magick -size 1084x2412 "gradient:${bg}" \
+    \( "$RAW/$bar" -crop 1084x120+0+0 +repage \) -gravity north -geometry +0+0 -composite \
+    "$TMP/pila.png" -gravity north -geometry "+0+$y" -composite "$TMP/schermo.png"
+  tela "$TMP/tela.png" "$testo"
+  telefono "$TMP/schermo.png" "$TMP/tel.png" 800
+  magick "$TMP/tela.png" "$TMP/tel.png" -gravity north -geometry +0+400 -composite \
+    PNG24:"$OUT/phoneScreenshots/${n}_${nome}.png"
+}
 
-# 4: i tre widget presi uno per uno sui loro bordi, senza sfondo né icone del launcher
+# 3: status bar col chip, la notifica Live Update e lo stesso conto dentro l'app
+spazio 36 "$TMP/sp.png"
+pezzo shade_real.png 1000x372+42+776 46 1000 "$TMP/notifica.png"
+pezzo detail_dark.png 1000x241+42+914 54 1000 "$TMP/avanzamento.png"
+pezzo detail_dark.png 1000x557+42+315 54 1000 "$TMP/partenza.png"
+schermo_composto 3 live_update "Quante fermate mancano
+anche a telefono bloccato" detail_dark.png "#0E1428-#0A0E1C" \
+  "$TMP/notifica.png" "$TMP/sp.png" "$TMP/avanzamento.png" "$TMP/sp.png" "$TMP/partenza.png"
+
+# 4: i tre widget presi uno per uno sui loro bordi, su uno sfondo scuro neutro al posto
+# di quello del launcher
 pezzo widgets_dark.png 762x362+61+180 58 762 "$TMP/w1.png"
 pezzo widgets_dark.png 961x562+62+585 58 961 "$TMP/w2.png"
 pezzo widgets_dark.png 762x564+61+1190 58 762 "$TMP/w3.png"
-spazio 40 "$TMP/sp.png"
-impila 4 widget "Tre widget
-per la schermata home" "$TMP/w1.png" "$TMP/sp.png" "$TMP/w2.png" "$TMP/sp.png" "$TMP/w3.png"
+spazio 44 "$TMP/sp.png"
+schermo_composto 4 widget "Tre widget
+per la schermata home" stats_dark.png "#0E1428-#0A0E1C" \
+  "$TMP/w1.png" "$TMP/sp.png" "$TMP/w2.png" "$TMP/sp.png" "$TMP/w3.png"
 
-schermo 5 statistiche "stats_dark.png" "I ritardi della tua linea,
+schermo 5 statistiche "stats_dark.png" "I ritardi della tua linea
 nel tempo"
 # 6: schermo intero come gli altri, tastiera compresa: un ritaglio tagliava una riga a metà
-schermo 6 ricerca "picker_dark.png" "Qualsiasi stazione d'Italia,
+schermo 6 ricerca "picker_dark.png" "Qualsiasi stazione d'Italia
 anche col GPS"
-schermo 7 tema_chiaro "home_light.png" "Chiaro o scuro,
+schermo 7 tema_chiaro "home_light.png" "Chiaro o scuro
 come il tuo telefono"
 
 # ── feature graphic 1024x500 ─────────────────────────────────────────────────
