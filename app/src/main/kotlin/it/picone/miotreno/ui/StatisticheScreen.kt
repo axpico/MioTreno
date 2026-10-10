@@ -4,10 +4,12 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,6 +32,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.Statistiche
@@ -137,14 +140,15 @@ fun StatisticheScreen(
                 if (stat.andamento.size >= 2) {
                     Spacer(Modifier.height(Spazio.l))
                     Sparkline(stat.andamento, colore = tb.accento)
-                    Text("Ritardo medio, ultimi ${stat.andamento.size} giorni", style = Testo.micro, color = tb.ter)
+                    Text("Ritardo medio, ultimi ${stat.andamento.size} giorni con dati", style = Testo.micro, color = tb.ter)
                 }
             }
         }
 
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spazio.m)) {
-                Kpi("${stat.rilevazioni}", "Viaggi", Modifier.weight(1f))
+            // altezza comune: con testo grande un'etichetta va su due righe e le tessere restano pari
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spazio.m)) {
+                Kpi("${stat.rilevazioni}", "Rilevati", Modifier.weight(1f))
                 Kpi("${stat.stazioniCoinvolte}", "Stazioni", Modifier.weight(1f))
                 Kpi(stat.ritardoMedio.minuti(), "Ritardo medio", Modifier.weight(1f), colore(stat.ritardoMedio))
             }
@@ -185,9 +189,10 @@ fun StatisticheScreen(
 /** Tessera KPI: il valore sopra, grande; l'etichetta sotto, piccola. */
 @Composable
 private fun Kpi(valore: String, etichetta: String, modifier: Modifier = Modifier, colore: Color = LocalTb.current.tx) {
-    GlassCard(modifier, padding = Spazio.l) {
-        NumeroAnimato(valore, stile = Testo.numeroGrande, colore = colore)
-        Text(etichetta, style = Testo.etichetta, color = LocalTb.current.sub, maxLines = 1)
+    GlassCard(modifier.fillMaxHeight(), padding = Spazio.l) {
+        // Next e non Mono: in una tessera non serve l'incolonnamento, e la virgola mono spaziava "1 , 2"
+        NumeroAnimato(valore, stile = Testo.titolo, colore = colore)
+        Text(etichetta, style = Testo.etichetta, color = LocalTb.current.sub, maxLines = 2)
     }
 }
 
@@ -197,7 +202,8 @@ private fun Anello(quota: Float, colore: Color) {
     val tb = LocalTb.current
     val entrata = remember { Animatable(0f) }
     LaunchedEffect(quota) { entrata.animateTo(quota.coerceIn(0f, 1f), Molla.ui()) }
-    Canvas(Modifier.size(72.dp)) {
+    // decorativo: la percentuale è già scritta accanto
+    Canvas(Modifier.size(72.dp).clearAndSetSemantics { }) {
         val spessore = 8.dp.toPx()
         val stile = Stroke(spessore, cap = StrokeCap.Round)
         val inset = spessore / 2

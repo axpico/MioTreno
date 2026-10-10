@@ -2,6 +2,7 @@ package it.picone.miotreno
 
 import it.picone.miotreno.data.Andamento
 import it.picone.miotreno.data.JsonStore
+import it.picone.miotreno.data.LocalitaDto
 import it.picone.miotreno.data.PartenzaArrivoDto
 import it.picone.miotreno.data.RicercaStazioneDto
 import it.picone.miotreno.data.ScioperiApi
@@ -9,6 +10,7 @@ import it.picone.miotreno.data.StazioneDto
 import it.picone.miotreno.data.TrenoRepository
 import it.picone.miotreno.data.ViaggiaTrenoApi
 import it.picone.miotreno.domain.TrenoSeguito
+import it.picone.miotreno.domain.stazioniVicine
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
@@ -28,12 +30,14 @@ private class FakeViaggiaTrenoApi(
     private val partenzePerStazione: Map<String, List<PartenzaArrivoDto>> = emptyMap(),
     private val arriviPerStazione: Map<String, List<PartenzaArrivoDto>> = emptyMap(),
     private val stazioni: List<StazioneDto> = emptyList(),
+    /** Se presente, elenco diverso per regione: come l'API vera. */
+    private val stazioniPerRegione: Map<Int, List<StazioneDto>>? = null,
 ) : ViaggiaTrenoApi {
     override suspend fun partenze(codStazione: String, quando: Date) = partenzePerStazione[codStazione].orEmpty()
     override suspend fun arrivi(codStazione: String, quando: Date) = arriviPerStazione[codStazione].orEmpty()
     override suspend fun andamentoTreno(codOrigine: String, numeroTreno: Int, partenzaMs: Long) =
         Andamento.DatiNonDisponibili
-    override suspend fun elencoStazioni(idRegione: Int) = stazioni
+    override suspend fun elencoStazioni(idRegione: Int) = stazioniPerRegione?.get(idRegione).orEmpty().ifEmpty { stazioni }
     override suspend fun cercaStazione(prefisso: String): List<RicercaStazioneDto> = emptyList()
     override suspend fun regione(codStazione: String): Int? = null
     override suspend fun dettaglioStazione(codStazione: String, idRegione: Int): StazioneDto? = null
@@ -101,5 +105,24 @@ class ProssimiTreniTest {
         )
         val treni = repo.prossimiTreni(listOf("S09999"), DESTINAZIONE_TEST, Date(t0), seguito = seguito)
         assertEquals(listOf(42), treni.map { it.numeroTreno })
+    }
+}
+
+class StazioniNazionaliTest {
+    private fun dto(codice: String, nome: String, lat: Double, lon: Double) =
+        StazioneDto(codice, lat, lon, LocalitaDto(nomeLungo = nome))
+
+    @Test
+    fun `fuori dalla Lombardia la stazione piu' vicina e' quella vera, non una lombarda`() = runBlocking {
+        val repo = repository(
+            FakeViaggiaTrenoApi(
+                stazioniPerRegione = mapOf(
+                    1 to listOf(dto("S01700", "MILANO CENTRALE", 45.4859, 9.2041)),
+                    5 to listOf(dto("S08409", "ROMA TERMINI", 41.9010, 12.5011)),
+                ),
+            ),
+        )
+        val vicine = stazioniVicine(repo.stazioni(), lat = 41.9028, lon = 12.4964)
+        assertEquals("S08409", vicine.first().stazione.codice)
     }
 }

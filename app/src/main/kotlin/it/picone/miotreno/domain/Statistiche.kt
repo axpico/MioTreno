@@ -21,7 +21,9 @@ enum class PeriodoFiltro(val etichetta: String, val giorni: Int?) {
     Sempre("Sempre", null),
     UltimoMese("Ultimo mese", 30),
     UltimiTreMesi("Ultimi 3 mesi", 90),
-    AnnoCorrente("Anno corrente", 365),
+
+    // 365 giorni a ritroso, non dal 1° gennaio: "anno corrente" prometteva un'altra cosa
+    UltimoAnno("Ultimo anno", 365),
 }
 
 fun filtraPerPeriodo(records: List<RitardoRecord>, periodo: PeriodoFiltro, oggi: LocalDate = LocalDate.now()): List<RitardoRecord> {
@@ -83,10 +85,7 @@ fun calcolaStatistiche(records: List<RitardoRecord>, zona: ZoneId = ZoneId.syste
                 val r = rs.first()
                 VoceStat(
                     etichetta = "${r.categoria} $numero",
-                    sottotitolo = String.format(
-                        "%tR",
-                        java.util.Date(r.orarioProgrammato),
-                    ),
+                    sottotitolo = r.orarioProgrammato.comeOra(zona),
                     valore = rs.map { it.ritardoMinuti }.average(),
                     rilevazioni = rs.size,
                 )

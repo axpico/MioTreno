@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -38,7 +40,19 @@ fun OrarioConRitardo(
     val programmata = orario.programmataMs
     val ritardo = orario.ritardoMinuti
 
-    Column(modifier, horizontalAlignment = if (allineaFine) Alignment.End else Alignment.Start) {
+    // Letto come una frase: "≈15:08", "15:04", "+4" in fila non dicono a TalkBack quale sia
+    // l'orario di tabella e quale la stima.
+    val descrizione = when {
+        previsto == null -> "orario non disponibile"
+        cancellato -> "${programmata?.comeOra() ?: previsto}, cancellato"
+        orario.inRitardo && programmata != null && ritardo != null ->
+            "$previsto previste, da orario ${programmata.comeOra()}, ${descriviRitardo(ritardo)}"
+        else -> previsto
+    }
+    Column(
+        modifier.clearAndSetSemantics { contentDescription = descrizione },
+        horizontalAlignment = if (allineaFine) Alignment.End else Alignment.Start,
+    ) {
         Text(
             when {
                 previsto == null -> "—"
@@ -48,6 +62,7 @@ fun OrarioConRitardo(
             },
             style = stile,
             color = colore ?: tb.tx,
+            softWrap = false,
             textDecoration = if (cancellato) TextDecoration.LineThrough else null,
         )
         if (!cancellato && orario.inRitardo && programmata != null && ritardo != null) {

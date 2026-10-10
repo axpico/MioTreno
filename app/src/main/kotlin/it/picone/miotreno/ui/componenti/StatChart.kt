@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -45,7 +47,10 @@ fun StatChart(
     val entrata = remember { Animatable(0f) }
     LaunchedEffect(voci) { entrata.snapTo(0f); entrata.animateTo(1f, Molla.ui()) }
 
-    Column(modifier.fillMaxWidth()) {
+    val descrizione = voci.joinToString(", ") { v ->
+        "${v.etichetta} " + if (v.rilevazioni > 0) "${formato(v.valore).trimEnd('′')} minuti" else "nessun dato"
+    }
+    Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = descrizione }) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             voci.forEach { v ->
                 Text(
@@ -83,7 +88,12 @@ fun StatChart(
 fun Sparkline(valori: List<Double>, modifier: Modifier = Modifier, colore: Color = LocalTb.current.accento) {
     val entrata = remember { Animatable(0f) }
     LaunchedEffect(valori) { entrata.snapTo(0f); entrata.animateTo(1f, Molla.piatta()) }
-    Canvas(modifier.fillMaxWidth().height(64.dp)) {
+    val descrizione = if (valori.size < 2) {
+        ""
+    } else {
+        "Andamento del ritardo medio: da ${"%.1f".format(valori.first())} a ${"%.1f".format(valori.last())} minuti"
+    }
+    Canvas(modifier.fillMaxWidth().height(64.dp).clearAndSetSemantics { contentDescription = descrizione }) {
         if (valori.size < 2) return@Canvas
         val max = valori.max().coerceAtLeast(1.0)
         val passo = size.width / (valori.size - 1)
@@ -114,7 +124,12 @@ fun BarraOrizzontale(v: VoceStat, max: Double, colore: Color, formato: (Double) 
     val tb = LocalTb.current
     val entrata = remember { Animatable(0f) }
     LaunchedEffect(v) { entrata.snapTo(0f); entrata.animateTo(1f, Molla.ui()) }
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        modifier.fillMaxWidth().clearAndSetSemantics {
+            contentDescription = "${v.etichetta} delle ${v.sottotitolo}: ${formato(v.valore).trimEnd('′')} minuti di ritardo medio"
+        },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Column(Modifier.fillMaxWidth(0.3f)) {
             Text(v.etichetta, style = Testo.etichettaBold, color = tb.tx)
             Text(v.sottotitolo, style = Testo.micro, color = tb.ter)

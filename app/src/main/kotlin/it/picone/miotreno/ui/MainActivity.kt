@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
@@ -319,7 +320,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         stat = state.statistiche,
                         filtroPeriodo = state.filtroPeriodo,
                         onFiltroPeriodo = vm::impostaFiltroPeriodo,
-                        nomeStazioneFiltro = state.stazioni.firstOrNull { it.codice == state.filtroStazione }?.nome,
+                        nomeStazioneFiltro = state.stazioniStorico.firstOrNull { it.codice == state.filtroStazione }?.nome,
                         onFiltroStazione = vm::apriSelettoreFiltroStazione,
                     )
                     Schermata.Impostazioni -> SettingsScreen(
@@ -421,7 +422,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
 
         AnimatedVisibility(visible = state.selettoreFiltroStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
             SelettoreStazione(
-                stazioni = state.stazioni,
+                stazioni = state.stazioniStorico,
                 correnteCodice = state.filtroStazione,
                 onScegli = vm::scegliFiltroStazione,
                 onChiudi = vm::chiudiSelettoreFiltroStazione,
@@ -472,7 +473,7 @@ private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
             val colore by animateColorAsState(if (attivo) tb.accento else tb.ter, Molla.piatta(), label = "navc-${tab.nome}")
             Row(
                 Modifier
-                    .weight(if (attivo) 1.6f else 1f)
+                    .weight(if (attivo) 2f else 1f)
                     .animateContentSize(Molla.ui())
                     .heightIn(min = 48.dp)
                     .clip(Forme.barra)
@@ -486,6 +487,7 @@ private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
                 if (attivo) {
                     Text(
                         tab.nome, style = Testo.etichettaBold, color = colore, maxLines = 1,
+                        softWrap = false, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }

@@ -15,6 +15,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -321,6 +323,7 @@ private fun Fermate(dettaglio: DettaglioTreno.Ok, codDestinazione: String?, codi
  * La card che arriva dalla home espandendosi. Stato terminale (cancellato) = card spenta,
  * badge rosso pieno, orario barrato, nessun countdown.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CardIntestazione(
     treno: ProssimoTreno, ora: Long, seguito: Boolean, modifier: Modifier, atteso: String?,
@@ -348,7 +351,12 @@ private fun CardIntestazione(
             if (!cancellato) AnimatedCountdown(treno.minutiAllaPartenza(ora))
         }
         Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // FlowRow: con testo grande il chip "da Sotterranea" va a capo invece di ridursi a "da So…"
+        FlowRow(
+            itemVerticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Binario(treno, grande = true)
             Text(
                 if (treno.binarioConfermato) "binario confermato" else "binario previsto",
@@ -417,7 +425,7 @@ private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?, codiciS
                         prossima != null -> "Prossima fermata: ${prossima.nome} · ${prossima.oraPrevista()}"
                         else -> "$fatte di $totale fermate confermate"
                     }.orEmpty(),
-                    style = Testo.micro, color = tb.sub, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = Testo.micro, color = tb.sub, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(12.dp))

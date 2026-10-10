@@ -199,15 +199,16 @@ fun SettingsScreen(
 
         item {
             Sezione("Pubblicità e supporto") {
-                RigaToggle(Icone.Chiudi, "Disabilita le pubblicità", "Niente banner né interstitial", !imp.adsAbilitate) {
-                    onAdsAbilitate(!it)
-                }
+                RigaToggle(
+                    Icone.Treno, "Pubblicità", "Un banner nella lista treni: aiuta a tenere l'app gratuita",
+                    imp.adsAbilitate, onAdsAbilitate,
+                )
                 if (imp.adsAbilitate && mostraGestioneConsenso) {
                     Divisore()
                     RigaVoce(Icone.Impostazioni, "Consenso privacy", "Gestisci le preferenze", onClick = onGestisciConsenso)
                 }
                 Divisore()
-                RigaVoce(Icone.Spunta, "Supporta lo sviluppatore", "Offrimi un caffè ☕", onClick = onSupportaSviluppatore)
+                RigaVoce(Icone.Cuore, "Supporta lo sviluppatore", "Offrimi un caffè ☕", onClick = onSupportaSviluppatore)
             }
         }
 

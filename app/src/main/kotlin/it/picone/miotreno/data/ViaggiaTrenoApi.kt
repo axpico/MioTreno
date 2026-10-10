@@ -10,7 +10,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Lombardia. Serve per elencoStazioni. */
+/** Lombardia: regione di ripiego per il feed scioperi finché la destinazione non ne ha una. */
 const val REGIONE_LOMBARDIA = 1
 
 /** User-Agent condiviso da tutte le chiamate HTTP dell'app (ViaggiaTreno e feed scioperi). */
@@ -31,7 +31,7 @@ interface ViaggiaTrenoApi {
     suspend fun partenze(codStazione: String, quando: Date = Date()): List<PartenzaArrivoDto>
     suspend fun arrivi(codStazione: String, quando: Date = Date()): List<PartenzaArrivoDto>
     suspend fun andamentoTreno(codOrigine: String, numeroTreno: Int, partenzaMs: Long): Andamento
-    suspend fun elencoStazioni(idRegione: Int = REGIONE_LOMBARDIA): List<StazioneDto>
+    suspend fun elencoStazioni(idRegione: Int): List<StazioneDto>
 
     /** Ricerca stazioni per prefisso nome, su tutto il territorio nazionale (niente coordinate). */
     suspend fun cercaStazione(prefisso: String): List<RicercaStazioneDto>

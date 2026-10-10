@@ -72,6 +72,8 @@ data class UiState(
     // scelta manuale della stazione
     val selettoreStazione: Boolean = false,
     val stazioni: List<Stazione> = emptyList(),
+    /** Stazioni presenti nello storico ritardi: le uniche sensate nel filtro delle statistiche. */
+    val stazioniStorico: List<Stazione> = emptyList(),
     // scelta della destinazione
     val selettoreDestinazione: Boolean = false,
     val destinazioneNome: String? = null,
@@ -372,9 +374,15 @@ class TrenoViewModel : ViewModel() {
         caricaStatistiche()
     }
 
+    /** Solo le stazioni che compaiono nello storico: filtrare per una senza dati non ha senso. */
     fun apriSelettoreFiltroStazione() {
         _state.update { it.copy(selettoreFiltroStazione = true) }
-        caricaStazioniSeServe()
+        viewModelScope.launch {
+            val codici = repo.storicoRitardi().map { it.stazionePartenzaCodice }.toSet()
+            val tutte = runCatching { repo.stazioni() }.getOrDefault(emptyList())
+            val s = codici.map { cod -> tutte.firstOrNull { it.codice == cod } ?: Stazione(cod, cod, 0.0, 0.0) }
+            _state.update { it.copy(stazioniStorico = s.sortedBy { st -> st.nome }) }
+        }
     }
 
     /** Elenco per i selettori a filtro locale (passaggio, statistiche, partenza): una volta sola. */

@@ -36,16 +36,18 @@ class TrenoRepository(
     private val scioperiApi: ScioperiApi,
     private val store: JsonStore,
 ) {
-    /** Elenco stazioni della regione, scaricato una volta sola e poi servito dalla cache. */
-    suspend fun stazioni(): List<Stazione> {
-        store.leggi<List<Stazione>>(FILE_STAZIONI, emptyList())
-            .takeIf { it.isNotEmpty() }
-            ?.let { return it }
+    /**
+     * Tutte le stazioni italiane: l'elenco nazionale più quelle aggiunte da [risolviStazione].
+     *
+     * Prima era la sola Lombardia, e il GPS cercava "la più vicina" lì dentro anche a Roma:
+     * stazione sbagliata a centinaia di km, senza alcun errore. In memoria perché la si legge
+     * a ogni refresh (stazione corrente, nomi, cluster) e sono ~3000 voci da decodificare.
+     */
+    suspend fun stazioni(): List<Stazione> = cacheStazioni ?: (
+        stazioniNazionali() + store.leggi<List<Stazione>>(FILE_STAZIONI, emptyList())
+    ).distinctBy { it.codice }.also { cacheStazioni = it }
 
-        val scaricate = api.elencoStazioni().mapNotNull { it.comeStazione() }
-        if (scaricate.isNotEmpty()) store.scrivi(FILE_STAZIONI, scaricate)
-        return scaricate
-    }
+    @Volatile private var cacheStazioni: List<Stazione>? = null
 
     /**
      * Elenco di tutte le stazioni italiane, scaricato una volta sola (23 chiamate regionali
@@ -104,6 +106,7 @@ class TrenoRepository(
         val stazione = api.dettaglioStazione(codice, idRegione)?.comeStazione(codice) ?: return null
         val cache = store.leggi<List<Stazione>>(FILE_STAZIONI, emptyList())
         store.scrivi(FILE_STAZIONI, cache + stazione)
+        cacheStazioni = null
         return stazione
     }
 
@@ -115,11 +118,10 @@ class TrenoRepository(
     suspend fun regioneDi(codice: String): Int? = api.regione(codice)
 
     /** Codici del cluster della destinazione (vedi [stazioniVicine]); senza coordinate, solo sé stessa. */
-    private suspend fun codiciClusterDestinazione(codDestinazione: String): List<String> {
+    private suspend fun codiciClusterDestinazione(codDestinazione: String): List<String> = runCatching {
         val staz = risolviStazione(codDestinazione) ?: return listOf(codDestinazione)
-        val cluster = stazioniVicine(stazioni(), staz.lat, staz.lon).map { it.stazione.codice }
-        return cluster.ifEmpty { listOf(codDestinazione) }
-    }
+        stazioniVicine(stazioni(), staz.lat, staz.lon).map { it.stazione.codice }
+    }.getOrNull().orEmpty().ifEmpty { listOf(codDestinazione) } // il cluster è un di più: senza, basta il codice scelto
 
     suspend fun salvaRegioneDestinazione(idRegione: Int) = store.scrivi(FILE_REGIONE_DESTINAZIONE, idRegione)
 

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -240,7 +241,8 @@ private fun RigaTreno(
             OrarioConRitardo(
                 orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
                 stile = Testo.numero,
-                modifier = Modifier.width(72.dp),
+                // min, non fisso: con testo grande "≈15:33" andava a capo a metà orario
+                modifier = Modifier.widthIn(min = 72.dp),
                 colore = coloreOrario,
                 cancellato = cancellato,
             )
@@ -564,14 +566,13 @@ private fun popAlConfermare(confermato: Boolean): Float {
 private fun BinarioTessera(treno: ProssimoTreno) {
     val tb = LocalTb.current
     val confermato = treno.binarioConfermato
-    Row(
-        Modifier.scale(popAlConfermare(confermato)),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    // numero sopra, stato sotto: in riga, con testo grande, "confermato" andava a capo a metà parola
+    Column(Modifier.scale(popAlConfermare(confermato))) {
         Text(treno.binario ?: "—", style = Testo.numero, color = if (confermato) tb.tx else tb.sub)
-        if (confermato) Box(Modifier.size(6.dp).clip(CircleShape).background(tb.accento))
-        Text(if (confermato) "confermato" else "previsto", style = Testo.micro, color = if (confermato) tb.accento else tb.ter)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (confermato) Box(Modifier.size(6.dp).clip(CircleShape).background(tb.accento))
+            Text(if (confermato) "confermato" else "previsto", style = Testo.micro, color = if (confermato) tb.accento else tb.ter)
+        }
     }
 }
 

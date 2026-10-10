@@ -116,6 +116,24 @@ object Icone {
             moveTo(20f, 4f); lineTo(20f, 8.5f); lineTo(15.5f, 8.5f)
         })
     }
+    val Orologio: ImageVector by lazy {
+        icona("orologio", {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 11.99f, 3f)
+            moveTo(12f, 7.5f); lineTo(12f, 12f); lineTo(15f, 14f)
+        })
+    }
+    val Cuore: ImageVector by lazy {
+        icona("cuore", {
+            moveTo(12f, 20f)
+            curveTo(5f, 15.5f, 3f, 12f, 3f, 8.8f)
+            curveTo(3f, 6.1f, 5.1f, 4f, 7.7f, 4f)
+            curveTo(9.5f, 4f, 11.1f, 5f, 12f, 6.5f)
+            curveTo(12.9f, 5f, 14.5f, 4f, 16.3f, 4f)
+            curveTo(18.9f, 4f, 21f, 6.1f, 21f, 8.8f)
+            curveTo(21f, 12f, 19f, 15.5f, 12f, 20f)
+            close()
+        })
+    }
     val Frecciagiu: ImageVector by lazy {
         icona("giu", { moveTo(12f, 5f); lineTo(12f, 19f); moveTo(6f, 13f); lineTo(12f, 19f); lineTo(18f, 13f) })
     }

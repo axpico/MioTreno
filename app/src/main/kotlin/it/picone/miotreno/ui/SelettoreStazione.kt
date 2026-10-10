@@ -259,7 +259,7 @@ private fun Riga(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    if (icona) Icone.Posizione else Icone.Aggiorna, contentDescription = null,
+                    if (icona) Icone.Posizione else Icone.Orologio, contentDescription = null,
                     tint = tb.accento, modifier = Modifier.size(18.dp),
                 )
             }

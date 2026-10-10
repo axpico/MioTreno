@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -221,6 +222,13 @@ private fun Nodo(tipo: TipoFermata) {
     }
 }
 
+/** Il delta a parole, per TalkBack: "+4" con una freccia non si sente. */
+fun descriviRitardo(minuti: Int): String = when {
+    minuti > 0 -> if (minuti == 1) "1 minuto di ritardo" else "$minuti minuti di ritardo"
+    minuti < 0 -> if (minuti == -1) "1 minuto di anticipo" else "${-minuti} minuti di anticipo"
+    else -> "in orario"
+}
+
 /** Delta stile trading: "+4" in ambra/arancio con freccia su, "−1" in verde con freccia giù. */
 @Composable
 fun DeltaRitardo(minuti: Int, modifier: Modifier = Modifier, piccolo: Boolean = false) {
@@ -230,7 +238,10 @@ fun DeltaRitardo(minuti: Int, modifier: Modifier = Modifier, piccolo: Boolean = 
         minuti < 10 -> tb.ambra
         else -> tb.arancio
     }
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    Row(
+        modifier.clearAndSetSemantics { contentDescription = descriviRitardo(minuti) },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Icon(
             if (minuti > 0) Icone.Frecciasu else Icone.Frecciagiu, contentDescription = null,
             tint = colore, modifier = Modifier.size(if (piccolo) 10.dp else 14.dp),

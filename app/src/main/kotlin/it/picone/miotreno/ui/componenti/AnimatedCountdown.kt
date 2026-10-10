@@ -13,8 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import it.picone.miotreno.ui.theme.LocalTb
@@ -33,7 +33,8 @@ fun NumeroAnimato(
     stile: TextStyle = Testo.hero,
     colore: Color = LocalTb.current.tx,
 ) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+    // una cifra = un nodo di testo: senza questo TalkBack legge "1", "2" invece di "12"
+    Row(modifier.clearAndSetSemantics { contentDescription = valore }, verticalAlignment = Alignment.CenterVertically) {
         valore.forEachIndexed { i, c ->
             AnimatedContent(
                 targetState = c,
@@ -69,11 +70,11 @@ fun AnimatedCountdown(
     val partito = minuti < 0
     val descrizione = if (partito) "Treno partito" else "Parte tra $minuti minuti"
     Column(
-        modifier.semantics(mergeDescendants = true) { contentDescription = descrizione },
+        modifier.clearAndSetSemantics { contentDescription = descrizione },
         horizontalAlignment = Alignment.End,
     ) {
         if (partito) {
-            Text("in viaggio", style = if (grande) Testo.numero else Testo.numeroPiccolo, color = tb.accento2)
+            Text("in viaggio", style = if (grande) Testo.sottotitolo else Testo.etichettaBold, color = tb.accento2)
         } else {
             NumeroAnimato(
                 minuti.toString(),
