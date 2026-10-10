@@ -72,6 +72,7 @@ class LocationProvider(private val context: Context) {
                         }
                     }
                     cont.invokeOnCancellation { lm.removeUpdates(listener) }
+                    @Suppress("DEPRECATION") // unica via per un fix attivo sotto API 30, vedi sopra
                     lm.requestSingleUpdate(provider, listener, Looper.getMainLooper())
                 }
             }

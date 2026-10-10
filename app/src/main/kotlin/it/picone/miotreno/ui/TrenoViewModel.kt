@@ -515,7 +515,7 @@ class TrenoViewModel : ViewModel() {
         }
         aggiorna()
         ricalcolaNotifica(Deps.app)
-        contaEProponiInterstitial()
+        // niente interstitial: invertire è il gesto quotidiano del ritorno, non una scelta nuova
     }
 
     // ── stazione di passaggio ────────────────────────────────────────────────

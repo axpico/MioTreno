@@ -474,7 +474,7 @@ private fun BarraViaggio(
             )
             for (i in fermateIntermedie) {
                 val frazione = (i - salita).toFloat() / tratte!!
-                val passata = i <= dettaglio!!.indiceCorrente
+                val passata = i <= dettaglio.indiceCorrente
                 Box(
                     Modifier
                         .align(Alignment.CenterStart)

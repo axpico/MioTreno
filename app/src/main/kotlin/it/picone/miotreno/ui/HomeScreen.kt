@@ -53,6 +53,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -106,6 +107,8 @@ fun HomeScreen(
     onScegliStazione: () -> Unit,
     onScambia: () -> Unit,
     onScegliDestinazione: () -> Unit,
+    /** Altezza del banner sotto la barra di navigazione: la lista deve finire sopra entrambi. */
+    altezzaBanner: Dp = 0.dp,
 ) {
     val tb = LocalTb.current
     val haptic = rememberHaptic()
@@ -127,7 +130,7 @@ fun HomeScreen(
         ) {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA),
+                contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA + altezzaBanner),
             ) {
                 item(key = "header") {
                     Intestazione(state, onScegliStazione, onScegliDestinazione, onScambia)
@@ -149,7 +152,7 @@ fun HomeScreen(
                     }
                     state.caricamento && state.treni.isEmpty() -> items(3, key = {
                         "skel$it"
-                    }) { Scheletro(it, Modifier.padding(top = Spazio.l)) }
+                    }) { Scheletro(Modifier.padding(top = Spazio.l), indice = it) }
                     state.treni.isEmpty() -> item {
                         StatoVuoto(
                             Icone.Treno, "Nessun treno diretto",
@@ -222,19 +225,27 @@ fun HomeScreen(
                 }
             }
         }
-        if (state.impostazioni.adsAbilitate && AdsManager.canRequestAds()) AdMobBanner()
     }
 }
 
-/** Banner fisso in fondo alla home. `AndroidView` basta: nessuna libreria Compose-Ads in più. */
+/**
+ * Banner adattivo ancorato: larghezza piena del contenuto, altezza scelta da AdMob per quella
+ * larghezza (il 320×50 fisso lasciava bande vuote ai lati e rende meno).
+ */
 @Composable
-private fun AdMobBanner() {
+fun rememberAdSize(larghezza: Dp): AdSize {
     val context = LocalContext.current
+    return remember(larghezza) { AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, larghezza.value.toInt()) }
+}
+
+/** Banner in fondo alla home, *sotto* la barra di navigazione: un annuncio coperto viola le policy AdMob. */
+@Composable
+fun AdMobBanner(adSize: AdSize, modifier: Modifier = Modifier) {
     AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = {
+        modifier = modifier.fillMaxWidth().height(adSize.height.dp),
+        factory = { context ->
             AdView(context).apply {
-                setAdSize(AdSize.BANNER)
+                setAdSize(adSize)
                 adUnitId = AdsManager.AD_UNIT_BANNER_ID
                 loadAd(AdRequest.Builder().build())
             }
@@ -344,7 +355,7 @@ private fun RigaPercorso(
  * la lista "salta" quando i dati arrivano.
  */
 @Composable
-private fun Scheletro(indice: Int = 0, modifier: Modifier = Modifier) {
+private fun Scheletro(modifier: Modifier = Modifier, indice: Int = 0) {
     val tb = LocalTb.current
     val ritardo = indice * 90
     if (indice == 0) {

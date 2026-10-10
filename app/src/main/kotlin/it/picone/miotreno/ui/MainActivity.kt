@@ -30,7 +30,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,7 +44,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Icon
@@ -61,8 +62,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,6 +71,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -269,6 +271,11 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
         }
     }
 
+    val barraVisibile = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.Onboarding
+    val conBanner = state.schermata == Schermata.Home && state.impostazioni.adsAbilitate && AdsManager.canRequestAds()
+    val adSize = rememberAdSize(LocalConfiguration.current.screenWidthDp.dp.coerceAtMost(LARGHEZZA_MAX))
+    val altezzaBanner = if (conBanner) adSize.height.dp else 0.dp
+
     Box(Modifier.fillMaxSize().background(tb.bg)) {
         SharedTransitionLayout(
             Modifier.align(Alignment.TopCenter).widthIn(max = LARGHEZZA_MAX).fillMaxSize()
@@ -307,6 +314,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         onScegliStazione = vm::apriSelettoreStazione,
                         onScambia = vm::scambiaOrigineDestinazione,
                         onScegliDestinazione = vm::apriSelettoreDestinazione,
+                        altezzaBanner = altezzaBanner,
                     )
                     Schermata.Dettaglio -> DettaglioScreen(
                         state = state, ora = ora,
@@ -360,28 +368,36 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                 .background(tb.bg.copy(alpha = 0.92f)),
         )
 
-        val barraVisibile = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.Onboarding
         // Velo sotto la barra flottante: senza, le righe si leggevano nello spazio attorno alla
-        // pillola. Non sopra il banner della home: un annuncio non va coperto.
-        val bannerInHome = state.schermata == Schermata.Home && state.impostazioni.adsAbilitate && AdsManager.canRequestAds()
+        // pillola. Il banner sta sotto barra e velo, quindi non viene mai coperto.
         AnimatedVisibility(
-            visible = barraVisibile && !bannerInHome,
+            visible = barraVisibile,
             modifier = Modifier.align(Alignment.BottomCenter),
             enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta()),
         ) {
             Box(
                 Modifier.fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars.add(WindowInsets(bottom = ALTEZZA_VELO)))
+                    .windowInsetsBottomHeight(
+                        WindowInsets.navigationBars.add(WindowInsets(bottom = ALTEZZA_VELO + altezzaBanner)),
+                    )
                     .background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to tb.bg.copy(alpha = 0.9f), 1f to tb.bg)),
             )
         }
 
-        AnimatedVisibility(
-            visible = barraVisibile,
-            modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = LARGHEZZA_MAX_BARRA),
-            enter = slideInVertically(Molla.ui()) { it } + fadeIn(),
-            exit = slideOutVertically(Molla.piatta()) { it } + fadeOut(),
-        ) { BarraNav(state.schermata, vm::vaiA) }
+        // Barra, poi banner, poi la gesture bar: impilati, così l'annuncio non finisce mai sotto la pillola.
+        Column(
+            Modifier.align(Alignment.BottomCenter).widthIn(max = LARGHEZZA_MAX),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            AnimatedVisibility(
+                visible = barraVisibile,
+                modifier = Modifier.widthIn(max = LARGHEZZA_MAX_BARRA),
+                enter = slideInVertically(Molla.ui()) { it } + fadeIn(),
+                exit = slideOutVertically(Molla.piatta()) { it } + fadeOut(),
+            ) { BarraNav(state.schermata, vm::vaiA) }
+            if (conBanner) AdMobBanner(adSize, Modifier.background(tb.bg))
+            if (barraVisibile) Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
 
         AnimatedVisibility(visible = state.selettoreStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
             SelettoreStazione(
@@ -453,7 +469,6 @@ private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
     val tb = LocalTb.current
     Row(
         Modifier
-            .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 24.dp, vertical = 12.dp)
             .fillMaxWidth()
             .ombraMorbida(tb, Forme.barra, 16.dp)
