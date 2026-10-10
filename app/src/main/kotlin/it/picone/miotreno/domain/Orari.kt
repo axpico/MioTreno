@@ -1,5 +1,15 @@
 package it.picone.miotreno.domain
 
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+private val ORA = DateTimeFormatter.ofPattern("HH:mm")
+
+/** "14:20": l'unico formato orario dell'app — schermate, widget e notifiche. */
+fun Long.comeOra(zona: ZoneId = ZoneId.systemDefault()): String =
+    ORA.format(Instant.ofEpochMilli(this).atZone(zona))
+
 /**
  * Orario da mostrare per una fermata, con la distinzione fra fatto e previsione.
  *

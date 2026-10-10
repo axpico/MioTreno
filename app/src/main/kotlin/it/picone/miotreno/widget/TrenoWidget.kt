@@ -56,6 +56,7 @@ import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
+import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.comeSeguito
 import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.orarioProiettato
@@ -68,18 +69,12 @@ import it.picone.miotreno.ui.theme.ChiaroTb
 import it.picone.miotreno.ui.theme.ScuroTb
 import it.picone.miotreno.ui.theme.TbColors
 import kotlinx.coroutines.flow.first
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /** Extra dell'Intent: quale treno aprire quando si tocca una riga del widget. */
 const val EXTRA_NUMERO_TRENO = "numero_treno"
 
 /** Chi apre l'app con questo flag vuole anche seguire quel treno, non solo vederlo. */
 const val EXTRA_SEGUI = "segui_treno"
-
-private val ORA = DateTimeFormatter.ofPattern("HH:mm")
-private fun Long.ora(): String = ORA.format(Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()))
 
 /**
  * Orari proiettati col ritardo corrente.
@@ -89,10 +84,10 @@ private fun Long.ora(): String = ORA.format(Instant.ofEpochMilli(this).atZone(Zo
  * 8:24. Lo spazio non basta per due orari, quindi si mostra quello che conta.
  */
 private fun ProssimoTreno.oraPartenza(): String =
-    orarioProiettato(orarioPartenzaMs, ritardoMinuti).previstoMs?.ora() ?: "—"
+    orarioProiettato(orarioPartenzaMs, ritardoMinuti).previstoMs?.comeOra() ?: "—"
 
 private fun ProssimoTreno.oraArrivo(): String =
-    orarioProiettato(orarioArrivoDestinazioneMs, ritardoMinuti).previstoMs?.ora() ?: "—"
+    orarioProiettato(orarioArrivoDestinazioneMs, ritardoMinuti).previstoMs?.comeOra() ?: "—"
 
 /**
  * Soglie di larghezza fra i tre formati: 2×2 compatto, 3×2 con avanzamento, 4×2 lista.
@@ -190,12 +185,15 @@ class TrenoWidget : GlanceAppWidget() {
         if (treni.isEmpty()) return EsitoWidget.NessunTreno
 
         val trenoSeguito = treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno }
+        // "segui" dal widget salva solo numero/data/arrivo: senza lo snapshot completo il
+        // tracking perde la corsa appena esce dal tabellone partenze
+        trenoSeguito?.let { Deps.impostazioni.aggiornaSeguito(it) }
         val avanzamentoReale = trenoSeguito?.let {
             runCatching { repo.dettaglio(it, codDestinazione) }.getOrNull()
-                ?.let { d -> (d as? DettaglioTreno.Ok)?.progressoReale() }
+                ?.let { d -> (d as? DettaglioTreno.Ok)?.progressoReale(stazione.codici) }
         }
 
-        val nomeDestinazione = repo.stazioni().firstOrNull { it.codice == codDestinazione }?.nome ?: "destinazione"
+        val nomeDestinazione = repo.nomeStazione(codDestinazione) ?: "destinazione"
         return EsitoWidget.Dati(
             stazione = stazione.nome,
             destinazione = nomeDestinazione,
@@ -525,7 +523,7 @@ private fun Lista(esito: EsitoWidget, altezza: Dp) {
         Spacer(GlanceModifier.defaultWeight())
         Text(
             esito.seguitoNonDisponibile?.let { "treno $it non disponibile da qui" }
-                ?: "${esito.stazione} · agg. ${esito.aggiornatoAlle.ora()}",
+                ?: "${esito.stazione} · agg. ${esito.aggiornatoAlle.comeOra()}",
             maxLines = 1,
             style = stile(col { if (esito.seguitoNonDisponibile != null) it.ambra else it.ter }, 9),
         )

@@ -21,14 +21,13 @@ import it.picone.miotreno.domain.OrarioFermata
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StatoTreno
+import it.picone.miotreno.domain.comeOra
+import it.picone.miotreno.domain.indiceSalita
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.ui.MainActivity
 import it.picone.miotreno.ui.componenti.colore
 import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
 import it.picone.miotreno.widget.EXTRA_SEGUI
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 const val CANALE_TRENI = "treni"
 const val ID_NOTIFICA_TRENO = 1001
@@ -45,12 +44,7 @@ const val ID_NOTIFICA_TRACKING = 1002
 
 private const val TAG = "Notifiche"
 
-private val ORA = DateTimeFormatter.ofPattern("HH:mm")
-
-private fun Long.comeOraNotifica(): String =
-    ORA.format(Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()))
-
-private fun OrarioFermata.programmaMs(): String? = programmataMs?.comeOraNotifica()
+private fun OrarioFermata.programmaMs(): String? = programmataMs?.comeOra()
 
 /**
  * Permesso di notifica davvero concesso.
@@ -98,8 +92,8 @@ private fun builderTreno(
     // mentre il treno ha +12 significa dare l'ora sbagliata a chi sta correndo in stazione.
     val partenza = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti)
     val arrivoOrario = orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti)
-    val ora = partenza.previstoMs?.comeOraNotifica().orEmpty()
-    val arrivo = arrivoOrario.previstoMs?.comeOraNotifica()
+    val ora = partenza.previstoMs?.comeOra().orEmpty()
+    val arrivo = arrivoOrario.previstoMs?.comeOra()
 
     /** " (orario 14:20)" quando il previsto si discosta dalla tabella; niente se puntuale. */
     fun OrarioFermata.scarto(): String =
@@ -110,7 +104,9 @@ private fun builderTreno(
             "${treno.categoria} ${treno.numeroTreno} cancellato"
         minuti < 0 -> "In viaggio · ${treno.categoria} ${treno.numeroTreno} per ${treno.destinazione}"
         // Il binario è la seconda cosa che serve a chi cammina verso il treno: sta nel titolo.
-        else -> "Fra $minuti min" + (treno.binario?.let { " · Bin $it" } ?: "") +
+        // L'ora e non "fra N min": la notifica resta lì, e un conto fermo diventa falso. Il
+        // countdown vivo lo fa il cronometro nell'intestazione.
+        else -> "Parte alle $ora" + (treno.binario?.let { " · Bin $it" } ?: "") +
             " · ${treno.categoria} ${treno.numeroTreno} per ${treno.destinazione}"
     }
 
@@ -161,7 +157,16 @@ private fun builderTreno(
         .apply { if (conAzioneSegui) addAction(0, "Segui treno", segui) }
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setAutoCancel(true)
+        .apply {
+            val partenzaMs = partenza.previstoMs
+            if (minuti > 0 && !treno.cancellato && partenzaMs != null) {
+                setWhen(partenzaMs).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
+            }
+        }
 }
+
+/** Oltre la partenza l'avviso statico è solo rumore: sparisce poco dopo. */
+private const val SCADENZA_DOPO_PARTENZA_MS = 2 * 60_000L
 
 /**
  * Notifica pre-partenza standard (e fallback sotto API 36).
@@ -186,7 +191,14 @@ fun mostraNotificaTreno(
     runCatching {
         NotificationManagerCompat.from(context).notify(
             ID_NOTIFICA_TRENO,
-            builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome).build(),
+            builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome)
+                .apply {
+                    orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti).previstoMs?.let {
+                        val scadenza = it - System.currentTimeMillis() + SCADENZA_DOPO_PARTENZA_MS
+                        setTimeoutAfter(scadenza.coerceAtLeast(SCADENZA_DOPO_PARTENZA_MS))
+                    }
+                }
+                .build(),
         )
     }.onFailure { Log.w(TAG, "notify() fallita per il treno ${treno.numeroTreno}", it) }
 }
@@ -208,7 +220,7 @@ private fun progressoTratte(
     destinazioneNome: String,
 ): ProgressoTratte? {
     val ok = dettaglio as? DettaglioTreno.Ok ?: return null
-    val inizio = ok.fermate.indexOfFirst { it.codice in codiciPartenza }.coerceAtLeast(0)
+    val inizio = ok.indiceSalita(codiciPartenza)
     val fine = ok.indiceDestinazione.takeIf { it > inizio } ?: ok.fermate.lastIndex
     val tratte = (fine - inizio).coerceAtLeast(1)
     val fatte = (ok.indiceCorrente - inizio).coerceIn(0, tratte)
@@ -218,6 +230,19 @@ private fun progressoTratte(
         else -> ok.fermate.getOrNull(ok.indiceCorrente + 1)?.let { "Prossima fermata: ${it.nome}" }
     }
     return ProgressoTratte(tratte, fatte, sottotitolo)
+}
+
+/**
+ * Testo del chip in status bar (~7 caratteri). Prima della partenza conta i minuti; a bordo
+ * conta le fermate che mancano alla destinazione — il ritardo sta già nel corpo della notifica,
+ * e "in orario" non dice a chi è seduto quando scendere.
+ */
+internal fun testoChip(cancellato: Boolean, minuti: Int, fermateMancanti: Int?): String = when {
+    cancellato -> "canc."
+    minuti > 0 -> "$minuti′"
+    fermateMancanti == null -> "in viaggio"
+    fermateMancanti <= 0 -> "arrivato"
+    else -> "$fermateMancanti ferm."
 }
 
 /**
@@ -253,12 +278,7 @@ private fun costruisciLiveUpdate(
         if (p.fatte > 0) stile.addProgressPoint(NotificationCompat.ProgressStyle.Point(p.fatte).setColor(colore))
     }
 
-    val chip = when {
-        treno.cancellato -> "canc."
-        minuti > 0 -> "$minuti′"
-        treno.ritardoMinuti > 0 -> "+${treno.ritardoMinuti}′"
-        else -> "in orario"
-    }
+    val chip = testoChip(treno.cancellato, minuti, p?.let { it.tratte - it.fatte })
     val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false)
         .setStyle(stile)
         .setSubText(p?.sottotitolo)

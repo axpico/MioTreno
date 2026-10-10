@@ -2,7 +2,6 @@ package it.picone.miotreno.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.ui.componenti.BottonePrimario
+import it.picone.miotreno.ui.componenti.BottoneTesto
 import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
@@ -61,11 +58,7 @@ fun PrimingPosizione(bloccato: Boolean, onContinua: () -> Unit, onScegliStazione
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            Text(
-                "Preferisco scegliere la stazione a mano",
-                Modifier.clip(Forme.pillola).semantics { role = Role.Button }.clickable(onClick = onScegliStazione).padding(12.dp),
-                style = Testo.etichettaBold, color = tb.accento,
-            )
+            BottoneTesto("Preferisco scegliere la stazione a mano", onScegliStazione)
         }
     }
 }

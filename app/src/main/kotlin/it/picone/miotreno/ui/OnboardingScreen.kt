@@ -1,5 +1,6 @@
 package it.picone.miotreno.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -47,8 +48,8 @@ import kotlinx.coroutines.launch
 private enum class PassoOnboarding { Benvenuto, Ads, Destinazione }
 
 /**
- * Primo avvio: nessuna destinazione ancora scelta. Tre passi in sequenza, tutti non chiudibili
- * (niente back): benvenuto → scelta ads → destinazione (riusa [SelettoreStazione]).
+ * Primo avvio: nessuna destinazione ancora scelta. Tre passi in sequenza, indietro torna al passo
+ * precedente: benvenuto → scelta ads → destinazione (riusa [SelettoreStazione]).
  */
 @Composable
 fun OnboardingScreen(
@@ -59,6 +60,7 @@ fun OnboardingScreen(
 ) {
     val tb = LocalTb.current
     var passo by remember { mutableStateOf(PassoOnboarding.Benvenuto) }
+    BackHandler(enabled = passo == PassoOnboarding.Ads) { passo = PassoOnboarding.Benvenuto }
 
     Box(Modifier.fillMaxSize().background(tb.bg)) {
         when (passo) {
@@ -73,7 +75,9 @@ fun OnboardingScreen(
             PassoOnboarding.Destinazione -> SelettoreStazione(
                 correnteCodice = null,
                 onScegli = { codice -> codice?.let(onScegli) },
-                onChiudi = {},
+                // chiudere il foglio (swipe o indietro) torna al passo prima, invece di
+                // lasciare uno sfondo vuoto senza via d'uscita
+                onChiudi = { passo = PassoOnboarding.Ads },
                 titolo = "Dove vuoi arrivare?",
                 overline = "Ultimo passo · 3 di 3",
                 mostraOpzioneVuota = false,

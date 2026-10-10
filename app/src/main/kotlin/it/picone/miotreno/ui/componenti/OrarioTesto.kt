@@ -12,6 +12,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.OrarioFermata
+import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Testo
 

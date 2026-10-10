@@ -34,7 +34,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -48,8 +51,11 @@ import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.FermataTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
+import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.etichettaStato
+import it.picone.miotreno.domain.indiceSalita
 import it.picone.miotreno.domain.orario
+import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.componenti.ALPHA_TINTA
 import it.picone.miotreno.ui.componenti.AnimatedCountdown
@@ -58,17 +64,17 @@ import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.BottonePrimario
 import it.picone.miotreno.ui.componenti.BottoneSecondario
 import it.picone.miotreno.ui.componenti.Chip
-import it.picone.miotreno.ui.componenti.DeltaRitardo
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
+import it.picone.miotreno.ui.componenti.OrarioConRitardo
 import it.picone.miotreno.ui.componenti.Overline
 import it.picone.miotreno.ui.componenti.RigaAtteso
 import it.picone.miotreno.ui.componenti.StatoVuoto
 import it.picone.miotreno.ui.componenti.StatusBadge
+import it.picone.miotreno.ui.componenti.TimelineEspandi
 import it.picone.miotreno.ui.componenti.TimelineStop
 import it.picone.miotreno.ui.componenti.TipoFermata
 import it.picone.miotreno.ui.componenti.colore
-import it.picone.miotreno.ui.componenti.comeOra
 import it.picone.miotreno.ui.componenti.conferma
 import it.picone.miotreno.ui.componenti.ombraMorbida
 import it.picone.miotreno.ui.componenti.rememberHaptic
@@ -143,8 +149,9 @@ fun DettaglioScreen(
                     )
                 }
                 else -> {
-                    item(key = "avanzamento") { Avanzamento(dettaglio, state.destinazioneNome) }
-                    item(key = "fermate") { Fermate(dettaglio, state.impostazioni.stazioneDestinazione) }
+                    val codiciSalita = state.stazione?.codici.orEmpty()
+                    item(key = "avanzamento") { Avanzamento(dettaglio, state.destinazioneNome, codiciSalita) }
+                    item(key = "fermate") { Fermate(dettaglio, state.impostazioni.stazioneDestinazione, codiciSalita) }
                     item(key = "nota") {
                         Text(
                             "Aggiornamento automatico ogni 30 secondi",
@@ -239,33 +246,72 @@ private fun BarraAzioni(
                 modifier = Modifier.weight(1f).scale(scala.value),
             )
             if (notificaAttiva) {
-                BottonePrimario("$anticipo′", onClick = onAvvisa, icona = Icone.Campanella, attivo = true)
+                BottonePrimario(
+                    "$anticipo′ prima", onClick = onAvvisa, icona = Icone.Campanella, attivo = true,
+                    descrizione = "Avviso attivo, $anticipo minuti prima della partenza. Tocca per disattivarlo",
+                )
             } else {
-                BottoneSecondario("$anticipo′", onClick = onAvvisa, icona = Icone.Campanella)
+                BottoneSecondario(
+                    "$anticipo′ prima", onClick = onAvvisa, icona = Icone.Campanella,
+                    descrizione = "Avvisami $anticipo minuti prima della partenza",
+                )
             }
         }
     }
 }
 
-/** Le fermate in un'unica card: la linea della timeline scorre continua da una riga all'altra. */
+/**
+ * Le fermate in un'unica card: la linea della timeline scorre continua da una riga all'altra.
+ * Si vede il *tuo* tratto, da dove sali alla destinazione; le fermate prima e dopo stanno
+ * dietro una riga che le espande, perché un regionale da Treviglio non deve far scorrere nove
+ * stazioni a chi sale a Garibaldi.
+ */
 @Composable
-private fun Fermate(dettaglio: DettaglioTreno.Ok, codDestinazione: String?) {
+private fun Fermate(dettaglio: DettaglioTreno.Ok, codDestinazione: String?, codiciSalita: List<String>) {
+    val tb = LocalTb.current
     val fermate = dettaglio.fermate
+    val salita = dettaglio.indiceSalita(codiciSalita)
+    val sali = codiciSalita.isNotEmpty()
+    val arrivo = dettaglio.indiceDestinazione.takeIf { it >= salita } ?: fermate.lastIndex
+    var mostraPrima by remember { mutableStateOf(false) }
+    var mostraDopo by remember { mutableStateOf(false) }
+    val nascostePrima = !mostraPrima && salita > 0
+    val nascosteDopo = !mostraDopo && arrivo < fermate.lastIndex
+    val visibili = (if (nascostePrima) salita else 0)..(if (nascosteDopo) arrivo else fermate.lastIndex)
+    fun linea(i: Int) = if (fermate.getOrNull(i)?.passata == true) tb.accento else tb.ter.copy(alpha = 0.25f)
+
     GlassCard(Modifier.fillMaxWidth(), padding = Spazio.l) {
         Overline("Fermate", Modifier.padding(start = 4.dp, bottom = Spazio.s))
-        fermate.forEachIndexed { i, f ->
+        if (nascostePrima) {
+            TimelineEspandi(
+                if (salita == 1) "1 fermata prima della tua" else "$salita fermate prima della tua",
+                onClick = { mostraPrima = true },
+                lineaSopra = null, lineaSotto = linea(salita - 1),
+            )
+        }
+        for (i in visibili) {
+            val f = fermate[i]
             val tipo = when {
                 f.codice == codDestinazione -> TipoFermata.Target
                 i == dettaglio.indiceCorrente + 1 -> TipoFermata.Prossima
+                i == salita && sali && i > dettaglio.indiceCorrente -> TipoFermata.Salita
                 f.passata -> TipoFermata.Passata
                 else -> TipoFermata.Futura
             }
             TimelineStop(
                 nome = f.nome, tipo = tipo,
                 orario = f.orario(dettaglio.ritardoMinuti),
-                primo = i == 0,
-                ultimo = i == fermate.lastIndex,
-                nota = null,
+                primo = i == visibili.first && !nascostePrima,
+                ultimo = i == visibili.last && !nascosteDopo,
+                // la prossima fermata vince sul nodo, ma "sali qui" non va perso
+                nota = "prossima fermata · sali qui".takeIf { tipo == TipoFermata.Prossima && i == salita && sali },
+            )
+        }
+        if (nascosteDopo) {
+            TimelineEspandi(
+                "Prosegue per ${fermate.last().nome}",
+                onClick = { mostraDopo = true },
+                lineaSopra = linea(arrivo), lineaSotto = null,
             )
         }
     }
@@ -292,13 +338,12 @@ private fun CardIntestazione(
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text("Partenza", style = Testo.overline, color = tb.ter)
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        treno.orarioPartenzaMs.comeOra(), style = Testo.display, color = tb.tx,
-                        textDecoration = if (cancellato) TextDecoration.LineThrough else null,
-                    )
-                    if (!cancellato && treno.ritardoMinuti != 0) DeltaRitardo(treno.ritardoMinuti, Modifier.padding(bottom = 10.dp))
-                }
+                // stesso orario proiettato della home: la stessa corsa non può avere due orari
+                OrarioConRitardo(
+                    orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
+                    stile = Testo.display,
+                    cancellato = cancellato,
+                )
             }
             if (!cancellato) AnimatedCountdown(treno.minutiAllaPartenza(ora))
         }
@@ -316,8 +361,10 @@ private fun CardIntestazione(
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatusBadge(semaforo, treno.etichettaStato())
+            val arrivo = orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti)
+            val oraArrivo = arrivo.previstoMs?.comeOra()?.let { if (arrivo.inRitardo && !arrivo.confermato) "≈$it" else it }
             Text(
-                "a ${destinazioneNome ?: "destinazione"} · ${treno.orarioArrivoDestinazioneMs?.comeOra() ?: "—"}",
+                "a ${destinazioneNome ?: "destinazione"} · ${oraArrivo ?: "—"}",
                 style = Testo.etichetta, color = tb.sub, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -326,7 +373,7 @@ private fun CardIntestazione(
 }
 
 @Composable
-private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?) {
+private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?, codiciSalita: List<String>) {
     val tb = LocalTb.current
     if (d.indiceDestinazione >= 0 && d.indiceCorrente >= d.indiceDestinazione) {
         Arrivato(d.fermate[d.indiceDestinazione].nome.ifBlank { destinazioneNome.orEmpty() }, d.ritardoMinuti)
@@ -334,6 +381,7 @@ private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?) {
     }
     val totale = d.fermate.size.coerceAtLeast(1)
     val fatte = (d.indiceCorrente + 1).coerceAtLeast(0)
+    val salita = d.indiceSalita(codiciSalita)
     val ultima = d.fermate.getOrNull(d.indiceCorrente)
     val prossima = d.fermate.getOrNull(d.indiceCorrente + 1)
     val arrivo = d.fermate.getOrNull(d.indiceDestinazione)?.orario(d.ritardoMinuti)
@@ -342,23 +390,30 @@ private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?) {
     GlassCard(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
+                // Conta rispetto a te: quante fermate mancano perché il treno arrivi dove sali, o
+                // quante ne mancano alla tua destinazione una volta a bordo (come il chip in status bar).
                 val stato = when {
-                    d.indiceCorrente < 0 -> "In attesa di partenza"
-                    prossima != null -> "In viaggio da ${ultima?.nome.orEmpty()} a ${prossima.nome}"
+                    d.indiceCorrente < 0 -> "Il treno non è ancora partito"
+                    d.indiceCorrente < salita -> "Il treno è a ${ultima?.nome.orEmpty()} · ${fermateDa(salita - d.indiceCorrente)} da te"
+                    prossima != null && d.indiceDestinazione > d.indiceCorrente ->
+                        "In viaggio · ${fermateDa(d.indiceDestinazione - d.indiceCorrente)} alla tua"
+                    prossima != null -> "In viaggio verso ${prossima.nome}"
                     else -> "Percorso in aggiornamento"
                 }
                 AnimatedContent(
                     targetState = stato,
                     transitionSpec = { fadeIn(Molla.piatta()) togetherWith fadeOut(Molla.piatta()) },
                     label = "statoViaggio",
-                ) { Text(it, style = Testo.etichettaBold, color = tb.tx, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                ) { Text(it, style = Testo.etichettaBold, color = tb.tx, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 // L'orario della prossima fermata va proiettato: quello di tabella è già sbagliato
                 // nel momento in cui il treno accumula ritardo.
                 fun FermataTreno.oraPrevista(): String =
                     orario(d.ritardoMinuti).previstoMs?.comeOra().orEmpty()
                 Text(
                     when {
-                        d.indiceCorrente < 0 -> prossima?.let { "Prima fermata: ${it.nome} · ${it.oraPrevista()}" }
+                        d.indiceCorrente < salita -> d.fermate.getOrNull(salita)?.let {
+                            if (salita == 0) "Parte da ${it.nome} · ${it.oraPrevista()}" else "Arriva da te · ${it.oraPrevista()}"
+                        }
                         prossima != null -> "Prossima fermata: ${prossima.nome} · ${prossima.oraPrevista()}"
                         else -> "$fatte di $totale fermate confermate"
                     }.orEmpty(),
@@ -388,6 +443,8 @@ private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?) {
         }
     }
 }
+
+private fun fermateDa(n: Int) = if (n == 1) "1 fermata" else "$n fermate"
 
 @Composable
 private fun Caricamento() {

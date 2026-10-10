@@ -1,6 +1,7 @@
 package it.picone.miotreno
 
 import it.picone.miotreno.domain.DettaglioTreno
+import it.picone.miotreno.domain.FermataTreno
 import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.RisultatoStazione
 import it.picone.miotreno.domain.RitardoRecord
@@ -147,9 +148,17 @@ class FiltriStatisticheTest {
 
 class ProgressoRealeTest {
     @Test
-    fun `frazione di fermate passate su fermate fino a Busto`() {
-        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = 1, indiceDestinazione = 3)
+    fun `frazione di tratte percorse fino a Busto`() {
+        val dettaglio = DettaglioTreno.Ok(fermate = emptyList(), ritardoMinuti = 0, indiceCorrente = 2, indiceDestinazione = 4)
         assertEquals(0.5f, dettaglio.progressoReale())
+    }
+
+    @Test
+    fun `conta dal punto in cui sali, non dal capolinea`() {
+        val fermate = listOf("A", "B", "C", "D", "E").map { FermataTreno(it, it, null, null, passata = false) }
+        val primaDiTe = DettaglioTreno.Ok(fermate, ritardoMinuti = 0, indiceCorrente = 1, indiceDestinazione = 4)
+        assertEquals(0f, primaDiTe.progressoReale(listOf("C")))
+        assertEquals(0.5f, primaDiTe.copy(indiceCorrente = 3).progressoReale(listOf("C")))
     }
 
     @Test

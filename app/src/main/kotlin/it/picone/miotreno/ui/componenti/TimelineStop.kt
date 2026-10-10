@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,17 +31,21 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.OrarioFermata
+import it.picone.miotreno.domain.comeOra
+import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Testo
 
-/** Ruolo di una fermata nella timeline. Cambio è un nodo diverso, non una fermata più grande. */
-enum class TipoFermata { Passata, Prossima, Futura, Target, Cambio }
+/** Ruolo di una fermata nella timeline. */
+enum class TipoFermata { Passata, Prossima, Futura, Salita, Target }
 
 /**
  * Riga della timeline verticale (stile tracking spedizioni): linea, nodo, nome, orari.
@@ -59,7 +64,7 @@ fun TimelineStop(
 ) {
     val tb = LocalTb.current
     val passata = tipo == TipoFermata.Passata
-    val evidenziata = tipo == TipoFermata.Prossima || tipo == TipoFermata.Target || tipo == TipoFermata.Cambio
+    val evidenziata = tipo == TipoFermata.Prossima || tipo == TipoFermata.Salita || tipo == TipoFermata.Target
     val coloreLinea = if (passata) tb.accento else tb.ter.copy(alpha = 0.25f)
     // Il "≈" della stima non si sente: a TalkBack la differenza va detta a parole.
     val descrizione = buildString {
@@ -67,7 +72,7 @@ fun TimelineStop(
             when (tipo) {
                 TipoFermata.Prossima -> "Prossima fermata: $nome"
                 TipoFermata.Target -> "$nome, la tua fermata"
-                TipoFermata.Cambio -> "Cambio a $nome"
+                TipoFermata.Salita -> "$nome, dove sali"
                 TipoFermata.Passata -> "$nome, passata"
                 TipoFermata.Futura -> nome
             },
@@ -115,11 +120,11 @@ fun TimelineStop(
                 val sotto = nota ?: when (tipo) {
                     TipoFermata.Prossima -> "prossima fermata"
                     TipoFermata.Target -> "la tua fermata"
-                    TipoFermata.Cambio -> "cambio treno"
+                    TipoFermata.Salita -> "sali qui"
                     else -> null
                 }
                 sotto?.let {
-                    Text(it, style = Testo.micro, color = if (tipo == TipoFermata.Cambio) tb.ambra else tb.accento)
+                    Text(it, style = Testo.micro, color = tb.accento)
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -150,6 +155,39 @@ fun TimelineStop(
     }
 }
 
+/**
+ * Riga della timeline che sta per un gruppo di fermate nascoste ("9 fermate prima della tua"):
+ * stessa rotaia delle fermate, così la linea resta continua, e un tocco le mostra.
+ */
+@Composable
+fun TimelineEspandi(
+    testo: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** null = niente linea da quel lato (inizio o fine della timeline). */
+    lineaSopra: Color?,
+    lineaSotto: Color?,
+) {
+    val tb = LocalTb.current
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 48.dp).height(IntrinsicSize.Min)
+            .clip(Forme.cardPiccola)
+            .semantics { role = Role.Button }
+            .clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.width(24.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.width(3.dp).weight(1f).background(lineaSopra ?: Color.Transparent))
+            // tre puntini sulla rotaia: "qui ci sono altre fermate"
+            repeat(3) { Box(Modifier.padding(vertical = 1.5.dp).size(4.dp).clip(CircleShape).background(tb.ter)) }
+            Box(Modifier.width(3.dp).weight(1f).background(lineaSotto ?: Color.Transparent))
+        }
+        Text(testo, style = Testo.etichettaBold, color = tb.accento, modifier = Modifier.weight(1f))
+        Icon(Icone.Avanti, contentDescription = null, tint = tb.ter, modifier = Modifier.padding(end = 4.dp).size(18.dp))
+    }
+}
+
 @Composable
 private fun Nodo(tipo: TipoFermata) {
     val tb = LocalTb.current
@@ -172,11 +210,10 @@ private fun Nodo(tipo: TipoFermata) {
             Modifier.size(20.dp).clip(CircleShape)
                 .background(tb.sf).border(4.dp, tb.verde, CircleShape),
         )
-        TipoFermata.Cambio -> Box(
+        TipoFermata.Salita -> Box(
             Modifier.size(20.dp).clip(CircleShape)
-                .background(tb.ambra),
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icone.Cambio, contentDescription = null, tint = tb.suStato, modifier = Modifier.size(12.dp)) }
+                .background(tb.sf).border(4.dp, tb.accento, CircleShape),
+        )
         TipoFermata.Passata -> Box(Modifier.size(12.dp).clip(CircleShape).background(tb.accento))
         TipoFermata.Futura -> Box(
             Modifier.size(12.dp).clip(CircleShape).background(tb.sf).border(2.dp, tb.ter, CircleShape),

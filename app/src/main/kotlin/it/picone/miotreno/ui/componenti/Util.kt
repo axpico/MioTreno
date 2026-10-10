@@ -21,15 +21,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.TbColors
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
-
-private val ORA = DateTimeFormatter.ofPattern("HH:mm")
-
-fun Long.comeOra(zona: ZoneId = ZoneId.systemDefault()): String =
-    ORA.format(Instant.ofEpochMilli(this).atZone(zona))
 
 fun distanzaLeggibile(metri: Int): String =
     if (metri < 1000) "$metri m" else String.format(Locale.ITALY, "%.1f km", metri / 1000.0)

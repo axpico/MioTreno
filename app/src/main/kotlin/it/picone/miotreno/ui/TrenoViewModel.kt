@@ -3,6 +3,7 @@ package it.picone.miotreno.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import it.picone.miotreno.Deps
+import it.picone.miotreno.data.ApiException
 import it.picone.miotreno.data.Impostazioni
 import it.picone.miotreno.data.NOMI_REGIONI
 import it.picone.miotreno.data.rilevanteOggiODomani
@@ -26,6 +27,7 @@ import it.picone.miotreno.domain.ritardiAttesi
 import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.widget.aggiornaWidget
 import it.picone.miotreno.work.ricalcolaNotifica
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -38,6 +40,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 enum class Schermata { Onboarding, Home, Dettaglio, Statistiche, Impostazioni }
 
@@ -99,6 +102,21 @@ data class UiState(
     val etichettePartenza: Map<String, String> get() = etichetteCluster(stazione?.nomi.orEmpty())
 }
 
+/**
+ * Testo per l'utente: mai "HTTP 503 su http://…" o "Unable to resolve host". Gli
+ * [IllegalStateException] sono i nostri `error(...)`, già scritti per chi legge.
+ */
+fun messaggioErrore(e: Throwable): String = when (e) {
+    is IOException -> "Nessuna connessione. Controlla la rete e riprova."
+    is ApiException -> "ViaggiaTreno non risponde in questo momento. Riprova tra poco."
+    // anche lei è un IllegalStateException, ma il suo messaggio ("Job was cancelled") non è per l'utente
+    is CancellationException -> ERRORE_GENERICO
+    is IllegalStateException -> e.message ?: ERRORE_GENERICO
+    else -> ERRORE_GENERICO
+}
+
+private const val ERRORE_GENERICO = "Qualcosa è andato storto. Riprova tra poco."
+
 private const val POLL_DETTAGLIO_MS = 30_000L
 private const val TICK_MS = 10_000L
 
@@ -140,14 +158,11 @@ class TrenoViewModel : ViewModel() {
             Deps.impostazioni.flow.collect { imp ->
                 if (imp.stazionePassaggio != stazionePassaggioCodice) {
                     stazionePassaggioCodice = imp.stazionePassaggio
-                    val nome = imp.stazionePassaggio
-                        ?.let { cod -> runCatching { repo.stazioni() }.getOrDefault(emptyList()).firstOrNull { it.codice == cod }?.nome }
+                    val nome = imp.stazionePassaggio?.let { repo.nomeStazione(it) }
                     _state.update { it.copy(stazionePassaggioNome = nome, treniConPassaggio = emptySet()) }
                     verificaPassaggio()
                 }
-                val nomeDestinazione = imp.stazioneDestinazione?.let { cod ->
-                    runCatching { repo.stazioni() }.getOrDefault(emptyList()).firstOrNull { it.codice == cod }?.nome
-                }
+                val nomeDestinazione = imp.stazioneDestinazione?.let { repo.nomeStazione(it) }
                 _state.update { it.copy(impostazioni = imp, destinazioneNome = nomeDestinazione ?: it.destinazioneNome) }
                 if (!destinazioneInizializzata) {
                     destinazioneInizializzata = true
@@ -219,8 +234,10 @@ class TrenoViewModel : ViewModel() {
                     treni.firstOrNull { it.numeroTreno == numero }?.let(::apriRichiesto)
                 }
             }.onFailure { e ->
+                // runCatching cattura anche la cancellazione: non è un errore da mostrare
+                if (e is CancellationException) throw e
                 if (!silenzioso || _state.value.treni.isEmpty()) {
-                    _state.update { it.copy(caricamento = false, errore = e.message ?: "Errore di rete") }
+                    _state.update { it.copy(caricamento = false, errore = messaggioErrore(e)) }
                 }
             }
         }
@@ -357,18 +374,22 @@ class TrenoViewModel : ViewModel() {
 
     fun apriSelettoreFiltroStazione() {
         _state.update { it.copy(selettoreFiltroStazione = true) }
-        if (_state.value.stazioni.isEmpty()) {
-            viewModelScope.launch {
-                val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
-                _state.update { it.copy(stazioni = s) }
-            }
+        caricaStazioniSeServe()
+    }
+
+    /** Elenco per i selettori a filtro locale (passaggio, statistiche, partenza): una volta sola. */
+    private fun caricaStazioniSeServe() {
+        if (_state.value.stazioni.isNotEmpty()) return
+        viewModelScope.launch {
+            val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
+            _state.update { it.copy(stazioni = s) }
         }
     }
 
     fun chiudiSelettoreFiltroStazione() = _state.update { it.copy(selettoreFiltroStazione = false) }
 
     /** null = tutte le stazioni. */
-    fun sceglifiltroStazione(codice: String?) {
+    fun scegliFiltroStazione(codice: String?) {
         _state.update { it.copy(filtroStazione = codice, selettoreFiltroStazione = false) }
         caricaStatistiche()
     }
@@ -401,12 +422,7 @@ class TrenoViewModel : ViewModel() {
 
     fun apriSelettoreStazione() {
         _state.update { it.copy(selettoreStazione = true) }
-        if (_state.value.stazioni.isEmpty()) {
-            viewModelScope.launch {
-                val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
-                _state.update { it.copy(stazioni = s) }
-            }
-        }
+        caricaStazioniSeServe()
     }
 
     fun chiudiSelettoreStazione() = _state.update { it.copy(selettoreStazione = false) }
@@ -437,7 +453,6 @@ class TrenoViewModel : ViewModel() {
         val idRegione = repo.regioneDi(codice)
         idRegione?.let { repo.salvaRegioneDestinazione(it) }
         Deps.impostazioni.setStazioneDestinazione(codice)
-        if (primaVolta) Deps.impostazioni.setOnboardingCompletato(true)
         _state.update {
             it.copy(
                 selettoreDestinazione = false,
@@ -499,18 +514,13 @@ class TrenoViewModel : ViewModel() {
 
     fun apriSelettorePassaggio() {
         _state.update { it.copy(selettorePassaggio = true) }
-        if (_state.value.stazioni.isEmpty()) {
-            viewModelScope.launch {
-                val s = runCatching { repo.stazioni() }.getOrDefault(emptyList()).sortedBy { it.nome }
-                _state.update { it.copy(stazioni = s) }
-            }
-        }
+        caricaStazioniSeServe()
     }
 
     fun chiudiSelettorePassaggio() = _state.update { it.copy(selettorePassaggio = false) }
 
     /** null = disattiva l'evidenziazione. La lista dei treni resta quella già caricata. */
-    fun sceglipassaggio(codice: String?) = viewModelScope.launch {
+    fun scegliPassaggio(codice: String?) = viewModelScope.launch {
         Deps.impostazioni.setStazionePassaggio(codice)
         _state.update { it.copy(selettorePassaggio = false) }
     }

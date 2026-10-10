@@ -149,7 +149,8 @@ fun SettingsScreen(
                         ANTICIPI.forEach { m ->
                             val attivo = m == imp.anticipoMinuti
                             val sfondo by animateColorAsState(
-                                if (attivo) tb.sf else Color.Transparent, Molla.piatta(), label = "anticipo$m",
+                                // accento tinto, non sf: in scuro sf è più cupo della pista e la scelta spariva
+                                if (attivo) tb.accentoSoft else Color.Transparent, Molla.piatta(), label = "anticipo$m",
                             )
                             Box(
                                 Modifier

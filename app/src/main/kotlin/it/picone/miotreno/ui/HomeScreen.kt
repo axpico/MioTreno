@@ -64,6 +64,7 @@ import it.picone.miotreno.data.URL_TRENI_GARANTITI
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StazioneCorrente
+import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.GlassCard
@@ -72,7 +73,6 @@ import it.picone.miotreno.ui.componenti.Overline
 import it.picone.miotreno.ui.componenti.PullRefresh
 import it.picone.miotreno.ui.componenti.StatoVuoto
 import it.picone.miotreno.ui.componenti.TrainCard
-import it.picone.miotreno.ui.componenti.comeOra
 import it.picone.miotreno.ui.componenti.conferma
 import it.picone.miotreno.ui.componenti.distanzaLeggibile
 import it.picone.miotreno.ui.componenti.rememberHaptic
@@ -142,6 +142,9 @@ fun HomeScreen(
                         StatoVuoto(
                             Icone.Sciopero, "Dati non disponibili", state.errore,
                             colore = tb.arancio, azione = "Riprova", onAzione = onRiprova,
+                            azioneSecondaria = "Scegli la stazione a mano"
+                                .takeIf { state.impostazioni.stazioneManuale == null },
+                            onAzioneSecondaria = onScegliStazione,
                         )
                     }
                     state.caricamento && state.treni.isEmpty() -> items(3, key = {
@@ -184,6 +187,7 @@ fun HomeScreen(
                                             ?.takeIf { t.numeroTreno in state.treniConPassaggio },
                                         partenzaEtichetta = state.etichettePartenza[t.codPartenza]
                                             ?.takeIf { e -> e.isNotBlank() },
+                                        codiciSalita = state.stazione?.codici.orEmpty(),
                                         modifier = Modifier.animateItem(placementSpec = Molla.ui())
                                             .let { if (compatta) it.gruppo(tb, inizioGruppo, fineGruppo) else it }
                                             .sharedBounds(
@@ -198,9 +202,19 @@ fun HomeScreen(
 
                 if (state.treni.isNotEmpty()) {
                     item(key = "footer") {
+                        if (state.errore != null) {
+                            // refresh fallito con una lista già a video: la lista resta, ma va detto
+                            Text(
+                                "Aggiornamento non riuscito · Riprova",
+                                Modifier.fillMaxWidth().padding(top = Spazio.l).clip(Forme.chip)
+                                    .semantics { role = Role.Button }
+                                    .clickable(onClick = onRiprova).padding(vertical = Spazio.s),
+                                style = Testo.etichettaBold, color = tb.ambra, textAlign = TextAlign.Center,
+                            )
+                        }
                         Text(
                             "Dati ViaggiaTreno" + (state.aggiornatoAlle?.let { " · agg. ${it.comeOra()}" } ?: ""),
-                            Modifier.fillMaxWidth().padding(top = Spazio.l),
+                            Modifier.fillMaxWidth().padding(top = if (state.errore != null) 0.dp else Spazio.l),
                             style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )

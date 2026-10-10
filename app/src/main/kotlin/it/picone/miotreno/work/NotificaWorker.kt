@@ -60,8 +60,7 @@ class NotificaWorker(context: Context, params: WorkerParameters) :
                 stazione = stazione,
                 sciopero = Deps.repository.scioperiInCache().rilevanteOggiODomani()
                     .takeIf { imp.avvisiSciopero },
-                destinazioneNome = Deps.repository.stazioni().firstOrNull { it.codice == codDestinazione }?.nome
-                    ?: "destinazione",
+                destinazioneNome = Deps.repository.nomeStazione(codDestinazione) ?: "destinazione",
             )
             return Result.success()
         }
@@ -101,7 +100,7 @@ class AvvisoTrenoWorker(context: Context, params: WorkerParameters) :
         val imp = Deps.impostazioni.flow.first()
         val codDestinazione = imp.stazioneDestinazione
         if (!imp.notifiche || numero < 0 || codDestinazione == null) return Result.success()
-        val nomeDestinazione = Deps.repository.stazioni().firstOrNull { it.codice == codDestinazione }?.nome ?: "destinazione"
+        val nomeDestinazione = Deps.repository.nomeStazione(codDestinazione) ?: "destinazione"
 
         val stazione = Deps.stazione.risolvi(usaUltimaNota = true) ?: run {
             Log.w(TAG, "avviso treno $numero saltato: stazione non risolvibile")

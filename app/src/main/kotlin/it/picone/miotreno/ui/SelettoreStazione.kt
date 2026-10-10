@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -34,11 +35,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.ElementoStazione
 import it.picone.miotreno.ui.componenti.Icone
@@ -51,6 +56,7 @@ import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Spazio
 import it.picone.miotreno.ui.theme.Testo
 import kotlinx.coroutines.delay
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Foglio di scelta manuale della stazione: ricerca per nome, "Usa GPS" in testa.
@@ -82,17 +88,27 @@ fun SelettoreStazione(
     var query by remember { mutableStateOf("") }
     var risultatiLive by remember { mutableStateOf<List<ElementoStazione>>(emptyList()) }
     var cercando by remember { mutableStateOf(false) }
+    var erroreRicerca by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    // primo uso (onboarding, nessuna stazione recente): l'unica cosa da fare è scrivere
+    if (ricercaLive != null && recenti.isEmpty()) {
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    }
 
     if (ricercaLive != null) {
         LaunchedEffect(query) {
             val q = query.trim()
             if (q.isEmpty()) {
-                risultatiLive = emptyList(); cercando = false
+                risultatiLive = emptyList(); cercando = false; erroreRicerca = false
                 return@LaunchedEffect
             }
             cercando = true
             delay(300)
-            risultatiLive = runCatching { ricercaLive(q) }.getOrDefault(emptyList())
+            // un errore di rete non è "nessuna stazione trovata": va detto diversamente
+            val esito = runCatching { ricercaLive(q) }
+            (esito.exceptionOrNull() as? CancellationException)?.let { throw it }
+            erroreRicerca = esito.isFailure
+            risultatiLive = esito.getOrDefault(emptyList())
             cercando = false
         }
     }
@@ -126,7 +142,8 @@ fun SelettoreStazione(
                 BasicTextField(
                     value = query, onValueChange = { query = it },
                     textStyle = Testo.corpo.copy(color = tb.tx), cursorBrush = SolidColor(tb.accento),
-                    singleLine = true, modifier = Modifier.weight(1f),
+                    singleLine = true, modifier = Modifier.weight(1f).focusRequester(focus),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Search),
                     decorationBox = { inner ->
                         if (query.isEmpty()) Text("Cerca per nome", style = Testo.corpo, color = tb.ter)
                         inner()
@@ -174,6 +191,8 @@ fun SelettoreStazione(
                         item {
                             Text("Cerco…", style = Testo.etichetta, color = tb.sub, modifier = Modifier.padding(12.dp))
                         }
+                    } else if (erroreRicerca) {
+                        item { NessunaStazioneTrovata(tb, "Ricerca non riuscita", "Controlla la connessione e riprova.") }
                     } else if (filtrate.isEmpty()) {
                         item { NessunaStazioneTrovata(tb) }
                     }
@@ -194,14 +213,18 @@ fun SelettoreStazione(
 }
 
 @Composable
-private fun NessunaStazioneTrovata(tb: it.picone.miotreno.ui.theme.TbColors) {
+private fun NessunaStazioneTrovata(
+    tb: it.picone.miotreno.ui.theme.TbColors,
+    titolo: String = "Nessuna stazione trovata",
+    testo: String = "Prova con un altro nome.",
+) {
     Column(
         Modifier.fillMaxWidth().padding(vertical = 36.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(Icone.Cerca, contentDescription = null, tint = tb.ter, modifier = Modifier.size(28.dp))
-        Text("Nessuna stazione trovata", style = Testo.sottotitolo, color = tb.tx, modifier = Modifier.padding(top = 10.dp))
-        Text("Prova con un altro nome.", style = Testo.etichetta, color = tb.sub)
+        Text(titolo, style = Testo.sottotitolo, color = tb.tx, modifier = Modifier.padding(top = 10.dp))
+        Text(testo, style = Testo.etichetta, color = tb.sub)
     }
 }
 

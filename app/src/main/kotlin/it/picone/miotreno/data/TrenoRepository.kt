@@ -42,15 +42,7 @@ class TrenoRepository(
             .takeIf { it.isNotEmpty() }
             ?.let { return it }
 
-        val scaricate = api.elencoStazioni().mapNotNull { dto ->
-            val codice = dto.codiceStazione ?: return@mapNotNull null
-            val nome = dto.localita?.nomeLungo?.trim().orEmpty().nomeStazione()
-            val lat = dto.lat ?: return@mapNotNull null
-            val lon = dto.lon ?: return@mapNotNull null
-            // lat/lon a 0 = stazione senza coordinate valide nel dataset
-            if (nome.isEmpty() || (lat == 0.0 && lon == 0.0)) return@mapNotNull null
-            Stazione(codice, nome, lat, lon)
-        }
+        val scaricate = api.elencoStazioni().mapNotNull { it.comeStazione() }
         if (scaricate.isNotEmpty()) store.scrivi(FILE_STAZIONI, scaricate)
         return scaricate
     }
@@ -71,16 +63,11 @@ class TrenoRepository(
             REGIONI_TUTTE.map { id -> async { runCatching { api.elencoStazioni(id) }.getOrDefault(emptyList()) } }
                 .awaitAll()
                 .flatten()
-        }.mapNotNull { dto ->
-            val codice = dto.codiceStazione ?: return@mapNotNull null
-            val nome = dto.localita?.nomeLungo?.trim().orEmpty().nomeStazione()
-            val lat = dto.lat ?: return@mapNotNull null
-            val lon = dto.lon ?: return@mapNotNull null
-            if (nome.isEmpty() || (lat == 0.0 && lon == 0.0)) return@mapNotNull null
-            Stazione(codice, nome, lat, lon)
-        }.distinctBy { it.codice }
+        }.mapNotNull { it.comeStazione() }.distinctBy { it.codice }
 
-        if (scaricate.isNotEmpty()) store.scrivi(FILE_STAZIONI_NAZIONALI, scaricate)
+        // nessuna regione scaricata = rete assente: va detto, non spacciato per "nessun risultato"
+        if (scaricate.isEmpty()) throw java.io.IOException("Elenco stazioni non scaricabile")
+        store.scrivi(FILE_STAZIONI_NAZIONALI, scaricate)
         return scaricate
     }
 
@@ -114,16 +101,15 @@ class TrenoRepository(
     suspend fun risolviStazione(codice: String): Stazione? {
         stazioni().firstOrNull { it.codice == codice }?.let { return it }
         val idRegione = api.regione(codice) ?: return null
-        val dto = api.dettaglioStazione(codice, idRegione) ?: return null
-        val nome = dto.localita?.nomeLungo?.trim().orEmpty().nomeStazione()
-        val lat = dto.lat ?: return null
-        val lon = dto.lon ?: return null
-        if (nome.isEmpty() || (lat == 0.0 && lon == 0.0)) return null
-        val stazione = Stazione(codice, nome, lat, lon)
+        val stazione = api.dettaglioStazione(codice, idRegione)?.comeStazione(codice) ?: return null
         val cache = store.leggi<List<Stazione>>(FILE_STAZIONI, emptyList())
         store.scrivi(FILE_STAZIONI, cache + stazione)
         return stazione
     }
+
+    /** Nome leggibile di una stazione già in cache; null se sconosciuta o se la cache non si carica. */
+    suspend fun nomeStazione(codice: String): String? =
+        runCatching { stazioni() }.getOrDefault(emptyList()).firstOrNull { it.codice == codice }?.nome
 
     /** Id regione ViaggiaTreno della stazione, per il filtro degli scioperi rilevanti. */
     suspend fun regioneDi(codice: String): Int? = api.regione(codice)
@@ -330,6 +316,20 @@ internal fun statoDa(p: PartenzaArrivoDto): StatoTreno {
         dettaglio.isNotEmpty() -> StatoTreno.Alterato(dettaglio)
         else -> StatoTreno.Regolare
     }
+}
+
+/**
+ * Una sola regola per tutte le sorgenti (elenco regionale, nazionale, dettaglio): nome
+ * leggibile e coordinate vere, o niente. lat/lon a 0 = stazione senza coordinate nel dataset.
+ * [codiceNoto] è il codice chiesto, che vince su quello (talvolta assente) del dettaglio.
+ */
+private fun StazioneDto.comeStazione(codiceNoto: String? = null): Stazione? {
+    val codice = codiceNoto ?: codiceStazione ?: return null
+    val nome = localita?.nomeLungo?.trim().orEmpty().nomeStazione()
+    val lat = lat ?: return null
+    val lon = lon ?: return null
+    if (nome.isEmpty() || (lat == 0.0 && lon == 0.0)) return null
+    return Stazione(codice, nome, lat, lon)
 }
 
 /** Minuscolo e senza accenti, per confronti di ricerca tolleranti ("età" == "eta"). */

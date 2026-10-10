@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -75,6 +76,8 @@ fun BottonePrimario(
     icona: ImageVector? = null,
     attivo: Boolean = false,
     colore: Color = LocalTb.current.accento,
+    /** Per TalkBack, quando il testo visibile da solo non basta (es. "10′ prima"). */
+    descrizione: String? = null,
 ) {
     val tb = LocalTb.current
     val interaction = remember { MutableInteractionSource() }
@@ -87,7 +90,10 @@ fun BottonePrimario(
             .let { if (attivo) it else it.ombraMorbida(tb, Forme.pillola, 8.dp, colore) }
             .clip(Forme.pillola)
             .let { if (attivo) it.background(colore.copy(alpha = 0.12f)) else it.background(colore).luceSuperiore() }
-            .semantics { role = Role.Button }
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                descrizione?.let { contentDescription = it }
+            }
             .clickable(interaction, indication = null, onClick = onClick)
             .heightIn(min = 52.dp)
             .padding(horizontal = 20.dp, vertical = 14.dp),
@@ -115,13 +121,17 @@ fun BottoneSecondario(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     icona: ImageVector? = null,
+    descrizione: String? = null,
 ) {
     val tb = LocalTb.current
     Row(
         modifier
             .clip(Forme.pillola)
             .background(tb.accentoSoft)
-            .semantics { role = Role.Button }
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                descrizione?.let { contentDescription = it }
+            }
             .clickable(onClick = onClick)
             .heightIn(min = 52.dp)
             .padding(horizontal = 20.dp, vertical = 14.dp),
@@ -134,6 +144,16 @@ fun BottoneSecondario(
         }
         Text(testo, style = Testo.bottone, color = tb.accento, maxLines = 1)
     }
+}
+
+/** Azione di ripiego come link in accento: "preferisco fare a mano", "riprova". */
+@Composable
+fun BottoneTesto(testo: String, onClick: () -> Unit, modifier: Modifier = Modifier, colore: Color = LocalTb.current.accento) {
+    Text(
+        testo,
+        modifier.clip(Forme.pillola).semantics { role = Role.Button }.clickable(onClick = onClick).padding(12.dp),
+        style = Testo.etichettaBold, color = colore,
+    )
 }
 
 /** Icona tonda cliccabile (indietro, inverti, chiudi): 48dp di tocco, 40dp visibili. */

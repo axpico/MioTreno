@@ -2,6 +2,16 @@ package it.picone.miotreno.domain
 
 import kotlinx.serialization.Serializable
 
+/** Testo del provvedimento ("Treno deviato…"), se lo stato ne ha uno non vuoto. */
+val StatoTreno.nota: String?
+    get() = when (this) {
+        is StatoTreno.Cancellato -> dettaglio
+        is StatoTreno.Deviato -> dettaglio
+        is StatoTreno.ParzialmenteSoppresso -> dettaglio
+        is StatoTreno.Alterato -> dettaglio
+        StatoTreno.Regolare -> null
+    }?.takeIf { it.isNotBlank() }
+
 /** Stato del treno secondo provvedimento/circolante/subTitle di ViaggiaTreno. */
 sealed interface StatoTreno {
     data object Regolare : StatoTreno
@@ -84,13 +94,24 @@ sealed interface DettaglioTreno {
     data object DatiNonDisponibili : DettaglioTreno
 }
 
-/** Posizione reale (fermate passate su fermate totali fino alla destinazione), 0 a 1. Null se la destinazione non è in lista. */
-fun DettaglioTreno.Ok.progressoReale(): Float? =
-    if (indiceDestinazione <= 0) {
-        null
-    } else {
-        ((indiceCorrente + 1).toFloat() / (indiceDestinazione + 1)).coerceIn(0f, 1f)
-    }
+/**
+ * Posizione reale sul *tuo* tratto, da dove sali ([codiciSalita], vedi [indiceSalita]) alla
+ * destinazione: tratte percorse su tratte totali, 0 a 1 — la stessa misura della barra in app
+ * e del Live Update. Null se la destinazione non è in lista o non viene dopo la salita.
+ */
+fun DettaglioTreno.Ok.progressoReale(codiciSalita: Collection<String> = emptyList()): Float? {
+    val salita = indiceSalita(codiciSalita)
+    if (indiceDestinazione <= salita) return null
+    return ((indiceCorrente - salita).toFloat() / (indiceDestinazione - salita)).coerceIn(0f, 1f)
+}
+
+/**
+ * Dove sali: la prima fermata del tuo cluster di stazioni. Il treno può partire molto prima
+ * (un regionale da Treviglio per chi sale a Garibaldi): barra, timeline e chip devono contare
+ * il *tuo* viaggio, non la corsa intera. 0 se il cluster non è in lista.
+ */
+fun DettaglioTreno.Ok.indiceSalita(codici: Collection<String>): Int =
+    fermate.indexOfFirst { it.codice in codici }.coerceAtLeast(0)
 
 /** Forma comune a [Stazione] e [RisultatoStazione]: tutto quello che serve a un selettore. */
 interface ElementoStazione {

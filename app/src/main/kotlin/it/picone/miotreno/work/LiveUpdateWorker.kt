@@ -115,6 +115,9 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
         return Giro.Ancora(PASSO_MIN_MS)
     }
 
+    // "segui" dal widget salva solo numero/data/arrivo: qui lo snapshot si completa, finché la
+    // corsa è ancora nel feed, o dopo la partenza il fallback non avrebbe di che ripartire
+    Deps.impostazioni.aggiornaSeguito(dalFeed)
     val dettaglio = runCatching { Deps.repository.dettaglio(dalFeed, codDestinazione) }.getOrNull()
     val ok = dettaglio as? DettaglioTreno.Ok
 
@@ -140,7 +143,7 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
     }
 
     val sciopero = Deps.repository.scioperiInCache().rilevanteOggiODomani().takeIf { imp.avvisiSciopero }
-    val nomeDestinazione = Deps.repository.stazioni().firstOrNull { it.codice == codDestinazione }?.nome ?: "destinazione"
+    val nomeDestinazione = Deps.repository.nomeStazione(codDestinazione) ?: "destinazione"
     pubblica(
         costruisciNotificaTracking(
             ctx, treno, minuti, stazione.nome, stazione.codici, sciopero, dettaglio,

@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore by preferencesDataStore("impostazioni")
 
 data class Impostazioni(
-    val soloDiretti: Boolean = true,
     val notifiche: Boolean = true,
     val anticipoMinuti: Int = 15,
     val avvisiSciopero: Boolean = true,
@@ -32,12 +31,9 @@ data class Impostazioni(
     val stazioneDestinazione: String? = null,
     /** Scelta in onboarding (o cambiata dopo in Impostazioni): se false, niente banner/interstitial. */
     val adsAbilitate: Boolean = true,
-    /** Scritto a fine onboarding, non ancora letto come gate: vedi OnboardingScreen.kt. */
-    val onboardingCompletato: Boolean = false,
 )
 
 class ImpostazioniStore(private val context: Context) {
-    private val soloDiretti = booleanPreferencesKey("solo_diretti")
     private val notifiche = booleanPreferencesKey("notifiche")
     private val anticipo = intPreferencesKey("anticipo_minuti")
     private val sciopero = booleanPreferencesKey("avvisi_sciopero")
@@ -45,7 +41,6 @@ class ImpostazioniStore(private val context: Context) {
     private val stazionePassaggio = stringPreferencesKey("stazione_passaggio")
     private val stazioneDestinazione = stringPreferencesKey("stazione_destinazione")
     private val adsAbilitate = booleanPreferencesKey("ads_abilitate")
-    private val onboardingCompletato = booleanPreferencesKey("onboarding_completato")
     private val contatoreCambioStazione = intPreferencesKey("contatore_cambio_stazione")
     private val recentiKey = stringPreferencesKey("stazioni_recenti")
 
@@ -62,7 +57,6 @@ class ImpostazioniStore(private val context: Context) {
 
     val flow: Flow<Impostazioni> = context.dataStore.data.map { p ->
         Impostazioni(
-            soloDiretti = p[soloDiretti] ?: true,
             notifiche = p[notifiche] ?: true,
             anticipoMinuti = p[anticipo] ?: 15,
             avvisiSciopero = p[sciopero] ?: true,
@@ -70,11 +64,9 @@ class ImpostazioniStore(private val context: Context) {
             stazionePassaggio = p[stazionePassaggio]?.takeIf { it.isNotBlank() },
             stazioneDestinazione = p[stazioneDestinazione]?.takeIf { it.isNotBlank() },
             adsAbilitate = p[adsAbilitate] ?: true,
-            onboardingCompletato = p[onboardingCompletato] ?: false,
         )
     }
 
-    suspend fun setSoloDiretti(v: Boolean) = context.dataStore.edit { it[soloDiretti] = v }.let {}
     suspend fun setNotifiche(v: Boolean) = context.dataStore.edit { it[notifiche] = v }.let {}
     suspend fun setAnticipo(v: Int) = context.dataStore.edit { it[anticipo] = v }.let {}
     suspend fun setAvvisiSciopero(v: Boolean) = context.dataStore.edit { it[sciopero] = v }.let {}
@@ -88,7 +80,6 @@ class ImpostazioniStore(private val context: Context) {
         if (codice == null) it.remove(stazioneDestinazione) else it[stazioneDestinazione] = codice
     }.let {}
     suspend fun setAdsAbilitate(v: Boolean) = context.dataStore.edit { it[adsAbilitate] = v }.let {}
-    suspend fun setOnboardingCompletato(v: Boolean) = context.dataStore.edit { it[onboardingCompletato] = v }.let {}
 
     /**
      * Cadenza dell'interstitial: un contatore persistito, azzerato ogni 4 cambi di

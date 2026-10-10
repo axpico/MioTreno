@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -40,6 +41,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.selection.selectable
@@ -55,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -89,6 +92,9 @@ import kotlin.coroutines.cancellation.CancellationException
 /** Polling della home mentre l'app è in primo piano. */
 private const val POLL_HOME_MS = 60_000L
 
+/** Oltre questa età, al ritorno in primo piano la home si aggiorna subito. */
+private const val SOGLIA_STALE_MS = 30_000L
+
 /**
  * Larghezza massima del contenuto. Da API 36 su tablet e pieghevoli (≥600 dp) il sistema ignora
  * l'orientamento: le card a tutta larghezza si stirerebbero male, quindi il contenuto resta una
@@ -96,6 +102,9 @@ private const val POLL_HOME_MS = 60_000L
  */
 private val LARGHEZZA_MAX = 640.dp
 private val LARGHEZZA_MAX_BARRA = 520.dp
+
+/** Altezza del velo dietro la barra flottante, sopra la gesture bar: pillola + margini. */
+private val ALTEZZA_VELO = 96.dp
 
 class MainActivity : ComponentActivity() {
     /**
@@ -168,6 +177,14 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
     // Polling solo con l'app visibile: repeatOnLifecycle cancella il loop in background.
     LaunchedEffect(Unit) {
         lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // al ritorno dal background la lista può essere vecchia di minuti: subito, non fra 60 s.
+            // Al primo avvio aggiornatoAlle è null e ci pensa già l'init del ViewModel.
+            val ultimo = vm.state.value.aggiornatoAlle
+            if (ultimo != null && System.currentTimeMillis() - ultimo > SOGLIA_STALE_MS &&
+                vm.state.value.schermata != Schermata.Dettaglio
+            ) {
+                vm.aggiorna(silenzioso = true)
+            }
             while (true) {
                 delay(POLL_HOME_MS)
                 if (vm.state.value.schermata != Schermata.Dettaglio) vm.aggiorna(silenzioso = true)
@@ -319,7 +336,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         regioneScioperiNome = state.regioneScioperiNome,
                         stazionePassaggioNome = state.stazionePassaggioNome,
                         onScegliPassaggio = vm::apriSelettorePassaggio,
-                        onRimuoviPassaggio = { vm.sceglipassaggio(null) },
+                        onRimuoviPassaggio = { vm.scegliPassaggio(null) },
                         notifichePermesse = state.notifichePermesse,
                         onChiediNotifiche = chiediNotifiche,
                         onApriImpostazioniSistema = apriImpostazioniApp,
@@ -342,8 +359,24 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                 .background(tb.bg.copy(alpha = 0.92f)),
         )
 
+        val barraVisibile = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.Onboarding
+        // Velo sotto la barra flottante: senza, le righe si leggevano nello spazio attorno alla
+        // pillola. Non sopra il banner della home: un annuncio non va coperto.
+        val bannerInHome = state.schermata == Schermata.Home && state.impostazioni.adsAbilitate && AdsManager.canRequestAds()
         AnimatedVisibility(
-            visible = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.Onboarding,
+            visible = barraVisibile && !bannerInHome,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta()),
+        ) {
+            Box(
+                Modifier.fillMaxWidth()
+                    .windowInsetsBottomHeight(WindowInsets.navigationBars.add(WindowInsets(bottom = ALTEZZA_VELO)))
+                    .background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to tb.bg.copy(alpha = 0.9f), 1f to tb.bg)),
+            )
+        }
+
+        AnimatedVisibility(
+            visible = barraVisibile,
             modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = LARGHEZZA_MAX_BARRA),
             enter = slideInVertically(Molla.ui()) { it } + fadeIn(),
             exit = slideOutVertically(Molla.piatta()) { it } + fadeOut(),
@@ -376,7 +409,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
             SelettoreStazione(
                 stazioni = state.stazioni,
                 correnteCodice = state.impostazioni.stazionePassaggio,
-                onScegli = vm::sceglipassaggio,
+                onScegli = vm::scegliPassaggio,
                 onChiudi = vm::chiudiSelettorePassaggio,
                 titolo = "Stazione di passaggio",
                 overline = "Passa sempre per",
@@ -390,7 +423,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
             SelettoreStazione(
                 stazioni = state.stazioni,
                 correnteCodice = state.filtroStazione,
-                onScegli = vm::sceglifiltroStazione,
+                onScegli = vm::scegliFiltroStazione,
                 onChiudi = vm::chiudiSelettoreFiltroStazione,
                 titolo = "Filtra per stazione",
                 overline = "Statistiche",

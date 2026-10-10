@@ -50,9 +50,10 @@ import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
-import it.picone.miotreno.domain.StatoTreno
 import it.picone.miotreno.domain.etichettaBreve
 import it.picone.miotreno.domain.etichettaStato
+import it.picone.miotreno.domain.indiceSalita
+import it.picone.miotreno.domain.nota
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.ui.theme.Forme
@@ -87,6 +88,8 @@ fun TrainCard(
     dettaglio: DettaglioTreno.Ok? = null,
     /** Riga compatta: linea sotto, se non è l'ultima del gruppo. */
     divisore: Boolean = true,
+    /** Codici del cluster dove sali: la barra viaggio parte da lì, non dal capolinea. */
+    codiciSalita: List<String> = emptyList(),
 ) {
     val tb = LocalTb.current
     val semaforo = treno.semaforo()
@@ -105,6 +108,7 @@ fun TrainCard(
             atteso = atteso,
             passaPerEtichetta = passaPerEtichetta,
             partenzaEtichetta = partenzaEtichetta,
+            codiciSalita = codiciSalita,
             onClick = onClick,
             modifier = modifier,
         )
@@ -169,18 +173,12 @@ fun TrainCard(
                 )
             }
         }
-        if (!cancellato) BarraViaggio(treno, ora, dettaglio, Modifier.padding(top = 12.dp))
+        if (!cancellato) BarraViaggio(treno, ora, dettaglio, codiciSalita, Modifier.padding(top = 12.dp))
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatusBadge(semaforo, treno.etichettaStato())
-            val nota = when (val s = treno.stato) {
-                is StatoTreno.Cancellato -> s.dettaglio
-                is StatoTreno.Deviato -> s.dettaglio
-                is StatoTreno.ParzialmenteSoppresso -> s.dettaglio
-                is StatoTreno.Alterato -> s.dettaglio
-                StatoTreno.Regolare -> null
-            }
-            nota?.takeIf { it.isNotBlank() }?.let {
+            val nota = treno.stato.nota
+            nota?.let {
                 Text(it, style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
@@ -217,13 +215,7 @@ private fun RigaTreno(
         semaforo == Semaforo.InOrario -> tb.tx
         else -> tb.colore(semaforo)
     }
-    val nota = when (val s = treno.stato) {
-        is StatoTreno.Cancellato -> s.dettaglio
-        is StatoTreno.Deviato -> s.dettaglio
-        is StatoTreno.ParzialmenteSoppresso -> s.dettaglio
-        is StatoTreno.Alterato -> s.dettaglio
-        StatoTreno.Regolare -> null
-    }?.takeIf { it.isNotBlank() }
+    val nota = treno.stato.nota
 
     Column(modifier.fillMaxWidth()) {
         Row(
@@ -322,6 +314,7 @@ private fun CardProssimaPartenza(
     atteso: String?,
     passaPerEtichetta: String?,
     partenzaEtichetta: String?,
+    codiciSalita: List<String>,
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
@@ -399,7 +392,7 @@ private fun CardProssimaPartenza(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Tessera("Binario", Modifier.weight(1f)) {
-                Binario(treno, grande = true)
+                BinarioTessera(treno)
             }
             Tessera("Arrivo", Modifier.weight(1f)) {
                 OrarioConRitardo(
@@ -409,15 +402,9 @@ private fun CardProssimaPartenza(
             }
         }
 
-        if (!cancellato) BarraViaggio(treno, ora, dettaglio, Modifier.padding(top = 16.dp))
+        if (!cancellato) BarraViaggio(treno, ora, dettaglio, codiciSalita, Modifier.padding(top = 16.dp))
 
-        val nota = when (val stato = treno.stato) {
-            is StatoTreno.Cancellato -> stato.dettaglio
-            is StatoTreno.Deviato -> stato.dettaglio
-            is StatoTreno.ParzialmenteSoppresso -> stato.dettaglio
-            is StatoTreno.Alterato -> stato.dettaglio
-            StatoTreno.Regolare -> null
-        }?.takeIf { it.isNotBlank() }
+        val nota = treno.stato.nota
         nota?.let {
             Text(
                 it, style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -443,34 +430,34 @@ private fun Tessera(etichetta: String, modifier: Modifier = Modifier, valore: @C
 
 /**
  * Barra del viaggio, solo sulla card in evidenza. Con [dettaglio] (fermate reali da
- * `andamentoTreno`) mostra tratta e prossima fermata; senza, resta la stima sull'orario
- * mentre il dettaglio arriva o non è disponibile.
+ * `andamentoTreno`) copre il *tuo* tratto, da dove sali ([codiciSalita]) alla destinazione:
+ * finché il treno non è arrivato da te resta vuota e dice dov'è. Senza dettaglio resta la
+ * stima sull'orario mentre i dati arrivano o non sono disponibili.
  */
 @Composable
-private fun BarraViaggio(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioTreno.Ok?, modifier: Modifier = Modifier) {
+private fun BarraViaggio(
+    treno: ProssimoTreno,
+    ora: Long,
+    dettaglio: DettaglioTreno.Ok?,
+    codiciSalita: List<String>,
+    modifier: Modifier = Modifier,
+) {
     val tb = LocalTb.current
+    val salita = dettaglio?.indiceSalita(codiciSalita) ?: 0
+    // La barra va da dove sali alla destinazione, non fino all'ultima fermata della corsa (che
+    // può proseguire oltre): il numero di pallini deve combaciare con le fermate di *questo* tratto.
+    val arrivo = dettaglio?.indiceDestinazione?.takeIf { it > salita }
+    val tratte = arrivo?.let { it - salita }
+    val fermateIntermedie = if (arrivo != null) (salita + 1 until arrivo) else IntRange.EMPTY
 
-    // Fermate intermedie fra origine (indice 0) e destinazione (indiceDestinazione): la barra va da
-    // un capo all'altro, non fino all'ultima fermata della corsa (che può proseguire
-    // oltre la destinazione) — il numero di pallini deve combaciare con le fermate reali di *questo* tratto.
-    val indiceDestinazione = dettaglio?.indiceDestinazione?.takeIf { it > 0 }
-    val fermateIntermedie = if (indiceDestinazione != null && indiceDestinazione > 1) (1 until indiceDestinazione) else IntRange.EMPTY
-
-    // La barra deve riempirsi sulla stessa tratta dei pallini (origine → destinazione), non sull'intera
-    // corsa che può proseguire oltre la destinazione: altrimenti il riempimento resta indietro rispetto ai
-    // pallini già "passati", che usano indiceDestinazione come base.
-    //
-    // In viaggio fra due fermate il riempimento non deve incollarsi al pallino di quella
-    // precedente: si interpola sull'orologio fra l'orario reale di partenza da lì e l'orario
-    // previsto di arrivo alla prossima, così la barra avanza con continuità invece di scattare
-    // da un pallino all'altro solo alla conferma della fermata successiva.
-    val posizioneCorrente = dettaglio?.let { posizioneInTratta(it, ora) }
-    val avanzamento = if (posizioneCorrente != null && indiceDestinazione != null) {
-        (posizioneCorrente / indiceDestinazione).coerceIn(0f, 1f)
-    } else if (dettaglio != null) {
-        ((dettaglio.indiceCorrente + 1).toFloat() / dettaglio.fermate.size.coerceAtLeast(1)).coerceIn(0f, 1f)
-    } else {
-        treno.avanzamento(ora)
+    // In viaggio fra due fermate il riempimento non si incolla al pallino precedente: si
+    // interpola sull'orologio (vedi [posizioneInTratta]) e avanza con continuità.
+    val avanzamento = when {
+        dettaglio != null && tratte != null ->
+            ((posizioneInTratta(dettaglio, ora) - salita) / tratte).coerceIn(0f, 1f)
+        dettaglio != null ->
+            ((dettaglio.indiceCorrente + 1).toFloat() / dettaglio.fermate.size.coerceAtLeast(1)).coerceIn(0f, 1f)
+        else -> treno.avanzamento(ora)
     }
 
     Column(modifier.fillMaxWidth()) {
@@ -484,7 +471,7 @@ private fun BarraViaggio(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioTr
                 drawStopIndicator = {},
             )
             for (i in fermateIntermedie) {
-                val frazione = i.toFloat() / indiceDestinazione!!
+                val frazione = (i - salita).toFloat() / tratte!!
                 val passata = i <= dettaglio!!.indiceCorrente
                 Box(
                     Modifier
@@ -505,14 +492,20 @@ private fun BarraViaggio(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioTr
         // Capolinea sotto la barra, uno per lato, con lo stesso peso: la barra resta a piena
         // larghezza invece di rimpicciolirsi quando il nome dell'origine è lungo.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            val corrente = dettaglio?.fermate?.getOrNull(dettaglio.indiceCorrente)
             Text(
-                dettaglio?.fermate?.firstOrNull()?.nome ?: "Partenza",
+                when {
+                    dettaglio == null -> "Partenza"
+                    // il treno non è ancora da te: dove si trova è l'informazione utile
+                    corrente != null && dettaglio.indiceCorrente < salita -> "Il treno è a ${corrente.nome}"
+                    else -> dettaglio.fermate.getOrNull(salita)?.nome ?: "Partenza"
+                },
                 style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                indiceDestinazione?.let { dettaglio.fermate.getOrNull(it)?.nome } ?: "Arrivo",
+                arrivo?.let { dettaglio.fermate.getOrNull(it)?.nome } ?: "Arrivo",
                 style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.End, modifier = Modifier.weight(1f),
             )
@@ -550,6 +543,38 @@ fun RigaAtteso(testo: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** Il pop del binario che diventa definitivo: un piccolo evento per chi è in stazione. */
+@Composable
+private fun popAlConfermare(confermato: Boolean): Float {
+    val scala = remember { Animatable(1f) }
+    LaunchedEffect(confermato) {
+        if (!confermato || Molla.riduci) return@LaunchedEffect
+        scala.snapTo(1f)
+        scala.animateTo(1.12f, Molla.stato())
+        scala.animateTo(1f, Molla.stato())
+    }
+    return scala.value
+}
+
+/**
+ * Binario nella tessera della card hero: la tessera dice già "Binario", quindi niente pillola
+ * "BIN" — solo il numero grande e se è confermato o previsto.
+ */
+@Composable
+private fun BinarioTessera(treno: ProssimoTreno) {
+    val tb = LocalTb.current
+    val confermato = treno.binarioConfermato
+    Row(
+        Modifier.scale(popAlConfermare(confermato)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(treno.binario ?: "—", style = Testo.numero, color = if (confermato) tb.tx else tb.sub)
+        if (confermato) Box(Modifier.size(6.dp).clip(CircleShape).background(tb.accento))
+        Text(if (confermato) "confermato" else "previsto", style = Testo.micro, color = if (confermato) tb.accento else tb.ter)
+    }
+}
+
 /**
  * Binario: numero in una pillola; confermato = accento con pallino, previsto = solo bordo.
  * Il passaggio da previsto a confermato è un piccolo evento per chi è in stazione: un pop
@@ -570,17 +595,11 @@ fun Binario(
     val testo by animateColorAsState(if (confermato) tb.accento else tb.ter, Molla.piatta(), label = "binTesto")
     val numero by animateColorAsState(if (confermato) tb.tx else tb.sub, Molla.piatta(), label = "binNumero")
 
-    val scala = remember { Animatable(1f) }
-    LaunchedEffect(confermato) {
-        if (!confermato || Molla.riduci) return@LaunchedEffect
-        scala.snapTo(1f)
-        scala.animateTo(1.12f, Molla.stato())
-        scala.animateTo(1f, Molla.stato())
-    }
+    val scala = popAlConfermare(confermato)
 
     Row(
         modifier
-            .scale(scala.value)
+            .scale(scala)
             .clip(Forme.chip)
             .background(sfondo)
             .border(1.dp, bordo, Forme.chip)

@@ -35,6 +35,9 @@ fun StatoVuoto(
     colore: Color = LocalTb.current.accento,
     azione: String? = null,
     onAzione: (() -> Unit)? = null,
+    /** Via d'uscita alternativa sotto il bottone, come link. */
+    azioneSecondaria: String? = null,
+    onAzioneSecondaria: (() -> Unit)? = null,
 ) {
     val tb = LocalTb.current
     Column(
@@ -60,6 +63,9 @@ fun StatoVuoto(
         if (azione != null && onAzione != null) {
             Spacer(Modifier.height(24.dp))
             BottonePrimario(azione, onAzione, colore = colore)
+        }
+        if (azioneSecondaria != null && onAzioneSecondaria != null) {
+            BottoneTesto(azioneSecondaria, onAzioneSecondaria, Modifier.padding(top = 8.dp))
         }
     }
 }
