@@ -117,35 +117,48 @@ a colpo d'occhio"
 schermo 2 dettaglio "detail_dark.png" "Fermata per fermata
 dal punto in cui sali"
 
-# Composizione: pezzi veri dell'interfaccia (già ritagliati sui loro bordi e arrotondati)
-# appoggiati direttamente sulla tela, senza un finto schermo dietro. Stessa scala per tutti
-# i pezzi, il blocco sta al centro dello spazio sotto la didascalia.
-composizione() { # n nome didascalia pezzo...
+# Blocco: un'etichetta breve sopra un pezzo vero dell'interfaccia, per dire cos'è e dove compare
+blocco() { # etichetta pezzo out
+  magick \( -background none -fill "#C9D5FF" -font "$MEDIUM" -pointsize 40 "label:$1" -trim +repage \) \
+    \( -size 1x22 xc:none \) "$2" -background none -gravity center -append "$3"
+}
+
+# Composizione: blocchi impilati direttamente sulla tela, senza un finto schermo dietro.
+# Stessa scala per tutti, blocco centrato nello spazio sotto la didascalia.
+composizione() { # n nome didascalia blocco...
   local n="$1" nome="$2" testo="$3"; shift 3
   tela "$TMP/tela.png" "$testo"
-  magick -background none "$@" -gravity center -append -resize "1000x1440>" "$TMP/pila.png"
+  local args=() primo=1
+  for b in "$@"; do
+    [ $primo -eq 0 ] && args+=("$TMP/gap.png"); args+=("$b"); primo=0
+  done
+  magick -size 1x76 xc:none "$TMP/gap.png"
+  magick -background none "${args[@]}" -gravity center -append -resize "980x1450>" "$TMP/pila.png"
   local h y
-  h=$(magick identify -format %h "$TMP/pila.png"); y=$((390 + (1530 - h) / 2))
+  h=$(magick identify -format %h "$TMP/pila.png"); y=$((400 + (1500 - h) / 2))
   magick "$TMP/tela.png" "$TMP/pila.png" -gravity north -geometry "+0+$y" -composite \
     PNG24:"$OUT/phoneScreenshots/${n}_${nome}.png"
 }
 
-# 3: il chip in status bar, la notifica Live Update e lo stesso conto dentro l'app
-pezzo detail_dark.png 243x63+193+31 31 440 "$TMP/chip.png"
+# 3: lo stesso conto in tre posti: barra di stato, tendina, app
+pezzo detail_dark.png 243x63+193+31 31 480 "$TMP/chip.png"
 pezzo shade_real.png 1000x372+42+776 46 1000 "$TMP/notifica.png"
 pezzo detail_dark.png 1000x241+42+914 54 1000 "$TMP/avanzamento.png"
-spazio 70 "$TMP/sp.png"
+blocco "Nella barra di stato" "$TMP/chip.png" "$TMP/b1.png"
+blocco "Nella tendina delle notifiche" "$TMP/notifica.png" "$TMP/b2.png"
+blocco "Nell'app" "$TMP/avanzamento.png" "$TMP/b3.png"
 composizione 3 live_update "Quante fermate mancano
-anche a telefono bloccato" \
-  "$TMP/chip.png" "$TMP/sp.png" "$TMP/notifica.png" "$TMP/sp.png" "$TMP/avanzamento.png"
+anche a telefono bloccato" "$TMP/b1.png" "$TMP/b2.png" "$TMP/b3.png"
 
 # 4: i tre widget presi uno per uno sui loro bordi, senza lo sfondo del launcher
 pezzo widgets_dark.png 762x362+61+180 58 762 "$TMP/w1.png"
 pezzo widgets_dark.png 961x562+62+585 58 961 "$TMP/w2.png"
 pezzo widgets_dark.png 762x564+61+1190 58 762 "$TMP/w3.png"
-spazio 36 "$TMP/sp.png"
+blocco "La tua corsa" "$TMP/w1.png" "$TMP/b1.png"
+blocco "I prossimi treni" "$TMP/w2.png" "$TMP/b2.png"
+blocco "Corsa e partenze successive" "$TMP/w3.png" "$TMP/b3.png"
 composizione 4 widget "Tre widget
-per la schermata home" "$TMP/w1.png" "$TMP/sp.png" "$TMP/w2.png" "$TMP/sp.png" "$TMP/w3.png"
+per la schermata home" "$TMP/b1.png" "$TMP/b2.png" "$TMP/b3.png"
 
 schermo 5 statistiche "stats_dark.png" "I ritardi della tua linea
 nel tempo"
