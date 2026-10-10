@@ -61,21 +61,36 @@ arrotonda() { # in out raggio
     \( +clone -background "#0B1640" -shadow 45x22+0+18 \) +swap -background none -layers merge +repage "$out"
 }
 
-# tela 1080x1920 rail blue, alone decorativo, didascalia in alto
+# tela 1080x1920: sfumatura rail blue, alone morbido dove poggia il telefono, didascalia in alto
 tela() { # out didascalia
-  magick -size 1080x1920 "xc:$BLU" \
-    -fill "$ALONE" -draw "circle 980,260 980,760" \
-    \( -size 940x300 -background none -fill white -font "$BOLD" -pointsize 70 -interline-spacing 6 \
-       -gravity center "caption:$2" \) -gravity north -geometry +0+90 -composite "$1"
+  magick -size 1080x1920 "gradient:#2D54F0-#1A33B4" \
+    \( -size 1080x1920 xc:none -fill "rgba(255,255,255,0.13)" -draw "circle 540,1180 540,1880" -blur 0x110 \) \
+    -composite \
+    \( -size 960x290 -background none -fill white -font "$BOLD" -pointsize 74 -interline-spacing 4 \
+       -gravity center "caption:$2" \) -gravity north -geometry +0+86 -composite "$1"
 }
 
-# screenshot completo: ridotto a 1440 di altezza sotto la didascalia
+# telefono: schermo arrotondato dentro una cornice scura con un filo di luce sul bordo
+telefono() { # in out larghezza
+  local w h
+  magick "$1" -resize "$3x" "$TMP/sc.png"
+  w=$(magick identify -format %w "$TMP/sc.png"); h=$(magick identify -format %h "$TMP/sc.png")
+  magick "$TMP/sc.png" \( -size "${w}x${h}" xc:none -fill white -draw "roundrectangle 0,0,$((w - 1)),$((h - 1)),52,52" \) \
+    -alpha set -compose DstIn -composite -compose over "$TMP/sc_r.png"
+  local W=$((w + 32)) H=$((h + 32))
+  magick -size "${W}x${H}" xc:none \
+    -fill "#070A14" -stroke "rgba(255,255,255,0.22)" -strokewidth 3 \
+    -draw "roundrectangle 1,1,$((W - 2)),$((H - 2)),70,70" \
+    "$TMP/sc_r.png" -geometry +16+16 -composite \
+    \( +clone -background "#06103A" -shadow 55x30+0+24 \) +swap -background none -layers merge +repage "$2"
+}
+
+# screenshot completo: telefono grande che esce dal bordo inferiore, come nelle schede dei big
 schermo() { # n nome raw didascalia
   local n="$1" nome="$2" raw="$3" testo="$4"
   tela "$TMP/tela.png" "$testo"
-  magick "$RAW/$raw" -resize x1440 "$TMP/s.png"
-  arrotonda "$TMP/s.png" "$TMP/s_r.png" 44
-  magick "$TMP/tela.png" "$TMP/s_r.png" -gravity north -geometry +0+420 -composite \
+  telefono "$RAW/$raw" "$TMP/tel.png" 800
+  magick "$TMP/tela.png" "$TMP/tel.png" -gravity north -geometry +0+400 -composite \
     PNG24:"$OUT/phoneScreenshots/${n}_${nome}.png"
 }
 
@@ -93,8 +108,11 @@ pezzo() { # raw geometria raggio larghezza out
 impila() { # n nome didascalia pezzo...
   local n="$1" nome="$2" testo="$3"; shift 3
   tela "$TMP/tela.png" "$testo"
-  magick -background none "$@" -gravity center -append -resize "1000x1440>" "$TMP/pila.png"
-  magick "$TMP/tela.png" "$TMP/pila.png" -gravity north -geometry +0+410 -composite \
+  magick -background none "$@" -gravity center -append -resize "980x1460>" "$TMP/pila.png"
+  # centrata nello spazio fra la didascalia (finisce a ~380) e il fondo
+  local h y
+  h=$(magick identify -format %h "$TMP/pila.png"); y=$((400 + (1490 - h) / 2))
+  magick "$TMP/tela.png" "$TMP/pila.png" -gravity north -geometry "+0+$y" -composite \
     PNG24:"$OUT/phoneScreenshots/${n}_${nome}.png"
 }
 
