@@ -284,7 +284,10 @@ private fun Intestazione(
     val tb = LocalTb.current
     val s = state.stazione
     Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l)) {
-        Text("Il tuo viaggio", style = Testo.titolo, color = tb.tx, modifier = Modifier.padding(bottom = Spazio.l))
+        Text(
+            "Il tuo viaggio", style = Testo.titolo, color = tb.tx, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = Spazio.l),
+        )
         GlassCard(Modifier.fillMaxWidth(), padding = 0.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

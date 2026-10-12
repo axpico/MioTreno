@@ -20,7 +20,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -352,7 +351,11 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         notifichePermesse = state.notifichePermesse,
                         onChiediNotifiche = chiediNotifiche,
                         onApriImpostazioniSistema = apriImpostazioniApp,
-                        onAggiungiTile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ({ proponiTile(context) }) else null,
+                        onAggiungiTile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            { proponiTile(context) { vm.setTileAggiunto(true) } }
+                        } else {
+                            null
+                        },
                         onAdsAbilitate = vm::setAdsAbilitate,
                         mostraGestioneConsenso = AdsManager.richiedeGestioneConsenso(),
                         onGestisciConsenso = { AdsManager.apriGestioneConsenso(activity) },
@@ -464,8 +467,8 @@ private val TAB = listOf(
 )
 
 /**
- * Barra flottante a pillola con ombra tinta. La tab attiva si allarga in una capsula tinta
- * con icona + nome; le altre restano solo icona e nome attenuato.
+ * Barra flottante a pillola con ombra tinta. Tre posti uguali, icona sopra e nome sotto: la tab
+ * attiva si distingue per la capsula tinta, non allargandosi (spingeva le altre in un angolo).
  */
 @Composable
 private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
@@ -489,26 +492,23 @@ private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
                 Molla.piatta(), label = "nav-${tab.nome}",
             )
             val colore by animateColorAsState(if (attivo) tb.accento else tb.ter, Molla.piatta(), label = "navc-${tab.nome}")
-            Row(
+            Column(
                 Modifier
-                    .weight(if (attivo) 2f else 1f)
-                    .animateContentSize(Molla.ui())
+                    .weight(1f)
                     .heightIn(min = 48.dp)
                     .clip(Forme.barra)
                     .background(sfondo)
                     .selectable(selected = attivo, role = Role.Tab, onClick = { onVai(tab.schermata) })
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Icon(tab.icona, contentDescription = if (attivo) null else tab.nome, tint = colore, modifier = Modifier.size(22.dp))
-                if (attivo) {
-                    Text(
-                        tab.nome, style = Testo.etichettaBold, color = colore, maxLines = 1,
-                        softWrap = false, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
+                Icon(tab.icona, contentDescription = null, tint = colore, modifier = Modifier.size(22.dp))
+                Text(
+                    tab.nome, style = if (attivo) Testo.etichettaBold else Testo.micro, color = colore, maxLines = 1,
+                    softWrap = false, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
         }
     }

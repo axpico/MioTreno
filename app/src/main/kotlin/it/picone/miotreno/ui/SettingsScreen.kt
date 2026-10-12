@@ -33,11 +33,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.BuildConfig
 import it.picone.miotreno.data.Impostazioni
 import it.picone.miotreno.domain.StazioneCorrente
+import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.Overline
@@ -94,8 +96,8 @@ fun SettingsScreen(
     ) {
         item {
             Text(
-                "Impostazioni", style = Testo.titolo, color = tb.tx,
-                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l),
+                "Impostazioni", style = Testo.titolo, color = tb.tx, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l),
             )
         }
 
@@ -108,13 +110,13 @@ fun SettingsScreen(
                 )
                 if (imp.stazioneManuale != null) {
                     Divisore()
-                    RigaVoce(Icone.Aggiorna, "Torna al GPS", "Usa la stazione più vicina", onClick = onUsaGps)
+                    RigaVoce(Icone.Aggiorna, "Torna al GPS", "Usa la stazione più vicina", azione = "Usa GPS", onClick = onUsaGps)
                 }
                 Divisore()
                 RigaVoce(Icone.Treno, "Verso", destinazioneNome ?: "—", onClick = onScegliDestinazione)
                 Divisore()
                 RigaVoce(
-                    Icone.Cambio, "Inverti percorso", "Scambia partenza e destinazione",
+                    Icone.Cambio, "Inverti percorso", "Scambia partenza e destinazione", azione = "Inverti",
                     // abilitata = false toglie già il click: qui la stazione c'è sempre
                     onClick = { haptic.conferma(); onScambia() },
                     abilitata = stazione != null,
@@ -135,7 +137,7 @@ fun SettingsScreen(
                 RigaVoce(Icone.Cerca, "Passa per", stazionePassaggioNome ?: "Nessuna", onClick = onScegliPassaggio)
                 if (stazionePassaggioNome != null) {
                     Divisore()
-                    RigaVoce(Icone.Chiudi, "Rimuovi", "Disattiva l'evidenziazione", onClick = onRimuoviPassaggio)
+                    RigaVoce(Icone.Chiudi, "Rimuovi", "Disattiva l'evidenziazione", azione = "Rimuovi", onClick = onRimuoviPassaggio)
                 }
             }
         }
@@ -184,14 +186,12 @@ fun SettingsScreen(
         item {
             Sezione(
                 "Accesso rapido",
-                nota = if (onAggiungiTile == null) {
-                    "Apri la tendina delle impostazioni rapide, tocca la matita e trascina \"Prossimo treno\" fra i riquadri attivi."
-                } else {
-                    null
-                },
+                nota = ISTRUZIONI_TILE.takeIf { onAggiungiTile == null },
             ) {
                 RigaVoce(
                     Icone.Treno, "Prossimo treno nella tendina", "Minuti alla partenza senza aprire l'app",
+                    azione = if (imp.tileAggiunto) "Aggiunto ✓" else "Aggiungi",
+                    azioneFatta = imp.tileAggiunto,
                     onClick = { haptic.conferma(); onAggiungiTile?.invoke() },
                     abilitata = onAggiungiTile != null,
                 )
@@ -223,7 +223,7 @@ fun SettingsScreen(
                     style = Testo.micro, color = tb.sub,
                 )
                 Text(
-                    "Dati da ViaggiaTreno (API non ufficiale RFI). Scioperi dal feed pubblico MIT, " +
+                    "Dati da ViaggiaTreno (API non ufficiale RFI), cambi da LeFrecce (Trenitalia). Scioperi dal feed pubblico MIT, " +
                         "aggiornato una volta al giorno. Lo storico ritardi resta solo su questo dispositivo.",
                     Modifier.padding(top = Spazio.s),
                     style = Testo.micro, color = tb.ter,
@@ -276,6 +276,12 @@ private fun RigaVoce(
     valore: String,
     sotto: String? = null,
     abilitata: Boolean = true,
+    /**
+     * Riga che fa una cosa subito invece di aprire un'altra pagina: al posto della freccia (che
+     * prometteva un sottomenu) una pillola con l'azione o il suo esito.
+     */
+    azione: String? = null,
+    azioneFatta: Boolean = false,
     onClick: () -> Unit,
 ) {
     val tb = LocalTb.current
@@ -295,7 +301,11 @@ private fun RigaVoce(
             Text(valore, style = Testo.corpoMedio, color = tb.tx, maxLines = 2, overflow = TextOverflow.Ellipsis)
             sotto?.let { Text(it, style = Testo.etichetta, color = tb.ter) }
         }
-        Icon(Icone.Avanti, contentDescription = null, tint = tb.ter, modifier = Modifier.size(20.dp))
+        if (azione != null) {
+            Chip(azione, colore = if (azioneFatta) tb.verde else tb.accento, pieno = true)
+        } else {
+            Icon(Icone.Avanti, contentDescription = null, tint = tb.ter, modifier = Modifier.size(20.dp))
+        }
     }
 }
 

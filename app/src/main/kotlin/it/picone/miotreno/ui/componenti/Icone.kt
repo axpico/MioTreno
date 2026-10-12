@@ -8,6 +8,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Set di icone line-style, tratto 1.8, angoli arrotondati. Disegnate a mano su griglia 24:
@@ -48,14 +51,22 @@ object Icone {
             moveTo(17f, 16f); lineTo(17f, 8f)
         })
     }
+
+    /** Ingranaggio: 8 denti attorno a un anello. Le tre barre a cursori sembravano un filtro. */
     val Impostazioni: ImageVector by lazy {
         icona("impostazioni", {
-            moveTo(4f, 7f); lineTo(20f, 7f)
-            moveTo(4f, 12f); lineTo(20f, 12f)
-            moveTo(4f, 17f); lineTo(20f, 17f)
-            moveTo(15f, 7f); arcTo(1.6f, 1.6f, 0f, true, true, 15.01f, 7f)
-            moveTo(9f, 12f); arcTo(1.6f, 1.6f, 0f, true, true, 9.01f, 12f)
-            moveTo(13f, 17f); arcTo(1.6f, 1.6f, 0f, true, true, 13.01f, 17f)
+            val denti = 8
+            val passo = PI / denti
+            fun punto(raggio: Float, angolo: Double) = (12 + raggio * cos(angolo)).toFloat() to (12 + raggio * sin(angolo)).toFloat()
+            for (i in 0 until denti) {
+                val centro = i * 2 * passo
+                listOf(
+                    punto(7.2f, centro - passo * 0.55), punto(9.6f, centro - passo * 0.3),
+                    punto(9.6f, centro + passo * 0.3), punto(7.2f, centro + passo * 0.55),
+                ).forEachIndexed { j, (x, y) -> if (i == 0 && j == 0) moveTo(x, y) else lineTo(x, y) }
+            }
+            close()
+            moveTo(15f, 12f); arcTo(3f, 3f, 0f, false, true, 9f, 12f); arcTo(3f, 3f, 0f, false, true, 15f, 12f)
         })
     }
     val Posizione: ImageVector by lazy {

@@ -70,6 +70,7 @@ import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.BottonePrimario
 import it.picone.miotreno.ui.componenti.BottoneSecondario
 import it.picone.miotreno.ui.componenti.Chip
+import it.picone.miotreno.ui.componenti.DIMENSIONE_BOTTONE_ICONA
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.OrarioConRitardo
@@ -123,13 +124,15 @@ fun DettaglioScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     BottoneIcona(Icone.Indietro, "Indietro", onIndietro)
-                    Column(Modifier.weight(1f)) {
+                    // titolo al centro dello schermo: a destra un posto vuoto largo quanto il bottone indietro
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.sottotitolo, color = tb.tx)
                         Text(
                             treno.testoCambi() ?: "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                         )
                     }
+                    Spacer(Modifier.size(DIMENSIONE_BOTTONE_ICONA))
                 }
             }
 
@@ -284,8 +287,9 @@ private fun BarraAzioni(
             BottonePrimario(
                 when {
                     seguito -> if (viaggio) "Viaggio seguito" else "Seguita"
-                    viaggio -> "Segui questo viaggio"
-                    else -> "Segui questa corsa"
+                    // brevi: con i due bottoni alla pari "Segui questa corsa" veniva tagliato
+                    viaggio -> "Segui viaggio"
+                    else -> "Segui corsa"
                 },
                 onClick = onSegui,
                 icona = if (seguito) Icone.Spunta else Icone.Treno,
@@ -296,11 +300,13 @@ private fun BarraAzioni(
                 BottonePrimario(
                     "$anticipo′ prima", onClick = onAvvisa, icona = Icone.Campanella, attivo = true,
                     descrizione = "Avviso attivo, $anticipo minuti prima della partenza. Tocca per disattivarlo",
+                    modifier = Modifier.weight(1f),
                 )
             } else {
                 BottoneSecondario(
                     "$anticipo′ prima", onClick = onAvvisa, icona = Icone.Campanella,
                     descrizione = "Avvisami $anticipo minuti prima della partenza",
+                    modifier = Modifier.weight(1f),
                 )
             }
         }

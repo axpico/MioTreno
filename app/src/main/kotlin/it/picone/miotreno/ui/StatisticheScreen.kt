@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.PeriodoFiltro
 import it.picone.miotreno.domain.Statistiche
@@ -90,7 +91,10 @@ fun StatisticheScreen(
         verticalArrangement = Arrangement.spacedBy(Spazio.l),
     ) {
         item {
-            Column(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l)) {
+            Column(
+                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text("Ritardi", style = Testo.titolo, color = tb.tx)
                 Text("Storico locale dei tuoi treni", style = Testo.etichetta, color = tb.sub)
             }
@@ -180,7 +184,7 @@ fun StatisticheScreen(
         item {
             Text(
                 "Solo su questo dispositivo. Una riga per treno e giorno, conservata 3 anni.",
-                style = Testo.micro, color = tb.ter,
+                style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -190,9 +194,12 @@ fun StatisticheScreen(
 @Composable
 private fun Kpi(valore: String, etichetta: String, modifier: Modifier = Modifier, colore: Color = LocalTb.current.tx) {
     GlassCard(modifier.fillMaxHeight(), padding = Spazio.l) {
-        // Next e non Mono: in una tessera non serve l'incolonnamento, e la virgola mono spaziava "1 , 2"
-        NumeroAnimato(valore, stile = Testo.titolo, colore = colore)
-        Text(etichetta, style = Testo.etichetta, color = LocalTb.current.sub, maxLines = 2)
+        // centrate: tre tessere uguali affiancate si leggono come una riga sola
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Next e non Mono: in una tessera non serve l'incolonnamento, e la virgola mono spaziava "1 , 2"
+            NumeroAnimato(valore, stile = Testo.titolo, colore = colore)
+            Text(etichetta, style = Testo.etichetta, color = LocalTb.current.sub, maxLines = 2, textAlign = TextAlign.Center)
+        }
     }
 }
 

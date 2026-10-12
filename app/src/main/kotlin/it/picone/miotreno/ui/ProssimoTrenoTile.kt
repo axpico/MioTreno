@@ -1,6 +1,7 @@
 package it.picone.miotreno.ui
 
 import android.app.PendingIntent
+import android.app.StatusBarManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.content.getSystemService
 import it.picone.miotreno.Deps
@@ -47,6 +49,17 @@ class ProssimoTrenoTile : TileService() {
                 delay(PASSO_TILE_MS)
             }
         }
+    }
+
+    // il sistema dice quando il riquadro entra o esce dalla tendina: Impostazioni lo mostra
+    override fun onTileAdded() {
+        Deps.init(this)
+        scope.launch { Deps.impostazioni.setTileAggiunto(true) }
+    }
+
+    override fun onTileRemoved() {
+        Deps.init(this)
+        scope.launch { Deps.impostazioni.setTileAggiunto(false) }
     }
 
     override fun onStopListening() {
@@ -119,13 +132,37 @@ class ProssimoTrenoTile : TileService() {
     }
 }
 
-/** Prompt nativo "Aggiungi tile" (API 33+): chiamato solo da Impostazioni, mai all'avvio. */
+/** Come aggiungerlo a mano, quando il prompt di sistema non c'è o non funziona. */
+const val ISTRUZIONI_TILE =
+    "Apri la tendina delle impostazioni rapide, tocca la matita e trascina \"Prossimo treno\" fra i riquadri attivi."
+
+/**
+ * Prompt nativo "Aggiungi tile" (API 33+): chiamato solo da Impostazioni, mai all'avvio.
+ *
+ * Il sistema non mostra niente se il riquadro c'è già: senza leggere l'esito il tocco sembrava
+ * non fare nulla. Ora ogni esito risponde, e [onAggiunto] fa ricordare la cosa a Impostazioni.
+ */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-fun proponiTile(context: Context) {
-    context.getSystemService<android.app.StatusBarManager>()?.requestAddTileService(
+fun proponiTile(context: Context, onAggiunto: () -> Unit) {
+    val barra = context.getSystemService<StatusBarManager>() ?: run {
+        Toast.makeText(context, ISTRUZIONI_TILE, Toast.LENGTH_LONG).show()
+        return
+    }
+    barra.requestAddTileService(
         ComponentName(context, ProssimoTrenoTile::class.java),
         ETICHETTA_TILE,
         Icon.createWithResource(context, R.drawable.ic_notifica),
         context.mainExecutor,
-    ) { }
+    ) { esito ->
+        when (esito) {
+            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> onAggiunto()
+            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> {
+                onAggiunto()
+                Toast.makeText(context, "È già nella tendina: scorri giù dall'alto e cerca \"Prossimo treno\".", Toast.LENGTH_LONG).show()
+            }
+            // l'utente ha detto no: niente da aggiungere
+            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED -> Unit
+            else -> Toast.makeText(context, ISTRUZIONI_TILE, Toast.LENGTH_LONG).show()
+        }
+    }
 }

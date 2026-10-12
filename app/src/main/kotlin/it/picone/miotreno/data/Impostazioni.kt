@@ -37,6 +37,8 @@ data class Impostazioni(
     val conCambi: Boolean = true,
     /** Minuti prima dell'arrivo alla stazione di cambio per l'avviso; 0 = spento. */
     val avvisoCambioMinuti: Int = 5,
+    /** Il riquadro "Prossimo treno" è nelle impostazioni rapide (lo dice il sistema al tile). */
+    val tileAggiunto: Boolean = false,
 )
 
 class ImpostazioniStore(private val context: Context) {
@@ -51,6 +53,7 @@ class ImpostazioniStore(private val context: Context) {
     private val recentiKey = stringPreferencesKey("stazioni_recenti")
     private val conCambi = booleanPreferencesKey("con_cambi")
     private val avvisoCambio = intPreferencesKey("avviso_cambio_minuti")
+    private val tileAggiunto = booleanPreferencesKey("tile_aggiunto")
 
     /** Ultime stazioni scelte nei selettori, per non aprire mai una ricerca vuota. Una per riga: "codice\tnome". */
     val recenti: Flow<List<RisultatoStazione>> = context.dataStore.data.map { leggiRecenti(it[recentiKey]) }
@@ -74,6 +77,7 @@ class ImpostazioniStore(private val context: Context) {
             adsAbilitate = p[adsAbilitate] ?: true,
             conCambi = p[conCambi] ?: true,
             avvisoCambioMinuti = p[avvisoCambio] ?: 5,
+            tileAggiunto = p[tileAggiunto] ?: false,
         )
     }
 
@@ -92,6 +96,7 @@ class ImpostazioniStore(private val context: Context) {
     suspend fun setAdsAbilitate(v: Boolean) = context.dataStore.edit { it[adsAbilitate] = v }.let {}
     suspend fun setConCambi(v: Boolean) = context.dataStore.edit { it[conCambi] = v }.let {}
     suspend fun setAvvisoCambio(v: Int) = context.dataStore.edit { it[avvisoCambio] = v }.let {}
+    suspend fun setTileAggiunto(v: Boolean) = context.dataStore.edit { it[tileAggiunto] = v }.let {}
 
     /**
      * Cadenza dell'interstitial: un contatore persistito, azzerato ogni 4 cambi di

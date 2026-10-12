@@ -156,12 +156,15 @@ fun BottoneTesto(testo: String, onClick: () -> Unit, modifier: Modifier = Modifi
     )
 }
 
+/** Area tattile del bottone a icona: chi gli fa da contrappeso (titoli centrati) usa la stessa. */
+val DIMENSIONE_BOTTONE_ICONA = 48.dp
+
 /** Icona tonda cliccabile (indietro, inverti, chiudi): 48dp di tocco, 40dp visibili. */
 @Composable
 fun BottoneIcona(icona: ImageVector, descrizione: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val tb = LocalTb.current
     Box(
-        modifier.size(48.dp).clip(CircleShape).clickable(onClick = onClick),
+        modifier.size(DIMENSIONE_BOTTONE_ICONA).clip(CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Box(

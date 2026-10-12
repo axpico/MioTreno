@@ -448,6 +448,8 @@ class TrenoViewModel : ViewModel() {
 
     fun setAvvisoCambio(v: Int) = viewModelScope.launch { Deps.impostazioni.setAvvisoCambio(v) }
 
+    fun setTileAggiunto(v: Boolean) = viewModelScope.launch { Deps.impostazioni.setTileAggiunto(v) }
+
     fun setAnticipo(v: Int) = viewModelScope.launch {
         Deps.impostazioni.setAnticipo(v)
         ricalcolaNotifica(Deps.app)
