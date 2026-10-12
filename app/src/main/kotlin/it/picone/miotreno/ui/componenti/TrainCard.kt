@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
+import it.picone.miotreno.domain.ProssimoCambio
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
 import it.picone.miotreno.domain.cambi
@@ -59,9 +60,9 @@ import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.indiceSalita
 import it.picone.miotreno.domain.nota
 import it.picone.miotreno.domain.orarioProiettato
+import it.picone.miotreno.domain.primoCambio
 import it.picone.miotreno.domain.semaforo
 import it.picone.miotreno.domain.testoCambi
-import it.picone.miotreno.domain.tratteInTreno
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Molla
@@ -96,7 +97,7 @@ fun TrainCard(
     /** Codici del cluster dove sali: la barra viaggio parte da lì, non dal capolinea. */
     codiciSalita: List<String> = emptyList(),
     /** Corsa seguita con cambi: prossimo cambio o coincidenza persa (vedi `controllaSeguito`). */
-    rigaCambio: String? = null,
+    cambio: ProssimoCambio? = null,
 ) {
     val tb = LocalTb.current
     val semaforo = treno.semaforo()
@@ -127,7 +128,7 @@ fun TrainCard(
         passaPerEtichetta = passaPerEtichetta,
         partenzaEtichetta = partenzaEtichetta,
         codiciSalita = codiciSalita,
-        rigaCambio = rigaCambio,
+        cambio = cambio,
         onClick = onClick,
         modifier = modifier,
     )
@@ -197,7 +198,7 @@ private fun RigaTreno(
 
             Column(Modifier.weight(1f)) {
                 // con un cambio il capolinea del primo treno non è dove vai: in evidenza va il cambio
-                val cambio = treno.tratteInTreno.takeIf { it.size > 1 }?.first()?.nomeArrivo
+                val cambio = treno.primoCambio
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // l'icona del cambio: a colpo d'occhio, quali righe non sono dirette
                     if (cambio != null) {
@@ -278,7 +279,7 @@ private fun CardProssimaPartenza(
     passaPerEtichetta: String?,
     partenzaEtichetta: String?,
     codiciSalita: List<String>,
-    rigaCambio: String?,
+    cambio: ProssimoCambio?,
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
@@ -310,15 +311,17 @@ private fun CardProssimaPartenza(
         }
 
         // con un cambio il titolo è dove si cambia, come nelle righe: il capolinea del primo treno inganna
-        val cambio = treno.tratteInTreno.takeIf { it.size > 1 }?.first()?.nomeArrivo
+        val stazioneCambio = treno.primoCambio
         Row(
             Modifier.padding(top = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (cambio != null) Icon(Icone.Cambio, contentDescription = "Con cambio", tint = tb.accento2, modifier = Modifier.size(20.dp))
+            if (stazioneCambio != null) {
+                Icon(Icone.Cambio, contentDescription = "Con cambio", tint = tb.accento2, modifier = Modifier.size(20.dp))
+            }
             Text(
-                cambio ?: treno.destinazione,
+                stazioneCambio ?: treno.destinazione,
                 style = Testo.sottotitolo,
                 color = tb.tx,
                 maxLines = 1,
@@ -326,9 +329,7 @@ private fun CardProssimaPartenza(
             )
         }
         // il titolo dice già dove si cambia: la riga serve solo per il cambio live o il rischio
-        if (rigaCambio != null || treno.coincidenzaARischio) {
-            RigaCambi(treno, rigaCambio?.removePrefix("Cambio a ${cambio.orEmpty()} · "))
-        }
+        if (cambio != null || treno.coincidenzaARischio) RigaCambi(treno, cambio)
 
         // Due colonne speculari, etichetta sopra e valore sotto: a sinistra quanto manca (il
         // numero protagonista, in accento), a destra l'orario. Le etichette stanno sulla stessa
@@ -510,10 +511,15 @@ private fun posizioneInTratta(dettaglio: DettaglioTreno.Ok, ora: Long): Float {
  * si mangia il cambio. Per la corsa seguita, al posto del riassunto, il cambio vero in arrivo.
  */
 @Composable
-private fun RigaCambi(treno: ProssimoTreno, rigaCambio: String?) {
+private fun RigaCambi(treno: ProssimoTreno, cambio: ProssimoCambio?) {
     val tb = LocalTb.current
-    val testo = rigaCambio ?: treno.testoCambi() ?: return
-    val allarme = treno.coincidenzaARischio || rigaCambio?.startsWith("Coincidenza persa") == true
+    val allarme = treno.coincidenzaARischio || cambio?.persa == true
+    // la stazione è già nel titolo della card: qui solo il resto (o la coincidenza persa)
+    val testo = when {
+        cambio == null -> (treno.testoCambi() ?: return) + " · coincidenza a rischio"
+        cambio.persa -> cambio.testo
+        else -> cambio.dettaglio ?: return
+    }
     val colore = if (allarme) tb.ambra else tb.accento2
     Row(
         Modifier.padding(top = 4.dp),
@@ -521,10 +527,7 @@ private fun RigaCambi(treno: ProssimoTreno, rigaCambio: String?) {
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Icon(Icone.Cambio, contentDescription = null, tint = colore, modifier = Modifier.size(13.dp))
-        Text(
-            testo + if (treno.coincidenzaARischio && rigaCambio == null) " · coincidenza a rischio" else "",
-            style = Testo.micro, color = colore, maxLines = 2, overflow = TextOverflow.Ellipsis,
-        )
+        Text(testo, style = Testo.micro, color = colore, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 

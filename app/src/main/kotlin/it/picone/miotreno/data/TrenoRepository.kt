@@ -184,13 +184,7 @@ class TrenoRepository(
                 .filter { it.numeroTreno != null }
                 .associateBy { it.numeroTreno!! }
 
-            val diretti = partenze.mapNotNull { (codPartenza, p) ->
-                val arrivo = arriviPerTreno[p.numeroTreno ?: return@mapNotNull null] ?: return@mapNotNull null
-                val arrivoMs = arrivo.orarioArrivo ?: return@mapNotNull null
-                // stesso numero ma direzione opposta: scarta
-                if ((p.orarioPartenza ?: return@mapNotNull null) >= arrivoMs) return@mapNotNull null
-                p.comeProssimoTreno(codPartenza, arrivoMs, codStazione, destinazioneRipiego = arrivo.destinazione)
-            }
+            val diretti = diretti(partenze, arriviPerTreno, codStazione)
             // un errore sulle coincidenze non deve togliere i diretti, che sono il dato sicuro
             val conCambi = if (conCambi()) {
                 runCatching { cercaConCambi(codStazioni, codDestinazione, codDestinazioni, partenze, arriviPerTreno, adesso) }
@@ -198,27 +192,7 @@ class TrenoRepository(
             } else {
                 emptyList()
             }
-
-            val utili = (diretti + conCambi).filter { t ->
-                trenoAncoraUtile(
-                    partenzaEffettivaMs = t.orarioPartenzaMs + t.ritardoMinuti * 60_000L,
-                    arrivoMs = t.orarioArrivoDestinazioneMs ?: return@filter false,
-                    adesso = adesso.time,
-                    seguito = t.numeroTreno == seguito?.numeroTreno,
-                )
-            }.map { t ->
-                // il viaggio seguito ha le sue tratte, magari ripianificate dopo una coincidenza persa
-                if (t.numeroTreno == seguito?.numeroTreno && seguito.tratte.isNotEmpty()) {
-                    t.copy(tratte = seguito.tratte, orarioArrivoDestinazioneMs = seguito.arrivoDestinazioneMs)
-                } else {
-                    t
-                }
-            }.let { dalFeed ->
-                // Dopo la partenza il feed `partenze` può smettere di elencare la corsa. Il
-                // seguito persiste invece fino alla conferma di arrivo, usando l'ultimo snapshot.
-                val fallback = seguito?.comeProssimoTreno()
-                if (fallback != null && dalFeed.none { it.numeroTreno == fallback.numeroTreno }) dalFeed + fallback else dalFeed
-            }
+            val utili = ancoraUtili(diretti + conCambi, seguito, adesso.time)
             filtraDominati(unoPerPrimoTreno(utili), seguito?.numeroTreno).sortedBy { it.orarioPartenzaMs }
         }
     }.getOrElse { errore ->
@@ -380,6 +354,44 @@ internal fun statoDa(p: PartenzaArrivoDto): StatoTreno {
         dettaglio.isNotEmpty() -> StatoTreno.Alterato(dettaglio)
         else -> StatoTreno.Regolare
     }
+}
+
+/** I treni del feed partenze che compaiono anche negli arrivi a destinazione, nel verso giusto. */
+internal fun diretti(
+    partenze: List<Pair<String, PartenzaArrivoDto>>,
+    arriviPerTreno: Map<Int, PartenzaArrivoDto>,
+    codStazione: String,
+): List<ProssimoTreno> = partenze.mapNotNull { (codPartenza, p) ->
+    val arrivo = arriviPerTreno[p.numeroTreno ?: return@mapNotNull null] ?: return@mapNotNull null
+    val arrivoMs = arrivo.orarioArrivo ?: return@mapNotNull null
+    // stesso numero ma direzione opposta: scarta
+    if ((p.orarioPartenza ?: return@mapNotNull null) >= arrivoMs) return@mapNotNull null
+    p.comeProssimoTreno(codPartenza, arrivoMs, codStazione, destinazioneRipiego = arrivo.destinazione)
+}
+
+/**
+ * Solo i viaggi che si possono ancora prendere, più la corsa seguita: con le sue tratte (magari
+ * ripianificate dopo una coincidenza persa) e anche quando il feed non la elenca più.
+ */
+internal fun ancoraUtili(viaggi: List<ProssimoTreno>, seguito: TrenoSeguito?, adesso: Long): List<ProssimoTreno> {
+    val dalFeed = viaggi.filter { t ->
+        trenoAncoraUtile(
+            partenzaEffettivaMs = t.orarioPartenzaMs + t.ritardoMinuti * 60_000L,
+            arrivoMs = t.orarioArrivoDestinazioneMs ?: return@filter false,
+            adesso = adesso,
+            seguito = t.numeroTreno == seguito?.numeroTreno,
+        )
+    }.map { t ->
+        if (t.numeroTreno == seguito?.numeroTreno && seguito.tratte.isNotEmpty()) {
+            t.copy(tratte = seguito.tratte, orarioArrivoDestinazioneMs = seguito.arrivoDestinazioneMs)
+        } else {
+            t
+        }
+    }
+    // Dopo la partenza il feed `partenze` può smettere di elencare la corsa. Il seguito
+    // persiste invece fino alla conferma di arrivo, usando l'ultimo snapshot.
+    val fallback = seguito?.comeProssimoTreno()
+    return if (fallback != null && dalFeed.none { it.numeroTreno == fallback.numeroTreno }) dalFeed + fallback else dalFeed
 }
 
 /** Fermate e posizione dall'andamento; [DettaglioTreno.Ok.indiceDestinazione] lo fissa il chiamante. */

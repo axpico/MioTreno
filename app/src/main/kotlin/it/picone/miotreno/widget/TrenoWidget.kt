@@ -216,7 +216,7 @@ class TrenoWidget : GlanceAppWidget() {
             sciopero = imp.avvisiSciopero && repo.scioperiInCache().rilevanteOggiODomani() != null,
             avanzamentoReale = dettaglio?.progressoReale(stazione.codici),
             fermateMancanti = fermateMancanti,
-            rigaCambio = esitoSeguito?.rigaCambio,
+            rigaCambio = esitoSeguito?.cambio?.testo,
         ).conSeguito(seguito?.numeroTreno)
     }
 }

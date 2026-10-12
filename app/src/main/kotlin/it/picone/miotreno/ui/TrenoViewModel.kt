@@ -10,6 +10,7 @@ import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ElementoStazione
 import it.picone.miotreno.domain.PeriodoFiltro
+import it.picone.miotreno.domain.ProssimoCambio
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.RisultatoStazione
 import it.picone.miotreno.domain.RitardoAtteso
@@ -75,7 +76,7 @@ data class UiState(
     val dettagliTratte: List<DettaglioTreno> = emptyList(),
     val caricamentoDettaglio: Boolean = false,
     /** Corsa seguita con cambi: il prossimo cambio o la coincidenza persa, per la card in home. */
-    val rigaCambioSeguito: String? = null,
+    val cambioSeguito: ProssimoCambio? = null,
     // scelta manuale della stazione
     val selettoreStazione: Boolean = false,
     val stazioni: List<Stazione> = emptyList(),
@@ -260,14 +261,14 @@ class TrenoViewModel : ViewModel() {
     private fun aggiornaTracciamentoSeguito(treni: List<ProssimoTreno>, seguito: TrenoSeguito?, codDestinazione: String) {
         val treno = treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno }
         if (treno == null || seguito == null) {
-            _state.update { it.copy(rigaCambioSeguito = null) }
+            _state.update { it.copy(cambioSeguito = null) }
             return
         }
         viewModelScope.launch {
             // riletto: aggiorna() ha appena rinfrescato lo snapshot, quello passato qui è di prima
             val attuale = Deps.impostazioni.seguito.first() ?: return@launch
             val esito = runCatching { controllaSeguito(Deps.app, attuale, treno, codDestinazione) }.getOrNull() ?: return@launch
-            _state.update { it.copy(rigaCambioSeguito = esito.rigaCambio) }
+            _state.update { it.copy(cambioSeguito = esito.cambio) }
             if (esito.arrivato) {
                 Deps.impostazioni.smettiDiSeguire()
                 runCatching { aggiornaWidget(Deps.app, seguito = 0) }

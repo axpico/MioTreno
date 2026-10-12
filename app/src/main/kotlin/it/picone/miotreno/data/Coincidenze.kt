@@ -10,7 +10,7 @@ import java.time.OffsetDateTime
 private const val MAX_CAMBI = 2
 
 /** Quanti scali di cambio interrogare nel ripiego su ViaggiaTreno (4 chiamate ciascuno). */
-const val MAX_HUB = 3
+private const val MAX_HUB = 3
 
 /**
  * Viaggi con cambi dalle soluzioni LeFrecce.

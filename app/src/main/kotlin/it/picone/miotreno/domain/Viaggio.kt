@@ -38,6 +38,9 @@ val ProssimoTreno.cambi: Int get() = (tratte.count { it.suTreno } - 1).coerceAtL
 /** Solo le tratte in treno, quelle che si seguono con `andamentoTreno`. */
 val ProssimoTreno.tratteInTreno: List<Tratta> get() = tratte.filter { it.suTreno }
 
+/** Stazione del primo cambio, o null per un diretto. */
+val ProssimoTreno.primoCambio: String? get() = tratteInTreno.takeIf { it.size > 1 }?.first()?.nomeArrivo
+
 /** "1 cambio · Verona Porta Nuova", o null per un diretto. */
 fun ProssimoTreno.testoCambi(): String? {
     if (cambi == 0) return null
@@ -55,18 +58,44 @@ const val MARGINE_RISCHIO_MIN = 2
 /** Margine minimo richiesto ai cambi che costruiamo noi da ViaggiaTreno (non a quelli di LeFrecce). */
 const val MARGINE_CAMBIO_MIN = 5
 
+/** Arrivo previsto dove si scende: dall'andamento se c'è, altrimenti tabella + [ritardo]. */
+fun Tratta.arrivoPrevisto(d: DettaglioTreno?, ritardo: Int = ritardoMinuti): Long =
+    (d as? DettaglioTreno.Ok)?.let { it.fermate.getOrNull(it.indiceDestinazione)?.orario(it.ritardoMinuti)?.previstoMs }
+        ?: (arrivoMs + ritardo * 60_000L)
+
+/** Partenza prevista da dove si sale: dall'andamento se c'è, altrimenti tabella + ritardo noto. */
+fun Tratta.partenzaPrevista(d: DettaglioTreno?): Long =
+    (d as? DettaglioTreno.Ok)?.let { it.fermate.getOrNull(it.indicePartenza)?.orario(it.ritardoMinuti)?.previstoMs }
+        ?: (partenzaMs + ritardoMinuti * 60_000L)
+
+/** Tratti a piedi o in metro fra due treni consecutivi di [tutte]. */
+fun aPiediFra(tutte: List<Tratta>, arrivo: Tratta, partenza: Tratta): List<Tratta> {
+    val da = tutte.indexOf(arrivo) + 1
+    val a = tutte.indexOf(partenza)
+    return if (da in 1..a) tutte.subList(da, a).filter { !it.suTreno } else emptyList()
+}
+
 /**
- * Minuti fra l'arrivo previsto della prima tratta (con il suo ritardo) e la partenza prevista
- * del treno successivo, tolti gli eventuali tratti a piedi in mezzo. Null per un diretto.
+ * Minuti per cambiare fra [arrivo] e [partenza] con i ritardi noti (andamenti [dArrivo] e
+ * [dPartenza] se ci sono), tolti i tratti a piedi in mezzo.
  */
+fun margineCambio(
+    tutte: List<Tratta>,
+    arrivo: Tratta,
+    partenza: Tratta,
+    dArrivo: DettaglioTreno? = null,
+    dPartenza: DettaglioTreno? = null,
+    ritardoArrivo: Int = arrivo.ritardoMinuti,
+): Int? = margineLiveMinuti(
+    arrivo.arrivoPrevisto(dArrivo, ritardoArrivo),
+    partenza.partenzaPrevista(dPartenza),
+    aPiediMs = aPiediFra(tutte, arrivo, partenza).sumOf { it.arrivoMs - it.partenzaMs },
+)
+
+/** Margine al primo cambio con il ritardo attuale del primo treno; null per un diretto. */
 fun ProssimoTreno.margineCambioMinuti(): Int? {
-    val prima = tratte.firstOrNull() ?: return null
-    val iSuccessivo = tratte.indexOfFirst { it !== prima && it.suTreno }.takeIf { it > 0 } ?: return null
-    val successivo = tratte[iSuccessivo]
-    val aPiedi = tratte.subList(1, iSuccessivo).sumOf { it.arrivoMs - it.partenzaMs }
-    val arrivo = prima.arrivoMs + ritardoMinuti * 60_000L + aPiedi
-    val partenza = successivo.partenzaMs + successivo.ritardoMinuti * 60_000L
-    return ((partenza - arrivo) / 60_000L).toInt()
+    val treni = tratteInTreno.takeIf { it.size > 1 } ?: return null
+    return margineCambio(tratte, treni[0], treni[1], ritardoArrivo = ritardoMinuti)
 }
 
 /** Il ritardo della prima tratta si è mangiato (quasi) tutto il tempo per cambiare. */
@@ -188,4 +217,18 @@ fun statoCambio(margineMinuti: Int?): StatoCambio = when {
     margineMinuti < 0 -> StatoCambio.Persa
     margineMinuti < MARGINE_RISCHIO_MIN -> StatoCambio.ARischio
     else -> StatoCambio.Ok
+}
+
+/**
+ * Il prossimo cambio della corsa seguita, per card, widget e notifica: [stazione] e [dettaglio]
+ * separati, così chi ha già il nome della stazione in vista mostra solo il resto.
+ */
+data class ProssimoCambio(
+    val stazione: String,
+    /** "SU 24564 parte 19:19 · bin 1", o la nuova soluzione dopo una coincidenza persa. */
+    val dettaglio: String?,
+    val persa: Boolean = false,
+) {
+    val testo: String
+        get() = (if (persa) "Coincidenza persa a $stazione" else "Cambio a $stazione") + (dettaglio?.let { " · $it" } ?: "")
 }

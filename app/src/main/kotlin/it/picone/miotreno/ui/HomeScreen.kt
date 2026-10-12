@@ -195,7 +195,7 @@ fun HomeScreen(
                                         partenzaEtichetta = state.etichettePartenza[t.codPartenza]
                                             ?.takeIf { e -> e.isNotBlank() },
                                         codiciSalita = state.stazione?.codici.orEmpty(),
-                                        rigaCambio = state.rigaCambioSeguito.takeIf { seguito },
+                                        cambio = state.cambioSeguito.takeIf { seguito },
                                         modifier = Modifier.animateItem(placementSpec = Molla.ui())
                                             .let { if (compatta) it.gruppo(tb, inizioGruppo, fineGruppo) else it }
                                             .sharedBounds(

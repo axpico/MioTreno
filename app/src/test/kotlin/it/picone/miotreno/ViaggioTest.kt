@@ -2,11 +2,14 @@ package it.picone.miotreno
 
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.FermataTreno
+import it.picone.miotreno.domain.ProssimoCambio
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.StatoCambio
 import it.picone.miotreno.domain.StatoTreno
 import it.picone.miotreno.domain.Tratta
 import it.picone.miotreno.domain.TrenoSeguito
+import it.picone.miotreno.domain.aPiediFra
+import it.picone.miotreno.domain.arrivoPrevisto
 import it.picone.miotreno.domain.avvisoCambioDovuto
 import it.picone.miotreno.domain.cambi
 import it.picone.miotreno.domain.coincidenzaARischio
@@ -16,6 +19,8 @@ import it.picone.miotreno.domain.indicePerOrario
 import it.picone.miotreno.domain.indiceSalita
 import it.picone.miotreno.domain.margineCambioMinuti
 import it.picone.miotreno.domain.margineLiveMinuti
+import it.picone.miotreno.domain.partenzaPrevista
+import it.picone.miotreno.domain.primoCambio
 import it.picone.miotreno.domain.ripianificato
 import it.picone.miotreno.domain.statoCambio
 import it.picone.miotreno.domain.testoCambi
@@ -138,5 +143,28 @@ class ViaggioTest {
         assertEquals(StatoCambio.ARischio, statoCambio(margineLiveMinuti(37 * MIN, 38 * MIN)))
         assertEquals(StatoCambio.Persa, statoCambio(margineLiveMinuti(40 * MIN, 38 * MIN)))
         assertNull(margineLiveMinuti(null, 38 * MIN))
+    }
+
+    @Test
+    fun `senza andamento gli orari previsti sono tabella piu' ritardo noto`() {
+        val t = tratta(1, "A", "B", 10, 30, ritardo = 3)
+        assertEquals(33 * MIN, t.arrivoPrevisto(null))
+        assertEquals(13 * MIN, t.partenzaPrevista(null))
+        // il ritardo del primo treno arriva dal feed partenze, più fresco di quello salvato in tratta
+        assertEquals(35 * MIN, t.arrivoPrevisto(null, ritardo = 5))
+    }
+
+    @Test
+    fun `primo cambio e tratti a piedi fra due treni`() {
+        val treni = conCambio.tratte.filter { it.suTreno }
+        assertEquals("Verona", conCambio.primoCambio)
+        assertNull(viaggio(9, 0, 10).primoCambio)
+        assertEquals(listOf("Verona P."), aPiediFra(conCambio.tratte, treni[0], treni[1]).map { it.nomeArrivo })
+    }
+
+    @Test
+    fun `il testo del cambio dice stazione e dettaglio, o la coincidenza persa`() {
+        assertEquals("Cambio a Rho · SU 1 parte 19:19", ProssimoCambio("Rho", "SU 1 parte 19:19").testo)
+        assertEquals("Coincidenza persa a Rho", ProssimoCambio("Rho", null, persa = true).testo)
     }
 }

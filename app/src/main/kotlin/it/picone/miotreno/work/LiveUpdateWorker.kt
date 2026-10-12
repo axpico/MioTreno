@@ -153,7 +153,7 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
         costruisciNotificaTracking(
             ctx, treno, minuti, esito.nomeSalita ?: stazione.nome, stazione.codici, sciopero, dettaglio,
             destinazioneNome = nomeDestinazione,
-            rigaCambio = esito.rigaCambio,
+            rigaCambio = esito.cambio?.testo,
         ),
     )
 
