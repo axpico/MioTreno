@@ -89,10 +89,17 @@ adb shell am broadcast -a com.android.systemui.demo -e command enter
 adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 0941
 adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
 adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
+adb shell am broadcast -a com.android.systemui.demo -e command network -e mobile show -e level 4 -e datatype lte
 adb exec-out screencap -p > fastlane/store_assets/raw/home_dark.png   # ecc., vedi lo script
 adb shell am broadcast -a com.android.systemui.demo -e command exit
 adb shell settings put global sysui_demo_allowed 0
 ```
+
+Il comando `network ... datatype lte` non è estetico: senza, il demo mode mette un "3G" finto
+sull'icona mobile, e su Nothing OS quel "3G" **resta dopo l'uscita** dal demo mode, anche se il
+telefono è in 4G (verificato: modem e SystemUI dicono LTE, l'icona disegnata dice 3G). Se è già
+successo, si ripara così: rientrare nel demo mode, mandare il comando `network` qui sopra e
+uscire.
 
 La tendina con il Live Update (`shade_real.png`) va catturata **fuori** dal demo mode, che
 nasconde le notifiche. Lo screenshot nativo del telefono (1084×2412) è più lungo di 2:1 e Play
