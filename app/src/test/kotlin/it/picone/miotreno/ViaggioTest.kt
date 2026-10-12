@@ -5,7 +5,9 @@ import it.picone.miotreno.domain.FermataTreno
 import it.picone.miotreno.domain.ProssimoCambio
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.StatoCambio
+import it.picone.miotreno.domain.StatoCorsa
 import it.picone.miotreno.domain.StatoTreno
+import it.picone.miotreno.domain.Tono
 import it.picone.miotreno.domain.Tratta
 import it.picone.miotreno.domain.TrenoSeguito
 import it.picone.miotreno.domain.aPiediFra
@@ -23,6 +25,7 @@ import it.picone.miotreno.domain.partenzaPrevista
 import it.picone.miotreno.domain.primoCambio
 import it.picone.miotreno.domain.ripianificato
 import it.picone.miotreno.domain.statoCambio
+import it.picone.miotreno.domain.statoCorsa
 import it.picone.miotreno.domain.testoCambi
 import it.picone.miotreno.domain.unoPerPrimoTreno
 import org.junit.Assert.assertEquals
@@ -166,5 +169,30 @@ class ViaggioTest {
     fun `il testo del cambio dice stazione e dettaglio, o la coincidenza persa`() {
         assertEquals("Cambio a Rho · SU 1 parte 19:19", ProssimoCambio("Rho", "SU 1 parte 19:19").testo)
         assertEquals("Coincidenza persa a Rho", ProssimoCambio("Rho", null, persa = true).testo)
+    }
+
+    @Test
+    fun `la riga di stato dice cosa fare adesso`() {
+        val treno = viaggio(1, 10, 40).copy(binario = "2")
+        assertEquals("Vai al binario 2 · parte tra 6 min", statoCorsa(treno, null, "Busto", 4 * MIN).testo)
+        assertEquals("Binario non ancora assegnato · parte tra 6 min", statoCorsa(treno.copy(binario = null), null, "Busto", 4 * MIN).testo)
+        assertEquals(StatoCorsa("In partenza dal binario 2", Tono.Attenzione), statoCorsa(treno, null, "Busto", 9 * MIN))
+        assertEquals("A bordo · scendi a Busto", statoCorsa(treno, null, "Busto", 20 * MIN).testo)
+        assertEquals(
+            "A bordo · scendi a Rho e cambia",
+            statoCorsa(treno, ProssimoCambio("Rho", "SU 1 parte 19:19"), "Busto", 20 * MIN).testo,
+        )
+    }
+
+    @Test
+    fun `cancellato, coincidenza persa e a rischio sono allarmi o attenzioni`() {
+        val treno = viaggio(1, 10, 40)
+        assertEquals(Tono.Allarme, statoCorsa(treno.copy(stato = StatoTreno.Cancellato("x")), null, "B", 0).tono)
+        assertEquals(
+            StatoCorsa("Coincidenza persa a Rho", Tono.Allarme),
+            statoCorsa(treno, ProssimoCambio("Rho", null, persa = true), "B", 20 * MIN),
+        )
+        val aRischio = conCambio.copy(ritardoMinuti = 6)
+        assertEquals(StatoCorsa("Coincidenza a rischio a Verona", Tono.Attenzione), statoCorsa(aRischio, null, "B", -5 * MIN))
     }
 }

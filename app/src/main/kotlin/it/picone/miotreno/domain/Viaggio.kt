@@ -232,3 +232,33 @@ data class ProssimoCambio(
     val testo: String
         get() = (if (persa) "Coincidenza persa a $stazione" else "Cambio a $stazione") + (dettaglio?.let { " · $it" } ?: "")
 }
+
+/** Quanto deve preoccuparsi chi legge la riga di stato: decide il colore. */
+enum class Tono { Ok, Attenzione, Allarme }
+
+data class StatoCorsa(val testo: String, val tono: Tono)
+
+/**
+ * La riga in cima alla corsa seguita: cosa fare adesso, in una frase.
+ *
+ * [tratta] è la tratta in corso come treno singolo (vedi `controllaSeguito`): alla stazione di
+ * cambio è il treno successivo, quindi la frase torna "vai al binario" invece di "a bordo".
+ * [destinazioneNome] è dove scendi alla fine, che il treno non sa (conosce solo il capolinea).
+ */
+fun statoCorsa(tratta: ProssimoTreno, cambio: ProssimoCambio?, destinazioneNome: String, ora: Long): StatoCorsa {
+    val minuti = tratta.minutiAllaPartenza(ora)
+    val binario = tratta.binario
+    return when {
+        tratta.cancellato -> StatoCorsa("Treno cancellato · scegli un'altra corsa", Tono.Allarme)
+        cambio?.persa == true -> StatoCorsa(cambio.testo, Tono.Allarme)
+        minuti >= 0 && tratta.coincidenzaARischio ->
+            StatoCorsa("Coincidenza a rischio a ${tratta.primoCambio}", Tono.Attenzione)
+        minuti in 0..1 -> StatoCorsa("In partenza" + (binario?.let { " dal binario $it" } ?: ""), Tono.Attenzione)
+        minuti > 1 -> StatoCorsa(
+            (binario?.let { "Vai al binario $it" } ?: "Binario non ancora assegnato") + " · parte tra $minuti min",
+            Tono.Ok,
+        )
+        cambio != null -> StatoCorsa("A bordo · scendi a ${cambio.stazione} e cambia", Tono.Ok)
+        else -> StatoCorsa("A bordo · scendi a $destinazioneNome", Tono.Ok)
+    }
+}

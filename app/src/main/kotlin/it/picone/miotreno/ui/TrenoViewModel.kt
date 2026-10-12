@@ -26,7 +26,6 @@ import it.picone.miotreno.domain.filtraPerPeriodo
 import it.picone.miotreno.domain.filtraPerStazione
 import it.picone.miotreno.domain.passaPer
 import it.picone.miotreno.domain.ritardiAttesi
-import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.widget.aggiornaWidget
 import it.picone.miotreno.work.controllaSeguito
 import it.picone.miotreno.work.ricalcolaNotifica
@@ -75,6 +74,8 @@ data class UiState(
     /** Viaggio con cambi: un andamento per ogni treno, nell'ordine (per un diretto, uno solo). */
     val dettagliTratte: List<DettaglioTreno> = emptyList(),
     val caricamentoDettaglio: Boolean = false,
+    /** Tratta in corso della corsa seguita come treno singolo (vedi `controllaSeguito`), per la riga di stato. */
+    val trattaSeguita: ProssimoTreno? = null,
     /** Corsa seguita con cambi: il prossimo cambio o la coincidenza persa, per la card in home. */
     val cambioSeguito: ProssimoCambio? = null,
     // scelta manuale della stazione
@@ -261,14 +262,22 @@ class TrenoViewModel : ViewModel() {
     private fun aggiornaTracciamentoSeguito(treni: List<ProssimoTreno>, seguito: TrenoSeguito?, codDestinazione: String) {
         val treno = treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno }
         if (treno == null || seguito == null) {
-            _state.update { it.copy(cambioSeguito = null) }
+            _state.update { it.copy(cambioSeguito = null, trattaSeguita = null) }
             return
         }
         viewModelScope.launch {
             // riletto: aggiorna() ha appena rinfrescato lo snapshot, quello passato qui è di prima
             val attuale = Deps.impostazioni.seguito.first() ?: return@launch
             val esito = runCatching { controllaSeguito(Deps.app, attuale, treno, codDestinazione) }.getOrNull() ?: return@launch
-            _state.update { it.copy(cambioSeguito = esito.cambio) }
+            // l'andamento della tratta in corso, non del primo treno: dopo il cambio la card mostra il secondo
+            val dettaglio = esito.dettaglio as? DettaglioTreno.Ok
+            _state.update {
+                it.copy(
+                    cambioSeguito = esito.cambio,
+                    trattaSeguita = esito.treno,
+                    dettagliViaggio = dettaglio?.let { d -> mapOf(treno.numeroTreno to d) } ?: it.dettagliViaggio,
+                )
+            }
             if (esito.arrivato) {
                 Deps.impostazioni.smettiDiSeguire()
                 runCatching { aggiornaWidget(Deps.app, seguito = 0) }
@@ -277,31 +286,19 @@ class TrenoViewModel : ViewModel() {
     }
 
     /**
-     * Percorso reale per la barra viaggio delle card che lo mostrano: la hero (prossima
-     * partenza, sempre la prima della lista) e la corsa seguita, se diversa dalla prima.
+     * Percorso reale per la barra viaggio della card grande quando non si segue niente: la
+     * prossima partenza.
      */
     private fun caricaDettaglioEvidenza(treni: List<ProssimoTreno>, seguito: TrenoSeguito?, codDestinazione: String) {
-        val hero = treni.firstOrNull { !it.cancellato }
-        val seguita = trenoInEvidenza(treni, seguito)?.takeIf { it.numeroTreno != hero?.numeroTreno }
-        val daCaricare = listOfNotNull(hero, seguita)
-        if (daCaricare.isEmpty()) {
+        // con una corsa seguita la card grande è la sua, e il percorso lo dà aggiornaTracciamentoSeguito
+        if (treni.any { it.numeroTreno == seguito?.numeroTreno }) return
+        val hero = treni.firstOrNull { !it.cancellato } ?: run {
             _state.update { it.copy(dettagliViaggio = emptyMap()) }
             return
         }
         viewModelScope.launch {
-            val esito = coroutineScope {
-                daCaricare.map { t ->
-                    async { t.numeroTreno to runCatching { repo.dettaglio(t, codDestinazione) }.getOrNull() as? DettaglioTreno.Ok }
-                }.map { it.await() }
-            }
-            val numeriValidi = daCaricare.map { it.numeroTreno }.toSet()
-            _state.update {
-                it.copy(
-                    dettagliViaggio = it.dettagliViaggio
-                        .filterKeys { numero -> numero in numeriValidi } +
-                        esito.mapNotNull { (numero, d) -> d?.let { numero to it } },
-                )
-            }
+            val d = runCatching { repo.dettaglio(hero, codDestinazione) }.getOrNull() as? DettaglioTreno.Ok
+            _state.update { it.copy(dettagliViaggio = d?.let { mapOf(hero.numeroTreno to it) }.orEmpty()) }
         }
     }
 

@@ -306,6 +306,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         state = state, ora = ora,
                         sharedScope = this@SharedTransitionLayout, animatedScope = this@AnimatedContent,
                         onApri = vm::apri,
+                        onSmetti = { vm.cambiaSeguito(it) },
                         onChiediPermesso = chiediPosizione,
                         permessoBloccato = posizioneBloccata,
                         onRiprova = vm::aggiorna,

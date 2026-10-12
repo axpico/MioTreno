@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +67,7 @@ import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.domain.comeOra
+import it.picone.miotreno.domain.statoCorsa
 import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.GlassCard
@@ -92,6 +94,9 @@ val PADDING_BARRA = 112.dp
 
 fun chiaveTreno(numero: Int) = "treno-$numero"
 
+/** Altre partenze visibili mentre segui una corsa, prima di "Mostra tutte". */
+private const val ALTRE_VISIBILI = 3
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun HomeScreen(
@@ -100,6 +105,8 @@ fun HomeScreen(
     sharedScope: SharedTransitionScope,
     animatedScope: AnimatedContentScope,
     onApri: (ProssimoTreno) -> Unit,
+    /** Smetti di seguire, dall'azione rapida sulla card della corsa seguita. */
+    onSmetti: (ProssimoTreno) -> Unit = {},
     onChiediPermesso: () -> Unit,
     permessoBloccato: Boolean = false,
     onRiprova: () -> Unit,
@@ -122,6 +129,9 @@ fun HomeScreen(
             tirato = false
         }
     }
+
+    // mentre segui una corsa le altre partenze sono contorno: ne bastano poche, il resto a richiesta
+    var mostraTutte by rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         PullRefresh(
@@ -167,21 +177,30 @@ fun HomeScreen(
                         )
                     }
                     else -> {
-                        val evidenza = trenoInEvidenza(state.treni, state.seguito)
+                        // La corsa seguita va in cima, anche se parte dopo: è la sola che interessa.
+                        val seguita = state.treni.firstOrNull { it.numeroTreno == state.seguito?.numeroTreno }
+                        val lista = if (seguita != null) listOf(seguita) + state.treni.filter { it !== seguita } else state.treni
+                        val evidenza = seguita ?: trenoInEvidenza(state.treni, state.seguito)
                         // Le righe compatte consecutive formano un'unica card: il bordo arrotondato
                         // sta solo sopra la prima e sotto l'ultima del gruppo.
-                        val compatte = state.treni.mapIndexed { i, t -> i != 0 && t.numeroTreno != evidenza?.numeroTreno }
-                        itemsIndexed(state.treni, key = { _, t -> chiaveTreno(t.numeroTreno) }) { indice, t ->
-                            val seguito = state.seguito?.numeroTreno == t.numeroTreno
+                        val compatte = lista.mapIndexed { i, t -> i != 0 && t.numeroTreno != evidenza?.numeroTreno }
+                        val nascoste = if (seguita != null && !mostraTutte) (lista.size - 1 - ALTRE_VISIBILI).coerceAtLeast(0) else 0
+                        val visibili = lista.dropLast(nascoste)
+                        itemsIndexed(visibili, key = { _, t -> chiaveTreno(t.numeroTreno) }) { indice, t ->
+                            val seguito = t.numeroTreno == seguita?.numeroTreno
                             val compatta = compatte[indice]
                             val inizioGruppo = compatta && !compatte.getOrElse(indice - 1) { false }
-                            val fineGruppo = compatta && !compatte.getOrElse(indice + 1) { false }
+                            val fineGruppo = compatta && !(indice + 1 < visibili.size && compatte[indice + 1])
                             Column(
                                 Modifier.padding(top = if (compatta && !inizioGruppo) 0.dp else Spazio.l),
                                 verticalArrangement = Arrangement.spacedBy(Spazio.s),
                             ) {
-                                if (indice == 0) Overline(if (seguito) "La corsa che segui" else "Prossima partenza")
-                                if (indice == 1) Overline("Partenze successive", Modifier.padding(top = Spazio.s))
+                                val seguendo = seguita != null
+                                if (indice == 0) Overline(if (seguendo) "La tua corsa" else "Prossima partenza")
+                                if (indice == 1) {
+                                    val titolo = if (seguendo) "Altre partenze" else "Partenze successive"
+                                    Overline(titolo, Modifier.padding(top = Spazio.s))
+                                }
                                 with(sharedScope) {
                                     TrainCard(
                                         t, ora, seguito = seguito,
@@ -196,6 +215,15 @@ fun HomeScreen(
                                             ?.takeIf { e -> e.isNotBlank() },
                                         codiciSalita = state.stazione?.codici.orEmpty(),
                                         cambio = state.cambioSeguito.takeIf { seguito },
+                                        statoCorsa = if (seguito) {
+                                            statoCorsa(
+                                                state.trattaSeguita ?: t, state.cambioSeguito,
+                                                state.destinazioneNome ?: "destinazione", ora,
+                                            )
+                                        } else {
+                                            null
+                                        },
+                                        onSmetti = if (seguito) ({ haptic.conferma(); onSmetti(t) }) else null,
                                         modifier = Modifier.animateItem(placementSpec = Molla.ui())
                                             .let { if (compatta) it.gruppo(tb, inizioGruppo, fineGruppo) else it }
                                             .sharedBounds(
@@ -203,6 +231,17 @@ fun HomeScreen(
                                             ),
                                     )
                                 }
+                            }
+                        }
+                        if (nascoste > 0) {
+                            item(key = "mostra-tutte") {
+                                Text(
+                                    "Mostra tutte ($nascoste)",
+                                    Modifier.fillMaxWidth().padding(top = Spazio.s).clip(Forme.chip)
+                                        .semantics { role = Role.Button }
+                                        .clickable { haptic.tocco(); mostraTutte = true }.padding(vertical = Spazio.s),
+                                    style = Testo.etichettaBold, color = tb.accento, textAlign = TextAlign.Center,
+                                )
                             }
                         }
                     }
