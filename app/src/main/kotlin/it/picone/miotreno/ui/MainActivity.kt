@@ -16,37 +16,29 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,15 +48,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
@@ -77,13 +66,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import it.picone.miotreno.Deps
 import it.picone.miotreno.data.AdsManager
 import it.picone.miotreno.data.URL_BUY_ME_A_COFFEE
-import it.picone.miotreno.ui.componenti.Icone
-import it.picone.miotreno.ui.componenti.ombraMorbida
-import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.MioTrenoTheme
 import it.picone.miotreno.ui.theme.Molla
-import it.picone.miotreno.ui.theme.Testo
 import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
 import it.picone.miotreno.widget.EXTRA_SEGUI
 import it.picone.miotreno.work.pianificaLavoriPeriodici
@@ -164,7 +149,6 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
     val state by vm.state.collectAsStateWithLifecycle()
     val ora by vm.ora.collectAsStateWithLifecycle()
     val tb = LocalTb.current
-    val lifecycle = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
         dalWidget.collect { numero ->
@@ -176,70 +160,9 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
         }
     }
 
-    // Polling solo con l'app visibile: repeatOnLifecycle cancella il loop in background.
-    LaunchedEffect(Unit) {
-        lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            // al ritorno dal background la lista può essere vecchia di minuti: subito, non fra 60 s.
-            // Al primo avvio aggiornatoAlle è null e ci pensa già l'init del ViewModel.
-            val ultimo = vm.state.value.aggiornatoAlle
-            if (ultimo != null && System.currentTimeMillis() - ultimo > SOGLIA_STALE_MS &&
-                vm.state.value.schermata != Schermata.Dettaglio
-            ) {
-                vm.aggiorna(silenzioso = true)
-            }
-            while (true) {
-                delay(POLL_HOME_MS)
-                if (vm.state.value.schermata != Schermata.Dettaglio) vm.aggiorna(silenzioso = true)
-            }
-        }
-    }
-
-    // ── permessi: mai all'avvio, sempre dal contesto in cui servono ──────────
-    val context = LocalContext.current
-    val activity = context as Activity
-    val apriImpostazioniApp = {
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
-        )
-    }
-    // negato due volte (o "non chiedere più"): il dialog non comparirebbe, si va in Impostazioni
-    var posizioneBloccata by remember { mutableStateOf(false) }
-    val permessoPosizione = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) { esiti ->
-        if (esiti.values.any { it }) {
-            vm.permessoConcesso()
-        } else {
-            posizioneBloccata =
-                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
-    }
-    val chiediPosizione = {
-        if (posizioneBloccata) {
-            apriImpostazioniApp()
-        } else {
-            permessoPosizione.launch(
-                // solo COARSE: per capire a quale scalo sei vicino non serve la precisione GPS,
-                // e una permission in meno e' una permission in meno da giustificare e da esporre
-                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-            )
-        }
-    }
-    val permessoNotifiche = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        vm.setNotifichePermesse(NotificationManagerCompat.from(context).areNotificationsEnabled())
-    }
-    val chiediNotifiche = {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !NotificationManagerCompat.from(context).areNotificationsEnabled()
-        ) {
-            permessoNotifiche.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
-    LaunchedEffect(Unit) {
-        lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            vm.setNotifichePermesse(NotificationManagerCompat.from(context).areNotificationsEnabled())
-        }
-    }
+    AggiornamentoAutomatico(vm)
+    val permessi = rememberPermessi(vm)
+    val activity = LocalContext.current as Activity
 
     // interstitial: one-shot, consumato appena mostrato per non ripartire su rotazione/ricomposizione
     LaunchedEffect(state.mostraInterstitial) {
@@ -295,76 +218,10 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                 },
                 label = "schermata",
             ) { schermata ->
-                when (schermata) {
-                    Schermata.Onboarding -> OnboardingScreen(
-                        onCerca = vm::cercaStazioni,
-                        onScegli = vm::scegliDestinazione,
-                        onAdsScelte = vm::setAdsAbilitate,
-                        onRichiediConsenso = { AdsManager.richiediConsenso(activity) },
-                    )
-                    Schermata.Home -> HomeScreen(
-                        state = state, ora = ora,
-                        sharedScope = this@SharedTransitionLayout, animatedScope = this@AnimatedContent,
-                        onApri = vm::apri,
-                        onSmetti = { vm.cambiaSeguito(it) },
-                        onChiediPermesso = chiediPosizione,
-                        permessoBloccato = posizioneBloccata,
-                        onRiprova = vm::aggiorna,
-                        onRefresh = { vm.aggiorna() },
-                        onScegliStazione = vm::apriSelettoreStazione,
-                        onScambia = vm::scambiaOrigineDestinazione,
-                        onScegliDestinazione = vm::apriSelettoreDestinazione,
-                        onAttivaCambi = { vm.setConCambi(true) },
-                        altezzaBanner = altezzaBanner,
-                    )
-                    Schermata.Dettaglio -> DettaglioScreen(
-                        state = state, ora = ora,
-                        sharedScope = this@SharedTransitionLayout, animatedScope = this@AnimatedContent,
-                        onIndietro = vm::indietro,
-                        onSegui = { state.trenoSelezionato?.let(vm::cambiaSeguito) },
-                        onNotifiche = vm::setNotifiche,
-                        onChiediNotifiche = chiediNotifiche,
-                    )
-                    Schermata.Statistiche -> StatisticheScreen(
-                        stat = state.statistiche,
-                        filtroPeriodo = state.filtroPeriodo,
-                        onFiltroPeriodo = vm::impostaFiltroPeriodo,
-                        nomeStazioneFiltro = state.stazioniStorico.firstOrNull { it.codice == state.filtroStazione }?.nome,
-                        onFiltroStazione = vm::apriSelettoreFiltroStazione,
-                    )
-                    Schermata.Impostazioni -> SettingsScreen(
-                        imp = state.impostazioni,
-                        stazione = state.stazione,
-                        onNotifiche = vm::setNotifiche,
-                        onAnticipo = vm::setAnticipo,
-                        onConCambi = vm::setConCambi,
-                        onAvvisoCambio = vm::setAvvisoCambio,
-                        onAvvisiSciopero = vm::setAvvisiSciopero,
-                        onScegliStazione = vm::apriSelettoreStazione,
-                        onUsaGps = { vm.scegliStazione(null) },
-                        destinazioneNome = state.destinazioneNome,
-                        onScegliDestinazione = vm::apriSelettoreDestinazione,
-                        onScambia = vm::scambiaOrigineDestinazione,
-                        regioneScioperiNome = state.regioneScioperiNome,
-                        stazionePassaggioNome = state.stazionePassaggioNome,
-                        onScegliPassaggio = vm::apriSelettorePassaggio,
-                        onRimuoviPassaggio = { vm.scegliPassaggio(null) },
-                        notifichePermesse = state.notifichePermesse,
-                        onChiediNotifiche = chiediNotifiche,
-                        onApriImpostazioniSistema = apriImpostazioniApp,
-                        onAggiungiTile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            { proponiTile(context) { vm.setTileAggiunto(true) } }
-                        } else {
-                            null
-                        },
-                        onAdsAbilitate = vm::setAdsAbilitate,
-                        mostraGestioneConsenso = AdsManager.richiedeGestioneConsenso(),
-                        onGestisciConsenso = { AdsManager.apriGestioneConsenso(activity) },
-                        onSupportaSviluppatore = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, URL_BUY_ME_A_COFFEE.toUri()))
-                        },
-                    )
-                }
+                SchermataCorrente(
+                    schermata, state, ora, vm, permessi, altezzaBanner,
+                    sharedScope = this@SharedTransitionLayout, animatedScope = this@AnimatedContent,
+                )
             }
         }
 
@@ -406,111 +263,233 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
             if (barraVisibile) Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
 
-        AnimatedVisibility(visible = state.selettoreStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
-            SelettoreStazione(
-                correnteCodice = state.impostazioni.stazioneManuale,
-                onScegli = vm::scegliStazione,
-                onChiudi = vm::chiudiSelettoreStazione,
-                ricercaLive = vm::cercaStazioni,
-                recenti = state.stazioniRecenti,
-            )
-        }
+        SelettoriStazione(state, vm)
+    }
+}
 
-        AnimatedVisibility(visible = state.selettoreDestinazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
-            SelettoreStazione(
-                correnteCodice = state.impostazioni.stazioneDestinazione,
-                onScegli = { codice -> codice?.let(vm::scegliDestinazione) },
-                onChiudi = vm::chiudiSelettoreDestinazione,
-                titolo = "Scegli la destinazione",
-                overline = "Destinazione",
-                mostraOpzioneVuota = false,
-                ricercaLive = vm::cercaStazioni,
-                recenti = state.stazioniRecenti,
-            )
-        }
-
-        AnimatedVisibility(visible = state.selettorePassaggio, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
-            SelettoreStazione(
-                stazioni = state.stazioni,
-                correnteCodice = state.impostazioni.stazionePassaggio,
-                onScegli = vm::scegliPassaggio,
-                onChiudi = vm::chiudiSelettorePassaggio,
-                titolo = "Stazione di passaggio",
-                overline = "Passa sempre per",
-                etichettaOpzioneVuota = "Nessuna",
-                descrizioneOpzioneVuota = "disattiva l'evidenziazione",
-                mostraIconaOpzioneVuota = false,
-            )
-        }
-
-        AnimatedVisibility(visible = state.selettoreFiltroStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
-            SelettoreStazione(
-                stazioni = state.stazioniStorico,
-                correnteCodice = state.filtroStazione,
-                onScegli = vm::scegliFiltroStazione,
-                onChiudi = vm::chiudiSelettoreFiltroStazione,
-                titolo = "Filtra per stazione",
-                overline = "Statistiche",
-                etichettaOpzioneVuota = "Tutte le stazioni",
-                descrizioneOpzioneVuota = "nessun filtro",
-                mostraIconaOpzioneVuota = false,
-            )
+/**
+ * Polling della lista solo con l'app visibile (repeatOnLifecycle cancella il loop in background),
+ * e subito al ritorno se i dati sono vecchi.
+ */
+@Composable
+private fun AggiornamentoAutomatico(vm: TrenoViewModel) {
+    val lifecycle = LocalLifecycleOwner.current
+    LaunchedEffect(Unit) {
+        lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // al ritorno dal background la lista può essere vecchia di minuti: subito, non fra 60 s.
+            // Al primo avvio aggiornatoAlle è null e ci pensa già l'init del ViewModel.
+            val ultimo = vm.state.value.aggiornatoAlle
+            if (ultimo != null && System.currentTimeMillis() - ultimo > SOGLIA_STALE_MS &&
+                vm.state.value.schermata != Schermata.Dettaglio
+            ) {
+                vm.aggiorna(silenzioso = true)
+            }
+            while (true) {
+                delay(POLL_HOME_MS)
+                if (vm.state.value.schermata != Schermata.Dettaglio) vm.aggiorna(silenzioso = true)
+            }
         }
     }
 }
 
-private data class Tab(val nome: String, val icona: ImageVector, val schermata: Schermata)
+/** Permessi: mai all'avvio, sempre dal contesto in cui servono. */
+@Composable
+private fun rememberPermessi(vm: TrenoViewModel): Permessi {
+    val lifecycle = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val activity = context as Activity
+    val apriImpostazioniApp = {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+        )
+    }
+    // negato due volte (o "non chiedere più"): il dialog non comparirebbe, si va in Impostazioni
+    var posizioneBloccata by remember { mutableStateOf(false) }
+    val permessoPosizione = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { esiti ->
+        if (esiti.values.any { it }) {
+            vm.permessoConcesso()
+        } else {
+            posizioneBloccata =
+                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+    val chiediPosizione = {
+        if (posizioneBloccata) {
+            apriImpostazioniApp()
+        } else {
+            permessoPosizione.launch(
+                // solo COARSE: per capire a quale scalo sei vicino non serve la precisione GPS,
+                // e una permission in meno e' una permission in meno da giustificare e da esporre
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+            )
+        }
+    }
+    val permessoNotifiche = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        vm.setNotifichePermesse(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+    val chiediNotifiche = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !NotificationManagerCompat.from(context).areNotificationsEnabled()
+        ) {
+            permessoNotifiche.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    LaunchedEffect(Unit) {
+        lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            vm.setNotifichePermesse(NotificationManagerCompat.from(context).areNotificationsEnabled())
+        }
+    }
+    return Permessi(chiediPosizione, posizioneBloccata, chiediNotifiche, apriImpostazioniApp)
+}
 
-private val TAB = listOf(
-    Tab("Treni", Icone.Treno, Schermata.Home),
-    Tab("Statistiche", Icone.Statistiche, Schermata.Statistiche),
-    Tab("Impostazioni", Icone.Impostazioni, Schermata.Impostazioni),
+/** Le richieste di permesso, preparate in [App] dove servono i launcher: le schermate le chiamano soltanto. */
+private class Permessi(
+    val chiediPosizione: () -> Unit,
+    val posizioneBloccata: Boolean,
+    val chiediNotifiche: () -> Unit,
+    val apriImpostazioniApp: () -> Unit,
 )
 
-/**
- * Barra flottante a pillola con ombra tinta. Tre posti uguali, icona sopra e nome sotto: la tab
- * attiva si distingue per la capsula tinta, non allargandosi (spingeva le altre in un angolo).
- */
+/** Quale schermata mostrare e con quali azioni: solo instradamento, la logica sta nel ViewModel. */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun BarraNav(corrente: Schermata, onVai: (Schermata) -> Unit) {
-    val tb = LocalTb.current
-    Row(
-        Modifier
-            .padding(horizontal = 24.dp, vertical = 12.dp)
-            .fillMaxWidth()
-            .ombraMorbida(tb, Forme.barra, 16.dp)
-            .clip(Forme.barra)
-            .background(tb.sf)
-            .let { if (tb.scuro) it.border(1.dp, tb.bordoForte, Forme.barra) else it }
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TAB.forEach { tab ->
-            val attivo = corrente == tab.schermata
-            val sfondo by animateColorAsState(
-                if (attivo) tb.accentoSoft else Color.Transparent,
-                Molla.piatta(), label = "nav-${tab.nome}",
-            )
-            val colore by animateColorAsState(if (attivo) tb.accento else tb.ter, Molla.piatta(), label = "navc-${tab.nome}")
-            Column(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .clip(Forme.barra)
-                    .background(sfondo)
-                    .selectable(selected = attivo, role = Role.Tab, onClick = { onVai(tab.schermata) })
-                    .padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Icon(tab.icona, contentDescription = null, tint = colore, modifier = Modifier.size(22.dp))
-                Text(
-                    tab.nome, style = if (attivo) Testo.etichettaBold else Testo.micro, color = colore, maxLines = 1,
-                    softWrap = false, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-        }
+private fun SchermataCorrente(
+    schermata: Schermata,
+    state: UiState,
+    ora: Long,
+    vm: TrenoViewModel,
+    permessi: Permessi,
+    altezzaBanner: Dp,
+    sharedScope: SharedTransitionScope,
+    animatedScope: AnimatedContentScope,
+) {
+    val context = LocalContext.current
+    val activity = context as Activity
+    when (schermata) {
+        Schermata.Onboarding -> OnboardingScreen(
+            onCerca = vm::cercaStazioni,
+            onScegli = vm::scegliDestinazione,
+            onAdsScelte = vm::setAdsAbilitate,
+            onRichiediConsenso = { AdsManager.richiediConsenso(activity) },
+        )
+        Schermata.Home -> HomeScreen(
+            state = state, ora = ora,
+            sharedScope = sharedScope, animatedScope = animatedScope,
+            onApri = vm::apri,
+            onSmetti = { vm.cambiaSeguito(it) },
+            onChiediPermesso = permessi.chiediPosizione,
+            permessoBloccato = permessi.posizioneBloccata,
+            onRiprova = vm::aggiorna,
+            onRefresh = { vm.aggiorna() },
+            onScegliStazione = vm::apriSelettoreStazione,
+            onScambia = vm::scambiaOrigineDestinazione,
+            onScegliDestinazione = vm::apriSelettoreDestinazione,
+            onAttivaCambi = { vm.setConCambi(true) },
+            altezzaBanner = altezzaBanner,
+        )
+        Schermata.Dettaglio -> DettaglioScreen(
+            state = state, ora = ora,
+            sharedScope = sharedScope, animatedScope = animatedScope,
+            onIndietro = vm::indietro,
+            onSegui = { state.trenoSelezionato?.let(vm::cambiaSeguito) },
+            onNotifiche = vm::setNotifiche,
+            onChiediNotifiche = permessi.chiediNotifiche,
+        )
+        Schermata.Statistiche -> StatisticheScreen(
+            stat = state.statistiche,
+            filtroPeriodo = state.filtroPeriodo,
+            onFiltroPeriodo = vm::impostaFiltroPeriodo,
+            nomeStazioneFiltro = state.stazioniStorico.firstOrNull { it.codice == state.filtroStazione }?.nome,
+            onFiltroStazione = vm::apriSelettoreFiltroStazione,
+        )
+        Schermata.Impostazioni -> SettingsScreen(
+            imp = state.impostazioni,
+            stazione = state.stazione,
+            onNotifiche = vm::setNotifiche,
+            onAnticipo = vm::setAnticipo,
+            onConCambi = vm::setConCambi,
+            onAvvisoCambio = vm::setAvvisoCambio,
+            onAvvisiSciopero = vm::setAvvisiSciopero,
+            onScegliStazione = vm::apriSelettoreStazione,
+            onUsaGps = { vm.scegliStazione(null) },
+            destinazioneNome = state.destinazioneNome,
+            onScegliDestinazione = vm::apriSelettoreDestinazione,
+            onScambia = vm::scambiaOrigineDestinazione,
+            regioneScioperiNome = state.regioneScioperiNome,
+            stazionePassaggioNome = state.stazionePassaggioNome,
+            onScegliPassaggio = vm::apriSelettorePassaggio,
+            onRimuoviPassaggio = { vm.scegliPassaggio(null) },
+            notifichePermesse = state.notifichePermesse,
+            onChiediNotifiche = permessi.chiediNotifiche,
+            onApriImpostazioniSistema = permessi.apriImpostazioniApp,
+            onAggiungiTile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                { proponiTile(context) { vm.setTileAggiunto(true) } }
+            } else {
+                null
+            },
+            onAdsAbilitate = vm::setAdsAbilitate,
+            mostraGestioneConsenso = AdsManager.richiedeGestioneConsenso(),
+            onGestisciConsenso = { AdsManager.apriGestioneConsenso(activity) },
+            onSupportaSviluppatore = {
+                context.startActivity(Intent(Intent.ACTION_VIEW, URL_BUY_ME_A_COFFEE.toUri()))
+            },
+        )
+    }
+}
+
+/** I quattro selettori di stazione, a tutto schermo sopra il resto quando aperti. */
+@Composable
+private fun SelettoriStazione(state: UiState, vm: TrenoViewModel) {
+    AnimatedVisibility(visible = state.selettoreStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+        SelettoreStazione(
+            correnteCodice = state.impostazioni.stazioneManuale,
+            onScegli = vm::scegliStazione,
+            onChiudi = vm::chiudiSelettoreStazione,
+            ricercaLive = vm::cercaStazioni,
+            recenti = state.stazioniRecenti,
+        )
+    }
+
+    AnimatedVisibility(visible = state.selettoreDestinazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+        SelettoreStazione(
+            correnteCodice = state.impostazioni.stazioneDestinazione,
+            onScegli = { codice -> codice?.let(vm::scegliDestinazione) },
+            onChiudi = vm::chiudiSelettoreDestinazione,
+            titolo = "Scegli la destinazione",
+            overline = "Destinazione",
+            mostraOpzioneVuota = false,
+            ricercaLive = vm::cercaStazioni,
+            recenti = state.stazioniRecenti,
+        )
+    }
+
+    AnimatedVisibility(visible = state.selettorePassaggio, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+        SelettoreStazione(
+            stazioni = state.stazioni,
+            correnteCodice = state.impostazioni.stazionePassaggio,
+            onScegli = vm::scegliPassaggio,
+            onChiudi = vm::chiudiSelettorePassaggio,
+            titolo = "Stazione di passaggio",
+            overline = "Passa sempre per",
+            etichettaOpzioneVuota = "Nessuna",
+            descrizioneOpzioneVuota = "disattiva l'evidenziazione",
+            mostraIconaOpzioneVuota = false,
+        )
+    }
+
+    AnimatedVisibility(visible = state.selettoreFiltroStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+        SelettoreStazione(
+            stazioni = state.stazioniStorico,
+            correnteCodice = state.filtroStazione,
+            onScegli = vm::scegliFiltroStazione,
+            onChiudi = vm::chiudiSelettoreFiltroStazione,
+            titolo = "Filtra per stazione",
+            overline = "Statistiche",
+            etichettaOpzioneVuota = "Tutte le stazioni",
+            descrizioneOpzioneVuota = "nessun filtro",
+            mostraIconaOpzioneVuota = false,
+        )
     }
 }

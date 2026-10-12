@@ -12,8 +12,12 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import it.picone.miotreno.Deps
+import it.picone.miotreno.data.Impostazioni
 import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
+import it.picone.miotreno.domain.ProssimoTreno
+import it.picone.miotreno.domain.StazioneCorrente
+import it.picone.miotreno.domain.TrenoSeguito
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -96,32 +100,14 @@ private sealed interface Giro {
  * Un giro di tracking: ricontrolla la corsa, aggiorna la notifica, dice quando ripassare.
  */
 private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Unit): Giro {
-    val imp = Deps.impostazioni.flow.first()
-    val seguito = Deps.impostazioni.seguito.first()
-    val codDestinazione = imp.stazioneDestinazione
-    if (!imp.notifiche || seguito == null || codDestinazione == null) {
-        Log.d(TAG, "tracking chiuso: notifiche=${imp.notifiche} seguito=${seguito != null}")
-        rimuoviNotificaTracking(ctx)
-        return Giro.Finito
+    val corsa = when (val r = corsaDaSeguire(ctx)) {
+        is Ricerca.Trovata -> r.corsa
+        is Ricerca.Niente -> return r.giro
     }
-
-    val stazione = Deps.stazione.risolvi(usaUltimaNota = true) ?: run {
-        Log.w(TAG, "tracking: stazione non risolvibile, riprovo al giro successivo")
-        return Giro.Ancora(PASSO_MIN_MS)
-    }
-    val dalFeed = runCatching { Deps.repository.prossimiTreni(stazione.codici, codDestinazione, seguito = seguito) }
-        .getOrNull()?.firstOrNull { it.numeroTreno == seguito.numeroTreno } ?: run {
-        Log.w(TAG, "tracking: snapshot mancante per ${seguito.numeroTreno}, riprovo al giro successivo")
-        return Giro.Ancora(PASSO_MIN_MS)
-    }
-
-    // "segui" dal widget salva solo numero/data/arrivo: qui lo snapshot si completa, finché la
-    // corsa è ancora nel feed, o dopo la partenza il fallback non avrebbe di che ripartire
-    Deps.impostazioni.aggiornaSeguito(dalFeed)
+    val imp = corsa.imp
     // tratta in corso, cambio, coincidenza persa: vedi controllaSeguito
-    val esito = controllaSeguito(ctx, Deps.impostazioni.seguito.first() ?: seguito, dalFeed, codDestinazione)
+    val esito = controllaSeguito(ctx, corsa.seguito, corsa.dalFeed, corsa.codDestinazione)
     val dettaglio = esito.dettaglio
-    val ok = dettaglio as? DettaglioTreno.Ok
 
     /*
      * Qui stava il motivo per cui la notifica non si aggiornava mai.
@@ -134,7 +120,7 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
      * Il ritardo vero, dopo la partenza, lo dà solo andamentoTreno — che era già stato
      * scaricato qui sopra e buttato via.
      */
-    val treno = if (ok != null) esito.treno.copy(ritardoMinuti = ok.ritardoMinuti) else esito.treno
+    val treno = (dettaglio as? DettaglioTreno.Ok)?.let { esito.treno.copy(ritardoMinuti = it.ritardoMinuti) } ?: esito.treno
 
     val adesso = System.currentTimeMillis()
     val minuti = treno.minutiAllaPartenza(adesso)
@@ -147,11 +133,14 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
 
     val sciopero = Deps.repository.scioperiInCache().rilevanteOggiODomani().takeIf { imp.avvisiSciopero }
     // un viaggio con cambi mostra la tratta in corso: da dove sali a dove scendi
-    val diretto = dalFeed.tratte.isEmpty()
-    val nomeDestinazione = if (diretto) Deps.repository.nomeStazione(codDestinazione) ?: "destinazione" else treno.destinazione
+    val nomeDestinazione = if (corsa.dalFeed.tratte.isEmpty()) {
+        Deps.repository.nomeStazione(corsa.codDestinazione) ?: "destinazione"
+    } else {
+        treno.destinazione
+    }
     pubblica(
         costruisciNotificaTracking(
-            ctx, treno, minuti, esito.nomeSalita ?: stazione.nome, stazione.codici, sciopero, dettaglio,
+            ctx, treno, minuti, esito.nomeSalita ?: corsa.stazione.nome, corsa.stazione.codici, sciopero, dettaglio,
             destinazioneNome = nomeDestinazione,
             rigaCambio = esito.cambio?.testo,
         ),
@@ -160,12 +149,60 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
     if (esito.arrivato) Deps.impostazioni.smettiDiSeguire()
     // ultimo fotogramma: resta visibile, non si continua a interrogare un treno finito
     if (esito.arrivato || treno.cancellato) return Giro.Finito
+    return Giro.Ancora(prossimoPasso(treno, minuti, adesso))
+}
 
-    // si guarda all'evento più vicino: prima della partenza è la partenza, dopo è l'arrivo
+/** Tutto quello che serve a un giro di tracking, trovato da [corsaDaSeguire]. */
+private class CorsaDaSeguire(
+    val imp: Impostazioni,
+    val seguito: TrenoSeguito,
+    val codDestinazione: String,
+    val stazione: StazioneCorrente,
+    val dalFeed: ProssimoTreno,
+)
+
+private sealed interface Ricerca {
+    class Trovata(val corsa: CorsaDaSeguire) : Ricerca
+
+    /** Niente da tracciare in questo giro: [giro] dice se smettere o riprovare. */
+    class Niente(val giro: Giro) : Ricerca
+}
+
+/**
+ * La corsa seguita, ancora valida e con lo snapshot rinfrescato dal feed. Senza notifiche, senza
+ * corsa seguita o senza destinazione il tracking finisce; senza stazione o feed si riprova.
+ */
+private suspend fun corsaDaSeguire(ctx: Context): Ricerca {
+    val imp = Deps.impostazioni.flow.first()
+    val seguito = Deps.impostazioni.seguito.first()
+    val codDestinazione = imp.stazioneDestinazione
+    if (!imp.notifiche || seguito == null || codDestinazione == null) {
+        Log.d(TAG, "tracking chiuso: notifiche=${imp.notifiche} seguito=${seguito != null}")
+        rimuoviNotificaTracking(ctx)
+        return Ricerca.Niente(Giro.Finito)
+    }
+    val stazione = Deps.stazione.risolvi(usaUltimaNota = true) ?: run {
+        Log.w(TAG, "tracking: stazione non risolvibile, riprovo al giro successivo")
+        return Ricerca.Niente(Giro.Ancora(PASSO_MIN_MS))
+    }
+    val dalFeed = runCatching { Deps.repository.prossimiTreni(stazione.codici, codDestinazione, seguito = seguito) }
+        .getOrNull()?.firstOrNull { it.numeroTreno == seguito.numeroTreno } ?: run {
+        Log.w(TAG, "tracking: snapshot mancante per ${seguito.numeroTreno}, riprovo al giro successivo")
+        return Ricerca.Niente(Giro.Ancora(PASSO_MIN_MS))
+    }
+    // "segui" dal widget salva solo numero/data/arrivo: qui lo snapshot si completa, finché la
+    // corsa è ancora nel feed, o dopo la partenza il fallback non avrebbe di che ripartire
+    Deps.impostazioni.aggiornaSeguito(dalFeed)
+    val aggiornato = Deps.impostazioni.seguito.first() ?: seguito
+    return Ricerca.Trovata(CorsaDaSeguire(imp, aggiornato, codDestinazione, stazione, dalFeed))
+}
+
+/** Fra quanto ripassare: si guarda all'evento più vicino, prima la partenza, poi l'arrivo. */
+internal fun prossimoPasso(treno: ProssimoTreno, minutiAllaPartenza: Int, adesso: Long): Long {
     val minutiAllArrivo = treno.orarioArrivoDestinazioneMs
         ?.let { ((it + treno.ritardoMinuti * 60_000L - adesso) / 60_000L).toInt() }
         ?: Int.MAX_VALUE
-    return Giro.Ancora(passoLive(minOf(if (minuti < 0) Int.MAX_VALUE else minuti, minutiAllArrivo)))
+    return passoLive(minOf(if (minutiAllaPartenza < 0) Int.MAX_VALUE else minutiAllaPartenza, minutiAllArrivo))
 }
 
 /** Avvia (o lascia proseguire, se già in corso) il tracking della corsa seguita. */

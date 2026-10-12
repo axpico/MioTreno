@@ -200,50 +200,12 @@ class TrenoViewModel : ViewModel() {
         viewModelScope.launch {
             if (!silenzioso) _state.update { it.copy(caricamento = true, errore = null) }
             runCatching {
-                val imp = _state.value.impostazioni
-                val destinazione = imp.stazioneDestinazione ?: run {
-                    _state.update { it.copy(caricamento = false, schermata = Schermata.Onboarding) }
-                    return@launch
-                }
-                if (imp.stazioneManuale == null && !Deps.location.hasPermission()) {
-                    _state.update { it.copy(caricamento = false, permessoNegato = true) }
-                    return@launch
-                }
+                val destinazione = destinazionePronta() ?: return@launch
                 val stazione = Deps.stazione.risolvi(usaUltimaNota = false)
                     ?: error("Posizione non disponibile: attiva il GPS o scegli la stazione a mano.")
-
                 val seguito = _state.value.seguito
-                val treni = repo.prossimiTreni(stazione.codici, destinazione, seguito = seguito)
-                treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno }?.let { Deps.impostazioni.aggiornaSeguito(it) }
-                val sciopero = repo.scioperiInCache().rilevanteOggiODomani()
-                repo.salvaRitardi(treni, stazione.codice, System.currentTimeMillis())
-                val attesi = ritardiAttesi(repo.storicoRitardi(), treni)
-
-                _state.update {
-                    it.copy(
-                        caricamento = false,
-                        permessoNegato = false,
-                        stazione = stazione,
-                        treni = treni,
-                        ritardiAttesi = attesi,
-                        sciopero = sciopero.takeIf { _ -> it.impostazioni.avvisiSciopero },
-                        aggiornatoAlle = System.currentTimeMillis(),
-                        errore = null,
-                        // il treno aperto va tenuto allineato: il badge cambia colore da solo
-                        trenoSelezionato = it.trenoSelezionato?.let { sel ->
-                            treni.firstOrNull { t -> t.numeroTreno == sel.numeroTreno } ?: sel
-                        },
-                    )
-                }
-                aggiornaTracciamentoSeguito(treni, seguito, destinazione)
-                runCatching { aggiornaWidget(Deps.app) }
-                verificaPassaggio()
-                caricaDettaglioEvidenza(treni, seguito, destinazione)
-
-                trenoDaAprire?.let { numero ->
-                    trenoDaAprire = null
-                    treni.firstOrNull { it.numeroTreno == numero }?.let(::apriRichiesto)
-                }
+                val treni = caricaTreni(stazione, destinazione, seguito)
+                dopoAggiornamento(treni, seguito, destinazione)
             }.onFailure { e ->
                 // runCatching cattura anche la cancellazione: non è un errore da mostrare
                 if (e is CancellationException) throw e
@@ -251,6 +213,61 @@ class TrenoViewModel : ViewModel() {
                     _state.update { it.copy(caricamento = false, errore = messaggioErrore(e)) }
                 }
             }
+        }
+    }
+
+    /**
+     * La destinazione, se si può cercare: senza destinazione si torna all'onboarding, senza
+     * permesso di posizione (e senza stazione scelta a mano) lo si chiede. Altrimenti null.
+     */
+    private fun destinazionePronta(): String? {
+        val imp = _state.value.impostazioni
+        val destinazione = imp.stazioneDestinazione ?: run {
+            _state.update { it.copy(caricamento = false, schermata = Schermata.Onboarding) }
+            return null
+        }
+        if (imp.stazioneManuale == null && !Deps.location.hasPermission()) {
+            _state.update { it.copy(caricamento = false, permessoNegato = true) }
+            return null
+        }
+        return destinazione
+    }
+
+    /** Treni, scioperi e ritardi attesi: lo stato della home dopo un refresh riuscito. */
+    private suspend fun caricaTreni(stazione: StazioneCorrente, destinazione: String, seguito: TrenoSeguito?): List<ProssimoTreno> {
+        val treni = repo.prossimiTreni(stazione.codici, destinazione, seguito = seguito)
+        treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno }?.let { Deps.impostazioni.aggiornaSeguito(it) }
+        val sciopero = repo.scioperiInCache().rilevanteOggiODomani()
+        repo.salvaRitardi(treni, stazione.codice, System.currentTimeMillis())
+        val attesi = ritardiAttesi(repo.storicoRitardi(), treni)
+        _state.update {
+            it.copy(
+                caricamento = false,
+                permessoNegato = false,
+                stazione = stazione,
+                treni = treni,
+                ritardiAttesi = attesi,
+                sciopero = sciopero.takeIf { _ -> it.impostazioni.avvisiSciopero },
+                aggiornatoAlle = System.currentTimeMillis(),
+                errore = null,
+                // il treno aperto va tenuto allineato: il badge cambia colore da solo
+                trenoSelezionato = it.trenoSelezionato?.let { sel ->
+                    treni.firstOrNull { t -> t.numeroTreno == sel.numeroTreno } ?: sel
+                },
+            )
+        }
+        return treni
+    }
+
+    /** Quello che dipende dalla lista nuova: corsa seguita, widget, badge, percorso, treno chiesto dal widget. */
+    private suspend fun dopoAggiornamento(treni: List<ProssimoTreno>, seguito: TrenoSeguito?, destinazione: String) {
+        aggiornaTracciamentoSeguito(treni, seguito, destinazione)
+        runCatching { aggiornaWidget(Deps.app) }
+        verificaPassaggio()
+        caricaDettaglioEvidenza(treni, seguito, destinazione)
+        trenoDaAprire?.let { numero ->
+            trenoDaAprire = null
+            treni.firstOrNull { it.numeroTreno == numero }?.let(::apriRichiesto)
         }
     }
 
