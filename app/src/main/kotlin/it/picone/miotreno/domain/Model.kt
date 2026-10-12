@@ -47,6 +47,11 @@ data class ProssimoTreno(
     val binario: String?,
     val binarioConfermato: Boolean,
     val stato: StatoTreno,
+    /**
+     * Tutte le tratte di un viaggio con cambi, prima compresa (i campi qui sopra descrivono il
+     * primo treno, [orarioArrivoDestinazioneMs] l'arrivo finale). Vuota per un diretto.
+     */
+    val tratte: List<Tratta> = emptyList(),
 ) {
     val cancellato: Boolean get() = stato is StatoTreno.Cancellato
 
@@ -80,6 +85,10 @@ data class FermataTreno(
     val programmataMs: Long?,
     val effettivaMs: Long?,
     val passata: Boolean,
+    /** Orari di tabella separati: servono a riconoscere dove si sale e si scende in un viaggio con cambi. */
+    val arrivoProgrammatoMs: Long? = null,
+    val partenzaProgrammataMs: Long? = null,
+    val binario: String? = null,
 )
 
 /** Esito di andamentoTreno per la schermata dettaglio. */
@@ -89,6 +98,9 @@ sealed interface DettaglioTreno {
         val ritardoMinuti: Int,
         val indiceCorrente: Int,
         val indiceDestinazione: Int,
+        /** Dove si sale, se già noto (tratte dopo un cambio); -1 = dal cluster di partenza. */
+        val indicePartenza: Int = -1,
+        val cancellato: Boolean = false,
     ) : DettaglioTreno
 
     data object DatiNonDisponibili : DettaglioTreno
@@ -111,7 +123,7 @@ fun DettaglioTreno.Ok.progressoReale(codiciSalita: Collection<String> = emptyLis
  * il *tuo* viaggio, non la corsa intera. 0 se il cluster non è in lista.
  */
 fun DettaglioTreno.Ok.indiceSalita(codici: Collection<String>): Int =
-    fermate.indexOfFirst { it.codice in codici }.coerceAtLeast(0)
+    indicePartenza.takeIf { it >= 0 } ?: fermate.indexOfFirst { it.codice in codici }.coerceAtLeast(0)
 
 /** Forma comune a [Stazione] e [RisultatoStazione]: tutto quello che serve a un selettore. */
 interface ElementoStazione {
@@ -192,6 +204,12 @@ data class TrenoSeguito(
     val ritardoMinuti: Int = 0,
     val binario: String? = null,
     val binarioConfermato: Boolean = false,
+    /** Viaggio con cambi: le tratte (eventualmente ripianificate dopo una coincidenza persa). */
+    val tratte: List<Tratta> = emptyList(),
+    /** Indice in [tratte] (solo quelle in treno) della tratta in corso. */
+    val trattaCorrente: Int = 0,
+    /** Ultima tratta per cui è già partito l'avviso di cambio; -1 = nessuna. */
+    val avvisoCambioPer: Int = -1,
 )
 
 /** Vero se il treno ferma davvero alla stazione [codicePassaggio], secondo il tracking reale. */

@@ -3,11 +3,13 @@ package it.picone.miotreno
 import android.content.Context
 import it.picone.miotreno.data.ImpostazioniStore
 import it.picone.miotreno.data.JsonStore
+import it.picone.miotreno.data.LeFrecceApiHttp
 import it.picone.miotreno.data.RisolutoreStazione
 import it.picone.miotreno.data.ScioperiApi
 import it.picone.miotreno.data.TrenoRepository
 import it.picone.miotreno.data.ViaggiaTrenoApiHttp
 import it.picone.miotreno.location.LocationProvider
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -34,6 +36,8 @@ object Deps {
             api = ViaggiaTrenoApiHttp(http),
             scioperiApi = ScioperiApi(http),
             store = JsonStore(app.filesDir),
+            leFrecce = LeFrecceApiHttp(http),
+            conCambi = { impostazioni.flow.first().conCambi },
         )
     }
 

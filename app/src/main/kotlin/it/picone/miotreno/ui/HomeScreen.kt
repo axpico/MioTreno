@@ -107,6 +107,7 @@ fun HomeScreen(
     onScegliStazione: () -> Unit,
     onScambia: () -> Unit,
     onScegliDestinazione: () -> Unit,
+    onAttivaCambi: () -> Unit = {},
     /** Altezza del banner sotto la barra di navigazione: la lista deve finire sopra entrambi. */
     altezzaBanner: Dp = 0.dp,
 ) {
@@ -155,10 +156,14 @@ fun HomeScreen(
                     }) { Scheletro(Modifier.padding(top = Spazio.l), indice = it) }
                     state.treni.isEmpty() -> item {
                         StatoVuoto(
-                            Icone.Treno, "Nessun treno diretto",
-                            "Da ${state.stazione?.nome.orEmpty()} non risultano treni diretti a " +
-                                "${state.destinazioneNome.orEmpty()} nelle prossime ore. Prova un'altra destinazione.",
-                            azione = "Cambia destinazione", onAzione = onScegliDestinazione,
+                            Icone.Treno, if (state.impostazioni.conCambi) "Nessun treno" else "Nessun treno diretto",
+                            "Da ${state.stazione?.nome.orEmpty()} non risultano treni " +
+                                (if (state.impostazioni.conCambi) "" else "diretti ") +
+                                "per ${state.destinazioneNome.orEmpty()} nelle prossime ore. " +
+                                if (state.impostazioni.conCambi) "Prova un'altra destinazione." else "Con un cambio potresti arrivarci.",
+                            // senza diretti, la prima cosa da provare sono i cambi: un tocco, non un giro in Impostazioni
+                            azione = if (state.impostazioni.conCambi) "Cambia destinazione" else "Mostra anche soluzioni con cambi",
+                            onAzione = if (state.impostazioni.conCambi) onScegliDestinazione else onAttivaCambi,
                         )
                     }
                     else -> {
@@ -181,7 +186,6 @@ fun HomeScreen(
                                     TrainCard(
                                         t, ora, seguito = seguito,
                                         onClick = { haptic.tocco(); onApri(t) },
-                                        principale = indice == 0,
                                         compatta = compatta,
                                         divisore = !fineGruppo,
                                         dettaglio = state.dettagliViaggio[t.numeroTreno],
@@ -191,6 +195,7 @@ fun HomeScreen(
                                         partenzaEtichetta = state.etichettePartenza[t.codPartenza]
                                             ?.takeIf { e -> e.isNotBlank() },
                                         codiciSalita = state.stazione?.codici.orEmpty(),
+                                        rigaCambio = state.rigaCambioSeguito.takeIf { seguito },
                                         modifier = Modifier.animateItem(placementSpec = Molla.ui())
                                             .let { if (compatta) it.gruppo(tb, inizioGruppo, fineGruppo) else it }
                                             .sharedBounds(

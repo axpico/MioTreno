@@ -6,8 +6,9 @@ cambiata in qualsiasi momento da Impostazioni), con binario, ritardo, tracking
 fermata-per-fermata, storico locale dei ritardi, avvisi sciopero, widget in home screen e
 notifica pre-partenza.
 
-Dati da [ViaggiaTreno](http://www.viaggiatreno.it) (API non ufficiale RFI) e dal
-[feed RSS scioperi del MIT](https://scioperi.mit.gov.it/mit2/public/scioperi/rss).
+Dati da [ViaggiaTreno](http://www.viaggiatreno.it) (API non ufficiale RFI), dalle soluzioni
+di viaggio di [LeFrecce](https://www.lefrecce.it) (API non ufficiale Trenitalia, per i viaggi
+con cambi) e dal [feed RSS scioperi del MIT](https://scioperi.mit.gov.it/mit2/public/scioperi/rss).
 
 > **App non ufficiale.** Non affiliata né approvata da Trenitalia, RFI o Ferrovie dello
 > Stato Italiane. I marchi citati appartengono ai rispettivi titolari.
@@ -21,7 +22,7 @@ lo fissa già per questa directory.
 
 ```sh
 mise install
-./gradlew test           # 107 unit test, in parte su fixture reali dell'API
+./gradlew test           # 145 unit test, in parte su fixture reali dell'API
 ./gradlew ktlintCheck    # stile (regole in .editorconfig)
 ./gradlew assembleDebug
 ./gradlew installDebug
@@ -39,9 +40,31 @@ partenze/{stazioneVicina}/{ora}   ∩   arrivi/{destinazioneScelta}/{ora}     (s
 Un treno che compare in entrambe parte da dove sei e ferma alla destinazione scelta. Due (tre
 con la finestra allargata) chiamate HTTP, nessuna euristica. Il filtro
 `orarioPartenza < orarioArrivo` scarta lo stesso numero che viaggia nella direzione opposta.
-Questo funziona per qualsiasi coppia di stazioni: non c'è più un itinerario "con un cambio"
-calcolato a mano per un'unica destinazione fissa, perché non ha senso generalizzarlo a una
-destinazione arbitraria — solo i diretti restano.
+Questo funziona per qualsiasi coppia di stazioni, ma trova solo i diretti.
+
+### Viaggi con cambi
+
+Accanto ai diretti (disattivabile: Impostazioni → "Mostra anche soluzioni con cambi") la lista
+mostra i viaggi con 1–2 cambi, in `data/Coincidenze.kt`:
+
+1. **LeFrecce** `POST /ticket/solutions` dà i viaggi completi. L'id stazione è `83` + le cifre
+   del codice ViaggiaTreno su 7 posizioni (`S01700` → `830001700`); per qualche stazione non
+   torna (Garibaldi Passante ha un id suo), e allora si passa al punto 2. Il primo treno deve
+   comparire nelle `partenze` del cluster: da lì vengono ritardo, binario e codici veri. I diretti
+   di LeFrecce si scartano (li dà già ViaggiaTreno).
+2. **Ripiego su ViaggiaTreno**, solo se LeFrecce fallisce o non trova cambi: un cambio solo, agli
+   scali dove un treno da qui finisce e uno per la destinazione comincia (`codDestinazione` delle
+   partenze ∩ `codOrigine` degli arrivi), al massimo 3 scali, ≥ 5 minuti per cambiare. Un cambio
+   in una stazione di passaggio così non si vede.
+
+Poi un viaggio per primo treno, e via quelli chiaramente peggiori (partono prima, arrivano dopo,
+cambiano di più: `filtraDominati`).
+
+Cose verificate su LeFrecce: `bdoOrigin` di una tratta è il codice ViaggiaTreno dell'origine del
+**treno** (quello che vuole `andamentoTreno`), non della stazione dove sali; le tratte non hanno
+codici stazione, solo nomi. Per questo dove sali e scendi si riconosce nell'`andamentoTreno` per
+orario di tabella (`indicePerOrario`), non per nome. I tratti a piedi (`UB`) in testa e in coda
+sono dentro il cluster e si tolgono; quelli in mezzo restano e non contano come cambio.
 
 `andamentoTreno` viene chiamato solo per il treno che apri in dettaglio.
 
@@ -118,6 +141,15 @@ Se la corsa seguita oggi non c'è (cancellata, o sei a un'altra stazione), widge
 ripiegano sul prossimo treno utile **dicendolo**: `treno 24580 non disponibile da qui`. Ripiegare
 in silenzio nasconderebbe il motivo, che è l'unica cosa che l'utente non può dedurre da solo.
 
+## Seguire un viaggio con cambi
+
+Segui vale per tutto il viaggio (`work/StatoSeguito.kt`, unico controllo per app, widget e
+tracking): home, widget e notifica mostrano la tratta in corso e il prossimo cambio, e si passa
+alla tratta dopo quando l'`andamentoTreno` conferma l'arrivo alla stazione di cambio. Un avviso
+parte N minuti prima del cambio (Impostazioni → Avviso cambio). Se la coincidenza salta (il
+treno dopo è cancellato o parte prima che arrivi il tuo) il resto del viaggio si ripianifica da
+solo dalla stazione di cambio, e lo si dice con una notifica.
+
 ## Pubblicità
 
 L'app integra Google AdMob (banner in fondo alla Home + interstitial ogni 4° cambio di
@@ -147,7 +179,11 @@ Per andare live:
 
 ## Limiti noti
 
-- API non ufficiale, nessuno SLA: ogni schermata ha uno stato d'errore visibile.
+- API non ufficiale, nessuno SLA: ogni schermata ha uno stato d'errore visibile. Vale anche per
+  LeFrecce: se non risponde restano i diretti e il ripiego su ViaggiaTreno.
+- Il ripiego su ViaggiaTreno costa fino a 12 chiamate in più per refresh, e gira ogni volta che
+  LeFrecce non trova cambi (anche su tratte servite bene dai diretti).
+- Il passaggio per la stazione scelta si verifica solo sul primo treno di un viaggio con cambi.
 - Il binario effettivo è spesso `null` finché il treno non è vicino: normale, la UI distingue
   "previsto" da "confermato".
 - Il codice di soppressione *totale* non è documentato; quando c'è, il testo arriva comunque in

@@ -58,6 +58,7 @@ import it.picone.miotreno.data.rilevanteOggiODomani
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
+import it.picone.miotreno.domain.cambi
 import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.comeSeguito
 import it.picone.miotreno.domain.etichettaStato
@@ -71,6 +72,7 @@ import it.picone.miotreno.ui.componenti.colore
 import it.picone.miotreno.ui.theme.ChiaroTb
 import it.picone.miotreno.ui.theme.ScuroTb
 import it.picone.miotreno.ui.theme.TbColors
+import it.picone.miotreno.work.controllaSeguito
 import kotlinx.coroutines.flow.first
 
 /** Extra dell'Intent: quale treno aprire quando si tocca una riga del widget. */
@@ -116,6 +118,8 @@ sealed interface EsitoWidget {
         val avanzamentoReale: Float? = null,
         /** Fermate alla destinazione per la corsa seguita già a bordo: come chip e app. Null prima. */
         val fermateMancanti: Int? = null,
+        /** Corsa seguita con cambi: il prossimo cambio o la coincidenza persa. */
+        val rigaCambio: String? = null,
     ) : EsitoWidget
 
     data object PermessoMancante : EsitoWidget
@@ -193,7 +197,12 @@ class TrenoWidget : GlanceAppWidget() {
         // "segui" dal widget salva solo numero/data/arrivo: senza lo snapshot completo il
         // tracking perde la corsa appena esce dal tabellone partenze
         trenoSeguito?.let { Deps.impostazioni.aggiornaSeguito(it) }
-        val dettaglio = trenoSeguito?.let { runCatching { repo.dettaglio(it, codDestinazione) }.getOrNull() as? DettaglioTreno.Ok }
+        // stesso controllo di app e tracking: per un viaggio con cambi, la tratta in corso
+        val esitoSeguito = trenoSeguito?.let { t ->
+            val s = Deps.impostazioni.seguito.first() ?: return@let null
+            runCatching { controllaSeguito(Deps.app, s, t, codDestinazione) }.getOrNull()
+        }
+        val dettaglio = esitoSeguito?.dettaglio as? DettaglioTreno.Ok
         val salita = dettaglio?.indiceSalita(stazione.codici)
         val fermateMancanti = dettaglio?.takeIf { salita != null && it.indiceCorrente >= salita && it.indiceDestinazione > salita }
             ?.let { (it.indiceDestinazione - it.indiceCorrente).coerceAtLeast(0) }
@@ -207,6 +216,7 @@ class TrenoWidget : GlanceAppWidget() {
             sciopero = imp.avvisiSciopero && repo.scioperiInCache().rilevanteOggiODomani() != null,
             avanzamentoReale = dettaglio?.progressoReale(stazione.codici),
             fermateMancanti = fermateMancanti,
+            rigaCambio = esitoSeguito?.rigaCambio,
         ).conSeguito(seguito?.numeroTreno)
     }
 }
@@ -401,6 +411,9 @@ private fun Compatto(esito: EsitoWidget, altezza: Dp) {
                 Text("treno $it non disponibile", maxLines = 1, style = stile(col { it.ambra }, 11, bold = true))
             }
             if (altezza >= 160.dp && !aBordo) Text("a ${esito.destinazione} ${t.oraArrivo()}", style = stile(col { it.sub }, 11))
+            esito.rigaCambio?.takeIf { esito.seguito == t.numeroTreno }?.let {
+                Text(it, maxLines = 2, style = stile(col { c -> c.accento2 }, 11, bold = true))
+            }
             esito.treni.drop(1).take(extra).forEach {
                 Box(GlanceModifier.padding(top = 5.dp)) {
                     Text(
@@ -445,7 +458,7 @@ private fun Medio(esito: EsitoWidget, altezza: Dp) {
             }
             Spacer(GlanceModifier.width(12.dp))
             Column(GlanceModifier.defaultWeight()) {
-                Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1, style = stile(col { it.tx }, 11, bold = true))
+                Text(t.rigaWidget(), maxLines = 1, style = stile(col { it.tx }, 11, bold = true))
                 Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
                     Text("da ${esito.stazione}", maxLines = 1, modifier = GlanceModifier.defaultWeight(), style = stile(col { it.sub }, 11))
                     Spacer(GlanceModifier.width(6.dp))
@@ -463,7 +476,10 @@ private fun Medio(esito: EsitoWidget, altezza: Dp) {
             }
         }
         Spacer(GlanceModifier.height(10.dp))
-        Avanzamento(t, esito.stazione, esito.destinazione, esito.avanzamentoReale, esito.fermateMancanti.takeIf { aBordo })
+        Avanzamento(
+            t, esito.stazione, esito.destinazione, esito.avanzamentoReale, esito.fermateMancanti.takeIf { aBordo },
+            rigaCambio = esito.rigaCambio.takeIf { esito.seguito == t.numeroTreno },
+        )
         Column(GlanceModifier.padding(top = 8.dp)) {
             esito.seguitoNonDisponibile?.let {
                 Text("treno $it non disponibile da qui", maxLines = 1, style = stile(col { it.ambra }, 11, bold = true))
@@ -481,6 +497,7 @@ private fun Avanzamento(
     destinazione: String,
     avanzamentoReale: Float? = null,
     fermateMancanti: Int? = null,
+    rigaCambio: String? = null,
 ) {
     val ora = System.currentTimeMillis()
     val minuti = t.minutiAllaPartenza(ora)
@@ -505,11 +522,19 @@ private fun Avanzamento(
         )
         // nomi interi e non sigle: "MPG → BA" andava decifrato
         Text(
-            "$stazione → $destinazione", maxLines = 1, modifier = GlanceModifier.padding(top = 4.dp),
-            style = stile(col { it.ter }, 11),
+            rigaCambio ?: "$stazione → $destinazione", maxLines = 1, modifier = GlanceModifier.padding(top = 4.dp),
+            style = stile(col { if (rigaCambio != null) it.accento2 else it.ter }, 11),
         )
     }
 }
+
+/** "RE 2416 · Milano Centrale · 1 cambio": i cambi si dicono anche nel poco spazio del widget. */
+private fun ProssimoTreno.rigaWidget(): String =
+    "$categoria $numeroTreno · $destinazione" + when (cambi) {
+        0 -> ""
+        1 -> " · ⇄ 1 cambio"
+        else -> " · ⇄ $cambi cambi"
+    }
 
 /** Corsa seguita già partita: il widget smette di contare la partenza e conta l'arrivo. */
 private fun EsitoWidget.Dati.aBordo(t: ProssimoTreno): Boolean =
@@ -575,7 +600,7 @@ private fun RigaCompatta(t: ProssimoTreno, context: Context) {
     ) {
         Text(t.oraPartenza(), modifier = GlanceModifier.width(44.dp), style = stile(col { it.tx }, 12, bold = true))
         Text(
-            "${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1,
+            t.rigaWidget(), maxLines = 1,
             modifier = GlanceModifier.defaultWeight(), style = stile(col { it.sub }, 11),
         )
         BadgeStato(t, piccolo = true)
@@ -611,7 +636,7 @@ private fun RigaTreno(t: ProssimoTreno, context: Context, destinazione: String, 
         Box(GlanceModifier.width(3.dp).height(30.dp).cornerRadius(12.dp).background(col { it.colore(t.semaforo()) })) {}
         Spacer(GlanceModifier.width(10.dp))
         Column(GlanceModifier.defaultWeight()) {
-            Text("${t.categoria} ${t.numeroTreno} · ${t.destinazione}", maxLines = 1, style = stile(col { it.tx }, 11, bold = true))
+            Text(t.rigaWidget(), maxLines = 1, style = stile(col { it.tx }, 11, bold = true))
             Text("a $destinazione ${t.oraArrivo()}", maxLines = 1, style = stile(col { it.sub }, 11))
         }
         // in orario lo dice già la barretta verde: il badge serve solo quando c'è qualcosa da dire

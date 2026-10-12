@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -51,16 +51,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.FermataTreno
+import it.picone.miotreno.domain.OrarioFermata
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
+import it.picone.miotreno.domain.StatoCambio
+import it.picone.miotreno.domain.Tratta
+import it.picone.miotreno.domain.arrivato
+import it.picone.miotreno.domain.cambi
 import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.indiceSalita
+import it.picone.miotreno.domain.margineLiveMinuti
 import it.picone.miotreno.domain.orario
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
+import it.picone.miotreno.domain.statoCambio
+import it.picone.miotreno.domain.testoCambi
+import it.picone.miotreno.domain.tratteInTreno
 import it.picone.miotreno.ui.componenti.ALPHA_TINTA
-import it.picone.miotreno.ui.componenti.AnimatedCountdown
 import it.picone.miotreno.ui.componenti.Binario
 import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.BottonePrimario
@@ -122,7 +130,7 @@ fun DettaglioScreen(
                     Column(Modifier.weight(1f)) {
                         Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.sottotitolo, color = tb.tx)
                         Text(
-                            "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
+                            treno.testoCambi() ?: "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -137,12 +145,42 @@ fun DettaglioScreen(
                         atteso = state.ritardiAttesi[treno.numeroTreno]?.testo,
                         destinazioneNome = state.destinazioneNome,
                         partenzaEtichetta = state.etichettePartenza[treno.codPartenza],
+                        // con i cambi l'arrivo è quello dell'ultimo treno, con il *suo* ritardo
+                        arrivoFinale = (state.dettagliTratte.lastOrNull() as? DettaglioTreno.Ok)
+                            ?.takeIf { treno.tratte.isNotEmpty() }
+                            ?.let { it.fermate.getOrNull(it.indiceDestinazione)?.orario(it.ritardoMinuti) },
+                        dettagliTratte = state.dettagliTratte,
                     )
                 }
             }
 
+            val treni = treno.tratteInTreno
             when {
                 state.caricamentoDettaglio -> item { Caricamento() }
+                treni.size > 1 -> {
+                    val dettagli = state.dettagliTratte
+                    // la tratta in corso: la prima non ancora arrivata dove scendi
+                    val inCorso = dettagli.indexOfFirst { (it as? DettaglioTreno.Ok)?.arrivato != true }
+                        .takeIf { it >= 0 } ?: dettagli.lastIndex
+                    (dettagli.getOrNull(inCorso) as? DettaglioTreno.Ok)?.let { d ->
+                        item(key = "avanzamento") {
+                            Avanzamento(
+                                d, treni[inCorso].nomeArrivo, emptyList(),
+                                etichettaArrivo = if (inCorso < treni.lastIndex) "al cambio" else "arrivo",
+                            )
+                        }
+                    }
+                    treni.forEachIndexed { i, t ->
+                        if (i > 0) {
+                            item(key = "cambio$i") {
+                                Cambio(treni[i - 1], t, treno.tratte, dettagli.getOrNull(i - 1), dettagli.getOrNull(i))
+                            }
+                        }
+                        item(key = "tratta$i") {
+                            TrattaFermate(t, dettagli.getOrNull(i), notaArrivo = "scendi e cambia".takeIf { i < treni.lastIndex })
+                        }
+                    }
+                }
                 dettaglio !is DettaglioTreno.Ok -> item {
                     StatoVuoto(
                         Icone.Treno, "Percorso non disponibile",
@@ -167,12 +205,17 @@ fun DettaglioScreen(
 
         BarraAzioni(
             seguito = seguito,
+            viaggio = treno.cambi > 0,
             notificaAttiva = notificaAttiva,
             anticipo = state.impostazioni.anticipoMinuti,
             conferma = if (notificaAttiva) {
                 if (state.notifichePermesse) {
                     val quando = treno.orarioPartenzaMs + (treno.ritardoMinuti - state.impostazioni.anticipoMinuti) * 60_000L
-                    "Ti avviso alle ${quando.comeOra()} · widget e notifica seguono questa corsa"
+                    val cambio = treno.tratteInTreno.takeIf { it.size > 1 }?.first()?.nomeArrivo
+                    val avvisoCambio = state.impostazioni.avvisoCambioMinuti
+                    "Ti avviso alle ${quando.comeOra()}" +
+                        (if (cambio != null && avvisoCambio > 0) " e $avvisoCambio′ prima del cambio a $cambio" else "") +
+                        " · widget e notifica seguono " + (if (cambio != null) "questo viaggio" else "questa corsa")
                 } else {
                     "Notifiche bloccate dal sistema: la corsa resta seguita qui e nel widget"
                 }
@@ -207,6 +250,8 @@ private val ALTEZZA_BARRA_AZIONI = 160.dp
 @Composable
 private fun BarraAzioni(
     seguito: Boolean,
+    /** Con cambi si segue il viaggio intero, non una corsa: lo dice il bottone. */
+    viaggio: Boolean,
     notificaAttiva: Boolean,
     anticipo: Int,
     conferma: String?,
@@ -241,7 +286,11 @@ private fun BarraAzioni(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spazio.s)) {
             BottonePrimario(
-                if (seguito) "Seguita" else "Segui questa corsa",
+                when {
+                    seguito -> if (viaggio) "Viaggio seguito" else "Seguita"
+                    viaggio -> "Segui questo viaggio"
+                    else -> "Segui questa corsa"
+                },
                 onClick = onSegui,
                 icona = if (seguito) Icone.Spunta else Icone.Treno,
                 attivo = seguito,
@@ -269,7 +318,13 @@ private fun BarraAzioni(
  * stazioni a chi sale a Garibaldi.
  */
 @Composable
-private fun Fermate(dettaglio: DettaglioTreno.Ok, codiciSalita: List<String>) {
+private fun Fermate(
+    dettaglio: DettaglioTreno.Ok,
+    codiciSalita: List<String>,
+    titolo: @Composable () -> Unit = { Overline("Fermate", Modifier.padding(start = 4.dp, bottom = Spazio.s)) },
+    /** Al posto di "la tua fermata" dove si scende: "scendi e cambia" prima di un cambio. */
+    notaArrivo: String? = null,
+) {
     val tb = LocalTb.current
     val fermate = dettaglio.fermate
     val salita = dettaglio.indiceSalita(codiciSalita)
@@ -283,7 +338,7 @@ private fun Fermate(dettaglio: DettaglioTreno.Ok, codiciSalita: List<String>) {
     fun linea(i: Int) = if (fermate.getOrNull(i)?.passata == true) tb.accento else tb.ter.copy(alpha = 0.25f)
 
     GlassCard(Modifier.fillMaxWidth(), padding = Spazio.l) {
-        Overline("Fermate", Modifier.padding(start = 4.dp, bottom = Spazio.s))
+        titolo()
         if (nascostePrima) {
             TimelineEspandi(
                 if (salita == 1) "1 fermata prima della tua" else "$salita fermate prima della tua",
@@ -306,7 +361,8 @@ private fun Fermate(dettaglio: DettaglioTreno.Ok, codiciSalita: List<String>) {
                 primo = i == visibili.first && !nascostePrima,
                 ultimo = i == visibili.last && !nascosteDopo,
                 // la prossima fermata vince sul nodo, ma "sali qui" non va perso
-                nota = "prossima fermata · sali qui".takeIf { tipo == TipoFermata.Prossima && i == salita && sali },
+                nota = "prossima fermata · sali qui".takeIf { tipo == TipoFermata.Prossima && i == salita && sali }
+                    ?: notaArrivo?.takeIf { tipo == TipoFermata.Target },
             )
         }
         if (nascosteDopo) {
@@ -315,6 +371,185 @@ private fun Fermate(dettaglio: DettaglioTreno.Ok, codiciSalita: List<String>) {
                 onClick = { mostraDopo = true },
                 lineaSopra = linea(arrivo), lineaSotto = null,
             )
+        }
+    }
+}
+
+/** Le fermate di una tratta; senza andamento, almeno da dove a dove e a che ora. */
+@Composable
+private fun TrattaFermate(tratta: Tratta, dettaglio: DettaglioTreno?, notaArrivo: String?) {
+    val tb = LocalTb.current
+    val titolo: @Composable () -> Unit = { TitoloTratta(tratta) }
+    if (dettaglio is DettaglioTreno.Ok) {
+        Fermate(dettaglio, listOfNotNull(dettaglio.fermate.getOrNull(dettaglio.indicePartenza)?.codice), titolo, notaArrivo)
+        return
+    }
+    GlassCard(Modifier.fillMaxWidth(), padding = Spazio.l) {
+        titolo()
+        Text(
+            "Parte alle ${tratta.partenzaMs.comeOra()}, arriva alle ${tratta.arrivoMs.comeOra()}. " +
+                "Percorso non ancora disponibile su ViaggiaTreno.",
+            style = Testo.etichetta, color = tb.sub,
+        )
+    }
+}
+
+/** "REG 25308" sopra, "Garibaldi → Rho Fiera" sotto con la freccia come icona, centrata sul testo. */
+@Composable
+private fun TitoloTratta(tratta: Tratta) {
+    val tb = LocalTb.current
+    Column(Modifier.padding(start = 4.dp, bottom = Spazio.s)) {
+        Text("${tratta.categoria} ${tratta.numeroTreno}", style = Testo.etichettaBold, color = tb.accento2)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                tratta.nomePartenza, style = Testo.etichetta, color = tb.sub,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+            )
+            Icon(Icone.Freccia, contentDescription = "verso", tint = tb.ter, modifier = Modifier.size(14.dp))
+            Text(
+                tratta.nomeArrivo, style = Testo.etichetta, color = tb.sub,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+    }
+}
+
+/** Arrivo previsto dove si scende, con il ritardo vero se c'è l'andamento. */
+private fun Tratta.arrivoPrevisto(d: DettaglioTreno?): Long =
+    (d as? DettaglioTreno.Ok)?.let { it.fermate.getOrNull(it.indiceDestinazione)?.orario(it.ritardoMinuti)?.previstoMs }
+        ?: (arrivoMs + ritardoMinuti * 60_000L)
+
+/** Partenza prevista da dove si sale, con il ritardo vero se c'è l'andamento. */
+private fun Tratta.partenzaPrevista(d: DettaglioTreno?): Long =
+    (d as? DettaglioTreno.Ok)?.let { it.fermate.getOrNull(it.indicePartenza)?.orario(it.ritardoMinuti)?.previstoMs }
+        ?: (partenzaMs + ritardoMinuti * 60_000L)
+
+/** Tratti a piedi o in metro fra due treni consecutivi del viaggio. */
+private fun aPiediFra(tutte: List<Tratta>, arrivo: Tratta, partenza: Tratta): List<Tratta> {
+    val da = tutte.indexOf(arrivo) + 1
+    val a = tutte.indexOf(partenza)
+    return if (da in 1..a) tutte.subList(da, a).filter { !it.suTreno } else emptyList()
+}
+
+/** Margine live di un cambio, per testo e colore. */
+private fun margineCambio(
+    tutte: List<Tratta>,
+    arrivo: Tratta,
+    partenza: Tratta,
+    dArrivo: DettaglioTreno?,
+    dPartenza: DettaglioTreno?,
+): Int? =
+    margineLiveMinuti(
+        arrivo.arrivoPrevisto(dArrivo), partenza.partenzaPrevista(dPartenza),
+        aPiediMs = aPiediFra(tutte, arrivo, partenza).sumOf { it.arrivoMs - it.partenzaMs },
+    )
+
+@Composable
+private fun StatoCambio.colore() = LocalTb.current.let {
+    when (this) {
+        StatoCambio.Ok -> it.accento2
+        StatoCambio.ARischio -> it.ambra
+        StatoCambio.Persa -> it.rosso
+    }
+}
+
+/** Altezza dell'asse della striscia: pallini, barre e chip del cambio stanno tutti su questa riga. */
+private val ASSE_STRISCIA = 22.dp
+
+/**
+ * Il viaggio in una riga, simmetrica: ogni treno ha lo stesso spazio (non lungo quanto dura,
+ * che sbilanciava tutto verso il treno più lento), il nome sotto al centro del suo tratto, e il
+ * cambio fra i due con la stazione sotto, colorato da quanto tempo resta con i ritardi veri.
+ */
+@Composable
+private fun StrisciaViaggio(treni: List<Tratta>, tutte: List<Tratta>, dettagli: List<DettaglioTreno>, modifier: Modifier = Modifier) {
+    val tb = LocalTb.current
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        treni.forEachIndexed { i, t ->
+            if (i > 0) {
+                val prima = treni[i - 1]
+                val stato = statoCambio(margineCambio(tutte, prima, t, dettagli.getOrNull(i - 1), dettagli.getOrNull(i)))
+                val minuti = ((t.partenzaMs - prima.arrivoMs) / 60_000L).toInt()
+                Column(Modifier.widthIn(max = 104.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.height(ASSE_STRISCIA), contentAlignment = Alignment.Center) {
+                        Row(
+                            Modifier.padding(horizontal = 6.dp).clip(Forme.chip).background(tb.sf2)
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(Icone.Cambio, contentDescription = "cambio", tint = stato.colore(), modifier = Modifier.size(12.dp))
+                            Text("$minuti′", style = Testo.micro, color = stato.colore())
+                        }
+                    }
+                    Text(
+                        prima.nomeArrivo, style = Testo.micro, color = tb.sub, textAlign = TextAlign.Center,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(Modifier.fillMaxWidth().height(ASSE_STRISCIA), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(tb.accento))
+                    Box(Modifier.weight(1f).height(3.dp).background(tb.accento))
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(tb.accento))
+                }
+                Text(
+                    "${t.categoria} ${t.numeroTreno}", style = Testo.micro, color = tb.ter,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Fra due treni: dove si cambia, quanto tempo c'è e da che binario a che binario. I tratti a
+ * piedi o in metro in mezzo (cambio di stazione) sono scritti qui, non sono una tratta a parte.
+ */
+@Composable
+private fun Cambio(arrivo: Tratta, partenza: Tratta, tutte: List<Tratta>, dArrivo: DettaglioTreno?, dPartenza: DettaglioTreno?) {
+    val tb = LocalTb.current
+    val minuti = ((partenza.partenzaMs - arrivo.arrivoMs) / 60_000L).toInt()
+    val binArrivo = (dArrivo as? DettaglioTreno.Ok)?.let { it.fermate.getOrNull(it.indiceDestinazione)?.binario }
+    val binPartenza = (dPartenza as? DettaglioTreno.Ok)?.let { it.fermate.getOrNull(it.indicePartenza)?.binario } ?: partenza.binario
+    val inMezzo = aPiediFra(tutte, arrivo, partenza)
+    val live = margineCambio(tutte, arrivo, partenza, dArrivo, dPartenza)
+    val stato = statoCambio(live)
+    // Speculare: dove arrivi a sinistra, dove riparti a destra, il cambio al centro.
+    Column(
+        Modifier.fillMaxWidth().clip(Forme.cardPiccola).background(tb.sf2).padding(horizontal = Spazio.l, vertical = Spazio.m),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("Cambio a ${arrivo.nomeArrivo}", style = Testo.etichettaBold, color = tb.tx, textAlign = TextAlign.Center)
+        // in basso: i tre valori (binario, minuti, binario) stanno sulla stessa riga
+        Row(Modifier.fillMaxWidth().padding(top = Spazio.s), verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Text("arrivi", style = Testo.micro, color = tb.ter)
+                Text(binArrivo?.let { "binario $it" } ?: "—", style = Testo.etichetta, color = tb.sub)
+            }
+            Column(Modifier.padding(horizontal = Spazio.l), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icone.Cambio, contentDescription = null, tint = stato.colore(), modifier = Modifier.size(16.dp))
+                Text("$minuti min", style = Testo.etichetta, color = stato.colore())
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                Text("riparti", style = Testo.micro, color = tb.ter)
+                Text(binPartenza?.let { "binario $it" } ?: "—", style = Testo.etichetta, color = tb.sub)
+            }
+        }
+        // il tempo vero per cambiare, se i ritardi l'hanno spostato: è quello che decide se ce la fai
+        when {
+            stato == StatoCambio.Persa -> Text(
+                "Coincidenza persa con i ritardi attuali", style = Testo.micro, color = tb.rosso,
+                textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp),
+            )
+            live != null && live != minuti -> Text(
+                "con i ritardi $live′", style = Testo.micro, color = stato.colore(),
+                textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        inMezzo.joinToString(" · ") { "${it.categoria.lowercase()} fino a ${it.nomeArrivo}" }.ifEmpty { null }?.let {
+            Text(it, style = Testo.micro, color = tb.sub, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
@@ -329,59 +564,74 @@ private fun CardIntestazione(
     treno: ProssimoTreno, ora: Long, seguito: Boolean, modifier: Modifier, atteso: String?,
     destinazioneNome: String?,
     partenzaEtichetta: String?,
+    arrivoFinale: OrarioFermata? = null,
+    /** Viaggio con cambi: la striscia delle tratte sta qui, fra partenza e arrivo. */
+    dettagliTratte: List<DettaglioTreno> = emptyList(),
 ) {
     val tb = LocalTb.current
     val semaforo = treno.semaforo()
     val cancellato = semaforo == Semaforo.Cancellato
+    val minuti = treno.minutiAllaPartenza(ora)
     GlassCard(
         modifier.fillMaxWidth().let { if (cancellato) it.alpha(0.6f) else it },
         accento = seguito,
         padding = 20.dp,
     ) {
-        Row(verticalAlignment = Alignment.Top) {
+        // Due colonne speculari: partenza a sinistra, arrivo a destra, stesso peso e stessa scala.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text("Partenza", style = Testo.overline, color = tb.ter)
                 // stesso orario proiettato della home: la stessa corsa non può avere due orari
                 OrarioConRitardo(
                     orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
-                    stile = Testo.display,
+                    stile = Testo.hero,
                     cancellato = cancellato,
                 )
+                Binario(treno, Modifier.padding(top = Spazio.s))
+                // a Garibaldi superficie e sotterranea sono due piazzali diversi: il solo
+                // numero di binario non basta a sapere dove andare
+                if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra, modifier = Modifier.padding(top = 6.dp))
             }
-            if (!cancellato) AnimatedCountdown(treno.minutiAllaPartenza(ora))
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Text("Arrivo", style = Testo.overline, color = tb.ter)
+                OrarioConRitardo(
+                    orario = arrivoFinale ?: orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti),
+                    stile = Testo.hero,
+                    allineaFine = true,
+                )
+                Text(
+                    destinazioneNome ?: "destinazione", style = Testo.etichetta, color = tb.sub, textAlign = TextAlign.End,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = Spazio.s),
+                )
+            }
         }
-        Spacer(Modifier.height(14.dp))
-        // FlowRow: con testo grande il chip "da Sotterranea" va a capo invece di ridursi a "da So…"
-        FlowRow(
-            itemVerticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        val treni = treno.tratteInTreno
+        if (treni.size > 1) StrisciaViaggio(treni, treno.tratte, dettagliTratte, Modifier.padding(top = Spazio.l))
+        Row(
+            Modifier.fillMaxWidth().padding(top = Spazio.l),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Binario(treno, grande = true)
-            Text(
-                if (treno.binarioConfermato) "binario confermato" else "binario previsto",
-                style = Testo.etichetta, color = tb.sub,
-            )
-            // a Garibaldi superficie e sotterranea sono due piazzali diversi: il solo
-            // numero di binario non basta a sapere dove andare
-            if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra)
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatusBadge(semaforo, treno.etichettaStato())
-            val arrivo = orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti)
-            val oraArrivo = arrivo.previstoMs?.comeOra()?.let { if (arrivo.inRitardo && !arrivo.confermato) "≈$it" else it }
-            Text(
-                "a ${destinazioneNome ?: "destinazione"} · ${oraArrivo ?: "—"}",
-                style = Testo.etichetta, color = tb.sub, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            if (!cancellato) {
+                Text(
+                    if (minuti > 0) "parte tra $minuti min" else "in viaggio",
+                    style = Testo.etichettaBold, color = if (minuti in 0..2) tb.ambra else tb.sub,
+                )
+            }
         }
         if (atteso != null && !cancellato) RigaAtteso(atteso)
     }
 }
 
 @Composable
-private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?, codiciSalita: List<String>) {
+private fun Avanzamento(
+    d: DettaglioTreno.Ok,
+    destinazioneNome: String?,
+    codiciSalita: List<String>,
+    /** Tratta prima di un cambio: l'orario a destra è l'arrivo al cambio, non a destinazione. */
+    etichettaArrivo: String = "arrivo",
+) {
     val tb = LocalTb.current
     if (d.indiceDestinazione >= 0 && d.indiceCorrente >= d.indiceDestinazione) {
         Arrivato(d.fermate[d.indiceDestinazione].nome.ifBlank { destinazioneNome.orEmpty() }, d.ritardoMinuti)
@@ -446,7 +696,7 @@ private fun Avanzamento(d: DettaglioTreno.Ok, destinazioneNome: String?, codiciS
                         textDecoration = TextDecoration.LineThrough,
                     )
                 }
-                Text("arrivo", style = Testo.micro, color = tb.ter)
+                Text(etichettaArrivo, style = Testo.micro, color = tb.ter)
             }
         }
     }

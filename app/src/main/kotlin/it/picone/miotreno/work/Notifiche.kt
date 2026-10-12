@@ -42,6 +42,9 @@ const val ID_NOTIFICA_TRENO = 1001
  */
 const val ID_NOTIFICA_TRACKING = 1002
 
+/** Avvisi del viaggio con cambi (cambio vicino, coincidenza persa): non devono coprire il tracking. */
+const val ID_NOTIFICA_CAMBIO = 1003
+
 private const val TAG = "Notifiche"
 
 private fun OrarioFermata.programmaMs(): String? = programmataMs?.comeOra()
@@ -87,6 +90,8 @@ private fun builderTreno(
      * interno di androidx: meglio non aggiungerla affatto.
      */
     conAzioneSegui: Boolean = true,
+    /** Viaggio con cambi: il prossimo cambio (o la coincidenza persa), subito dopo la partenza. */
+    rigaCambio: String? = null,
 ): NotificationCompat.Builder {
     // Gli orari in notifica vanno proiettati come in app: annunciare l'orario di tabella
     // mentre il treno ha +12 significa dare l'ora sbagliata a chi sta correndo in stazione.
@@ -116,6 +121,7 @@ private fun builderTreno(
                 (if (treno.ritardoMinuti > 0) "+${treno.ritardoMinuti} min" else "in orario") +
                 partenza.scarto(),
         )
+        rigaCambio?.let(::add)
         treno.binario?.let {
             add("Binario $it (${if (treno.binarioConfermato) "confermato" else "previsto"})")
         }
@@ -261,6 +267,7 @@ private fun costruisciLiveUpdate(
     sciopero: Sciopero?,
     dettaglio: DettaglioTreno?,
     destinazioneNome: String = "destinazione",
+    rigaCambio: String? = null,
 ): Notification {
     creaCanale(context)
 
@@ -279,7 +286,7 @@ private fun costruisciLiveUpdate(
     }
 
     val chip = testoChip(treno.cancellato, minuti, p?.let { it.tratte - it.fatte })
-    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false)
+    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false, rigaCambio = rigaCambio)
         .setStyle(stile)
         .setSubText(p?.sottotitolo)
         .setShortCriticalText(chip)
@@ -308,10 +315,11 @@ private fun costruisciTrackingTreno(
     sciopero: Sciopero?,
     dettaglio: DettaglioTreno?,
     destinazioneNome: String = "destinazione",
+    rigaCambio: String? = null,
 ): Notification {
     creaCanale(context)
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
-    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false)
+    val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false, rigaCambio = rigaCambio)
         .setSubText(p?.sottotitolo)
         .setColor(COLORE_NOTIFICA)
         .setOngoing(true)
@@ -339,12 +347,42 @@ fun costruisciNotificaTracking(
     sciopero: Sciopero?,
     dettaglio: DettaglioTreno?,
     destinazioneNome: String = "destinazione",
+    rigaCambio: String? = null,
 ): Notification =
     if (liveUpdateDisponibile(context)) {
-        costruisciLiveUpdate(context, treno, minuti, stazione, codiciPartenza, sciopero, dettaglio, destinazioneNome)
+        costruisciLiveUpdate(context, treno, minuti, stazione, codiciPartenza, sciopero, dettaglio, destinazioneNome, rigaCambio)
     } else {
-        costruisciTrackingTreno(context, treno, minuti, stazione, codiciPartenza, sciopero, dettaglio, destinazioneNome)
+        costruisciTrackingTreno(context, treno, minuti, stazione, codiciPartenza, sciopero, dettaglio, destinazioneNome, rigaCambio)
     }
+
+/**
+ * Avviso del viaggio con cambi: cambio fra pochi minuti, o coincidenza persa e nuova soluzione.
+ * Sta su un id suo ([ID_NOTIFICA_CAMBIO]) perché il tracking resta visibile sotto.
+ */
+@SuppressLint("MissingPermission")
+fun mostraAvvisoViaggio(context: Context, titolo: String, testo: String) {
+    creaCanale(context)
+    if (!puoNotificare(context)) return
+    val apri = PendingIntent.getActivity(
+        context, 2, Intent(context, MainActivity::class.java),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+    runCatching {
+        NotificationManagerCompat.from(context).notify(
+            ID_NOTIFICA_CAMBIO,
+            NotificationCompat.Builder(context, CANALE_TRENI)
+                .setSmallIcon(R.drawable.ic_notifica)
+                .setColor(COLORE_NOTIFICA)
+                .setContentTitle(titolo)
+                .setContentText(testo)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(testo))
+                .setContentIntent(apri)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .build(),
+        )
+    }.onFailure { Log.w(TAG, "notify() fallita per l'avviso di viaggio", it) }
+}
 
 fun rimuoviNotificaTreno(context: Context) =
     NotificationManagerCompat.from(context).cancel(ID_NOTIFICA_TRENO)

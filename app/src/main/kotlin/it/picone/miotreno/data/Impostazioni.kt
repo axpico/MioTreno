@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.RisultatoStazione
+import it.picone.miotreno.domain.Tratta
 import it.picone.miotreno.domain.TrenoSeguito
 import it.picone.miotreno.domain.aggiornaRecenti
 import it.picone.miotreno.domain.comeSeguito
@@ -16,6 +17,7 @@ import it.picone.miotreno.domain.seguitoAttivo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
 
 private val Context.dataStore by preferencesDataStore("impostazioni")
 
@@ -31,6 +33,10 @@ data class Impostazioni(
     val stazioneDestinazione: String? = null,
     /** Scelta in onboarding (o cambiata dopo in Impostazioni): se false, niente banner/interstitial. */
     val adsAbilitate: Boolean = true,
+    /** "Mostra anche soluzioni con cambi": accanto ai diretti, i viaggi con 1–2 cambi. */
+    val conCambi: Boolean = true,
+    /** Minuti prima dell'arrivo alla stazione di cambio per l'avviso; 0 = spento. */
+    val avvisoCambioMinuti: Int = 5,
 )
 
 class ImpostazioniStore(private val context: Context) {
@@ -43,6 +49,8 @@ class ImpostazioniStore(private val context: Context) {
     private val adsAbilitate = booleanPreferencesKey("ads_abilitate")
     private val contatoreCambioStazione = intPreferencesKey("contatore_cambio_stazione")
     private val recentiKey = stringPreferencesKey("stazioni_recenti")
+    private val conCambi = booleanPreferencesKey("con_cambi")
+    private val avvisoCambio = intPreferencesKey("avviso_cambio_minuti")
 
     /** Ultime stazioni scelte nei selettori, per non aprire mai una ricerca vuota. Una per riga: "codice\tnome". */
     val recenti: Flow<List<RisultatoStazione>> = context.dataStore.data.map { leggiRecenti(it[recentiKey]) }
@@ -64,6 +72,8 @@ class ImpostazioniStore(private val context: Context) {
             stazionePassaggio = p[stazionePassaggio]?.takeIf { it.isNotBlank() },
             stazioneDestinazione = p[stazioneDestinazione]?.takeIf { it.isNotBlank() },
             adsAbilitate = p[adsAbilitate] ?: true,
+            conCambi = p[conCambi] ?: true,
+            avvisoCambioMinuti = p[avvisoCambio] ?: 5,
         )
     }
 
@@ -80,6 +90,8 @@ class ImpostazioniStore(private val context: Context) {
         if (codice == null) it.remove(stazioneDestinazione) else it[stazioneDestinazione] = codice
     }.let {}
     suspend fun setAdsAbilitate(v: Boolean) = context.dataStore.edit { it[adsAbilitate] = v }.let {}
+    suspend fun setConCambi(v: Boolean) = context.dataStore.edit { it[conCambi] = v }.let {}
+    suspend fun setAvvisoCambio(v: Int) = context.dataStore.edit { it[avvisoCambio] = v }.let {}
 
     /**
      * Cadenza dell'interstitial: un contatore persistito, azzerato ogni 4 cambi di
@@ -110,6 +122,10 @@ class ImpostazioniStore(private val context: Context) {
     private val seguitoRitardo = intPreferencesKey("seguito_ritardo")
     private val seguitoBinario = stringPreferencesKey("seguito_binario")
     private val seguitoBinarioConfermato = booleanPreferencesKey("seguito_binario_confermato")
+    private val seguitoTratte = stringPreferencesKey("seguito_tratte")
+    private val seguitoTrattaCorrente = intPreferencesKey("seguito_tratta_corrente")
+    private val seguitoAvvisoCambio = intPreferencesKey("seguito_avviso_cambio")
+    private val json = Json { ignoreUnknownKeys = true }
 
     /** Già filtrato: quello che arriva qui è attivo adesso, scaduto è come non selezionato. */
     val seguito: Flow<TrenoSeguito?> = context.dataStore.data.map { p ->
@@ -123,6 +139,9 @@ class ImpostazioniStore(private val context: Context) {
                 codOrigine = p[seguitoOrigine], dataPartenzaTrenoMs = p[seguitoDataCorsa],
                 orarioPartenzaMs = p[seguitoPartenza], ritardoMinuti = p[seguitoRitardo] ?: 0,
                 binario = p[seguitoBinario], binarioConfermato = p[seguitoBinarioConfermato] ?: false,
+                tratte = p[seguitoTratte]?.let { runCatching { json.decodeFromString<List<Tratta>>(it) }.getOrNull() }.orEmpty(),
+                trattaCorrente = p[seguitoTrattaCorrente] ?: 0,
+                avvisoCambioPer = p[seguitoAvvisoCambio] ?: -1,
             ),
         )
     }
@@ -138,11 +157,28 @@ class ImpostazioniStore(private val context: Context) {
             s.codOrigine?.let { v -> it[seguitoOrigine] = v }; s.dataPartenzaTrenoMs?.let { v -> it[seguitoDataCorsa] = v }
             s.orarioPartenzaMs?.let { v -> it[seguitoPartenza] = v }; it[seguitoRitardo] = s.ritardoMinuti
             s.binario?.let { v -> it[seguitoBinario] = v }; it[seguitoBinarioConfermato] = s.binarioConfermato
+            if (s.tratte.isEmpty()) it.remove(seguitoTratte) else it[seguitoTratte] = json.encodeToString(s.tratte)
+            it[seguitoTrattaCorrente] = s.trattaCorrente
+            it[seguitoAvvisoCambio] = s.avvisoCambioPer
         }
     }
 
+    /**
+     * Rinfresca lo snapshot del primo treno con i dati del feed. Le tratte, quella in corso e
+     * l'avviso di cambio già dato restano quelli salvati: il feed non sa della tratta in corso
+     * né di una coincidenza ripianificata, e le riscriverebbe con il viaggio originale.
+     */
     suspend fun aggiornaSeguito(treno: ProssimoTreno) {
-        if (seguito.firstOrNull()?.numeroTreno == treno.numeroTreno) segui(treno)
+        val attuale = seguito.firstOrNull()?.takeIf { it.numeroTreno == treno.numeroTreno } ?: return
+        val nuovo = treno.comeSeguito()
+        segui(
+            nuovo.copy(
+                tratte = attuale.tratte.ifEmpty { nuovo.tratte },
+                arrivoDestinazioneMs = if (attuale.tratte.isEmpty()) nuovo.arrivoDestinazioneMs else attuale.arrivoDestinazioneMs,
+                trattaCorrente = attuale.trattaCorrente,
+                avvisoCambioPer = attuale.avvisoCambioPer,
+            ),
+        )
     }
 
     suspend fun smettiDiSeguire() {
@@ -153,6 +189,7 @@ class ImpostazioniStore(private val context: Context) {
             it.remove(seguitoCategoria); it.remove(seguitoDestinazione); it.remove(seguitoOrigine)
             it.remove(seguitoDataCorsa); it.remove(seguitoPartenza); it.remove(seguitoRitardo)
             it.remove(seguitoBinario); it.remove(seguitoBinarioConfermato)
+            it.remove(seguitoTratte); it.remove(seguitoTrattaCorrente); it.remove(seguitoAvvisoCambio)
         }
     }
 }

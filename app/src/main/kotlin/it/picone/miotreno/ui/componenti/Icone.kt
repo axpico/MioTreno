@@ -80,6 +80,11 @@ object Icone {
     val Avanti: ImageVector by lazy {
         icona("avanti", { moveTo(9f, 5f); lineTo(16f, 12f); lineTo(9f, 19f) })
     }
+
+    /** Freccia dritta "da → a": al posto del glifo del font, che sta sulla linea di base. */
+    val Freccia: ImageVector by lazy {
+        icona("freccia", { moveTo(5f, 12f); lineTo(19f, 12f); moveTo(13f, 6f); lineTo(19f, 12f); lineTo(13f, 18f) })
+    }
     val Cerca: ImageVector by lazy {
         icona("cerca", {
             moveTo(10.5f, 4f); arcTo(6.5f, 6.5f, 0f, true, true, 10.49f, 4f); close()

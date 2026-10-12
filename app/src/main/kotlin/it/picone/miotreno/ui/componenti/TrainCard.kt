@@ -51,12 +51,17 @@ import androidx.compose.ui.unit.dp
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Semaforo
+import it.picone.miotreno.domain.cambi
+import it.picone.miotreno.domain.coincidenzaARischio
+import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.etichettaBreve
 import it.picone.miotreno.domain.etichettaStato
 import it.picone.miotreno.domain.indiceSalita
 import it.picone.miotreno.domain.nota
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.semaforo
+import it.picone.miotreno.domain.testoCambi
+import it.picone.miotreno.domain.tratteInTreno
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Molla
@@ -76,8 +81,7 @@ fun TrainCard(
     seguito: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    /** La prima corsa è una destinazione, non una riga della lista: usa il layout hero. */
-    principale: Boolean = false,
+    /** Riga del tabellone; altrimenti la card grande (prossima partenza o corsa seguita). */
     compatta: Boolean = false,
     /** Ritardo atteso dallo storico ("di solito puntuale…"): secondario, mai al posto dello stato. */
     atteso: String? = null,
@@ -91,30 +95,13 @@ fun TrainCard(
     divisore: Boolean = true,
     /** Codici del cluster dove sali: la barra viaggio parte da lì, non dal capolinea. */
     codiciSalita: List<String> = emptyList(),
+    /** Corsa seguita con cambi: prossimo cambio o coincidenza persa (vedi `controllaSeguito`). */
+    rigaCambio: String? = null,
 ) {
     val tb = LocalTb.current
     val semaforo = treno.semaforo()
     val cancellato = semaforo == Semaforo.Cancellato
     val minuti = treno.minutiAllaPartenza(ora)
-
-    if (principale) {
-        CardProssimaPartenza(
-            treno = treno,
-            ora = ora,
-            seguito = seguito,
-            semaforo = semaforo,
-            cancellato = cancellato,
-            minuti = minuti,
-            dettaglio = dettaglio,
-            atteso = atteso,
-            passaPerEtichetta = passaPerEtichetta,
-            partenzaEtichetta = partenzaEtichetta,
-            codiciSalita = codiciSalita,
-            onClick = onClick,
-            modifier = modifier,
-        )
-        return
-    }
 
     if (compatta) {
         RigaTreno(
@@ -126,65 +113,24 @@ fun TrainCard(
         return
     }
 
-    GlassCard(
-        modifier.fillMaxWidth().let { if (cancellato) it.alpha(0.55f) else it },
-        onClick = if (cancellato) null else onClick,
-        accento = seguito,
-        rilievo = !seguito,
-        padding = 16.dp,
-    ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                // FlowRow e non Row: con via + stazione di salita insieme i chip non ci stanno
-                // in larghezza e l'ultimo veniva tagliato a meta' invece di andare a capo.
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(iconaCategoria(treno.categoria), contentDescription = null, tint = tb.sub, modifier = Modifier.size(16.dp))
-                    Chip(treno.categoria, colore = tb.accento2, pieno = true)
-                    Text("${treno.numeroTreno}", style = Testo.micro, color = tb.ter)
-                    if (seguito) Chip("Segui", colore = tb.accento, pieno = true)
-                    if (passaPerEtichetta != null) Chip("via $passaPerEtichetta", colore = tb.accento2)
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OrarioConRitardo(
-                        orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
-                        stile = Testo.hero,
-                        cancellato = cancellato,
-                    )
-                    Binario(
-                        treno, Modifier.padding(bottom = 4.dp),
-                        prefisso = partenzaEtichetta?.let(::etichettaBreve),
-                    )
-                }
-                Text(
-                    treno.destinazione,
-                    style = Testo.etichetta, color = tb.sub, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            if (!cancellato) {
-                Spacer(Modifier.width(12.dp))
-                AnimatedCountdown(
-                    minuti, grande = true,
-                    colore = if (minuti in 0..2) tb.ambra else tb.tx,
-                )
-            }
-        }
-        if (!cancellato) BarraViaggio(treno, ora, dettaglio, codiciSalita, Modifier.padding(top = 12.dp))
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatusBadge(semaforo, treno.etichettaStato())
-            val nota = treno.stato.nota
-            nota?.let {
-                Text(it, style = Testo.micro, color = tb.ter, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-        if (atteso != null && !cancellato) RigaAtteso(atteso)
-    }
+    // Una sola card grande, per la prossima partenza come per la corsa seguita: la terza
+    // variante, sbilanciata a sinistra, diceva le stesse cose in un'altra lingua visiva.
+    CardProssimaPartenza(
+        treno = treno,
+        ora = ora,
+        seguito = seguito,
+        semaforo = semaforo,
+        cancellato = cancellato,
+        minuti = minuti,
+        dettaglio = dettaglio,
+        atteso = atteso,
+        passaPerEtichetta = passaPerEtichetta,
+        partenzaEtichetta = partenzaEtichetta,
+        codiciSalita = codiciSalita,
+        rigaCambio = rigaCambio,
+        onClick = onClick,
+        modifier = modifier,
+    )
 }
 
 /**
@@ -250,15 +196,30 @@ private fun RigaTreno(
             Spacer(Modifier.width(8.dp))
 
             Column(Modifier.weight(1f)) {
-                Text(
-                    treno.destinazione, style = Testo.corpo, color = tb.tx,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
+                // con un cambio il capolinea del primo treno non è dove vai: in evidenza va il cambio
+                val cambio = treno.tratteInTreno.takeIf { it.size > 1 }?.first()?.nomeArrivo
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // l'icona del cambio: a colpo d'occhio, quali righe non sono dirette
+                    if (cambio != null) {
+                        Icon(Icone.Cambio, contentDescription = "Con cambio", tint = tb.accento2, modifier = Modifier.size(16.dp))
+                    }
+                    // l'icona dice già "cambio": il testo resta tutto per il nome della stazione
+                    Text(
+                        cambio ?: treno.destinazione, style = Testo.corpo, color = tb.tx,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 // Una sola riga secondaria per tutte le righe: con un chip "via X" a parte le righe
                 // con il passaggio erano più alte delle altre e la lista perdeva il ritmo.
                 Text(
                     buildAnnotatedString {
                         withStyle(SpanStyle(color = tb.ter)) { append("${treno.categoria} ${treno.numeroTreno}") }
+                        // l'arrivo su ogni riga: è l'unico modo di confrontare un diretto con un viaggio con cambi
+                        orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti).previstoMs?.let {
+                            withStyle(SpanStyle(color = tb.sub)) { append(" · arr. ${it.comeOra()}") }
+                        }
+                        if (treno.cambi > 1) withStyle(SpanStyle(color = tb.accento2)) { append(" · ${treno.cambi} cambi") }
+                        if (treno.coincidenzaARischio) withStyle(SpanStyle(color = tb.ambra)) { append(" · coincidenza a rischio") }
                         if (seguito) withStyle(SpanStyle(color = tb.accento)) { append(" · seguita") }
                         if (passaPerEtichetta != null) withStyle(SpanStyle(color = tb.accento)) { append(" · via $passaPerEtichetta") }
                         if (semaforo == Semaforo.Cancellato || semaforo == Semaforo.Irregolare) {
@@ -317,6 +278,7 @@ private fun CardProssimaPartenza(
     passaPerEtichetta: String?,
     partenzaEtichetta: String?,
     codiciSalita: List<String>,
+    rigaCambio: String?,
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
@@ -347,14 +309,26 @@ private fun CardProssimaPartenza(
             StatusBadge(semaforo, treno.etichettaStato(), compatto = true)
         }
 
-        Text(
-            treno.destinazione,
-            style = Testo.sottotitolo,
-            color = tb.tx,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 16.dp),
-        )
+        // con un cambio il titolo è dove si cambia, come nelle righe: il capolinea del primo treno inganna
+        val cambio = treno.tratteInTreno.takeIf { it.size > 1 }?.first()?.nomeArrivo
+        Row(
+            Modifier.padding(top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (cambio != null) Icon(Icone.Cambio, contentDescription = "Con cambio", tint = tb.accento2, modifier = Modifier.size(20.dp))
+            Text(
+                cambio ?: treno.destinazione,
+                style = Testo.sottotitolo,
+                color = tb.tx,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        // il titolo dice già dove si cambia: la riga serve solo per il cambio live o il rischio
+        if (rigaCambio != null || treno.coincidenzaARischio) {
+            RigaCambi(treno, rigaCambio?.removePrefix("Cambio a ${cambio.orEmpty()} · "))
+        }
 
         // Due colonne speculari, etichetta sopra e valore sotto: a sinistra quanto manca (il
         // numero protagonista, in accento), a destra l'orario. Le etichette stanno sulla stessa
@@ -529,6 +503,29 @@ private fun posizioneInTratta(dettaglio: DettaglioTreno.Ok, ora: Long): Float {
     if (partenza == null || arrivo == null || arrivo <= partenza) return corrente.toFloat()
     val frazione = ((ora - partenza).toFloat() / (arrivo - partenza)).coerceIn(0f, 1f)
     return corrente + frazione
+}
+
+/**
+ * Sotto la destinazione di un viaggio con cambi: quanti e dove, e se il ritardo del primo treno
+ * si mangia il cambio. Per la corsa seguita, al posto del riassunto, il cambio vero in arrivo.
+ */
+@Composable
+private fun RigaCambi(treno: ProssimoTreno, rigaCambio: String?) {
+    val tb = LocalTb.current
+    val testo = rigaCambio ?: treno.testoCambi() ?: return
+    val allarme = treno.coincidenzaARischio || rigaCambio?.startsWith("Coincidenza persa") == true
+    val colore = if (allarme) tb.ambra else tb.accento2
+    Row(
+        Modifier.padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Icon(Icone.Cambio, contentDescription = null, tint = colore, modifier = Modifier.size(13.dp))
+        Text(
+            testo + if (treno.coincidenzaARischio && rigaCambio == null) " · coincidenza a rischio" else "",
+            style = Testo.micro, color = colore, maxLines = 2, overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 /** Storico locale: testo terziario con icona piccola, staccato dal badge realtime. */

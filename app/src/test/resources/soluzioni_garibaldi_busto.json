@@ -1,0 +1,276 @@
+{
+ "solutions": [
+  {
+   "solution": {
+    "departureTime": "2026-10-13T08:05:00.000+02:00",
+    "arrivalTime": "2026-10-13T08:46:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": "S01645",
+      "destination": "Rho-Fiera Milano",
+      "departureTime": "2026-10-13T08:05:00.000+02:00",
+      "arrivalTime": "2026-10-13T08:13:00.000+02:00",
+      "train": {
+       "acronym": "RE",
+       "name": "25302",
+       "trainCategory": "Regionale",
+       "description": "TRENORD 25302"
+      }
+     },
+     {
+      "origin": "Rho-Fiera Milano",
+      "bdoOrigin": "S01708",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T08:19:00.000+02:00",
+      "arrivalTime": "2026-10-13T08:46:00.000+02:00",
+      "train": {
+       "acronym": "SU",
+       "name": "24520",
+       "trainCategory": "Suburbano",
+       "description": "S5 TRENORD 24520"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "solution": {
+    "departureTime": "2026-10-13T08:13:00.000+02:00",
+    "arrivalTime": "2026-10-13T08:56:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": null,
+      "destination": "Milano Porta Garibaldi Passante",
+      "departureTime": "2026-10-13T08:13:00.000+02:00",
+      "arrivalTime": "2026-10-13T08:14:00.000+02:00",
+      "train": {
+       "acronym": "UB",
+       "name": null,
+       "trainCategory": "Walking route",
+       "description": null
+      }
+     },
+     {
+      "origin": "Milano Porta Garibaldi Passante",
+      "bdoOrigin": "S01708",
+      "destination": "Rho-Fiera Milano",
+      "departureTime": "2026-10-13T08:19:00.000+02:00",
+      "arrivalTime": "2026-10-13T08:33:00.000+02:00",
+      "train": {
+       "acronym": "SU",
+       "name": "24602",
+       "trainCategory": "Suburbano",
+       "description": "S6 TRENORD 24602"
+      }
+     },
+     {
+      "origin": "Rho-Fiera Milano",
+      "bdoOrigin": "S01700",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T08:38:00.000+02:00",
+      "arrivalTime": "2026-10-13T08:56:00.000+02:00",
+      "train": {
+       "acronym": "RE",
+       "name": "2416",
+       "trainCategory": "Regionale",
+       "description": "TRENORD 2416"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "solution": {
+    "departureTime": "2026-10-13T08:28:00.000+02:00",
+    "arrivalTime": "2026-10-13T09:16:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": null,
+      "destination": "Milano Porta Garibaldi Passante",
+      "departureTime": "2026-10-13T08:28:00.000+02:00",
+      "arrivalTime": "2026-10-13T08:29:00.000+02:00",
+      "train": {
+       "acronym": "UB",
+       "name": null,
+       "trainCategory": "Walking route",
+       "description": null
+      }
+     },
+     {
+      "origin": "Milano Porta Garibaldi Passante",
+      "bdoOrigin": "S01708",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T08:34:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:16:00.000+02:00",
+      "train": {
+       "acronym": "SU",
+       "name": "24522",
+       "trainCategory": "Suburbano",
+       "description": "S5 TRENORD 24522"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "solution": {
+    "departureTime": "2026-10-13T08:32:00.000+02:00",
+    "arrivalTime": "2026-10-13T09:01:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": "S01645",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T08:32:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:01:00.000+02:00",
+      "train": {
+       "acronym": "RE",
+       "name": "2516",
+       "trainCategory": "Regionale",
+       "description": "TRENORD 2516"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "solution": {
+    "departureTime": "2026-10-13T08:40:00.000+02:00",
+    "arrivalTime": "2026-10-13T09:06:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": "S01645",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T08:40:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:06:00.000+02:00",
+      "train": {
+       "acronym": "RE",
+       "name": "10218",
+       "trainCategory": "Regionale",
+       "description": "TRENORD 10218"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "solution": {
+    "departureTime": "2026-10-13T08:58:00.000+02:00",
+    "arrivalTime": "2026-10-13T09:46:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": null,
+      "destination": "Milano Porta Garibaldi Passante",
+      "departureTime": "2026-10-13T08:58:00.000+02:00",
+      "arrivalTime": "2026-10-13T08:59:00.000+02:00",
+      "train": {
+       "acronym": "UB",
+       "name": null,
+       "trainCategory": "Walking route",
+       "description": null
+      }
+     },
+     {
+      "origin": "Milano Porta Garibaldi Passante",
+      "bdoOrigin": "S01708",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T09:04:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:46:00.000+02:00",
+      "train": {
+       "acronym": "SU",
+       "name": "24524",
+       "trainCategory": "Suburbano",
+       "description": "S5 TRENORD 24524"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "solution": {
+    "departureTime": "2026-10-13T09:13:00.000+02:00",
+    "arrivalTime": "2026-10-13T09:56:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": null,
+      "destination": "Milano Porta Garibaldi Passante",
+      "departureTime": "2026-10-13T09:13:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:14:00.000+02:00",
+      "train": {
+       "acronym": "UB",
+       "name": null,
+       "trainCategory": "Walking route",
+       "description": null
+      }
+     },
+     {
+      "origin": "Milano Porta Garibaldi Passante",
+      "bdoOrigin": "S01708",
+      "destination": "Rho-Fiera Milano",
+      "departureTime": "2026-10-13T09:19:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:33:00.000+02:00",
+      "train": {
+       "acronym": "SU",
+       "name": "24606",
+       "trainCategory": "Suburbano",
+       "description": "S6 TRENORD 24606"
+      }
+     },
+     {
+      "origin": "Rho-Fiera Milano",
+      "bdoOrigin": "S01700",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T09:38:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:56:00.000+02:00",
+      "train": {
+       "acronym": "RE",
+       "name": "2418",
+       "trainCategory": "Regionale",
+       "description": "TRENORD 2418"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "solution": {
+    "departureTime": "2026-10-13T09:28:00.000+02:00",
+    "arrivalTime": "2026-10-13T10:16:00.000+02:00",
+    "nodes": [
+     {
+      "origin": "Milano Porta Garibaldi",
+      "bdoOrigin": null,
+      "destination": "Milano Porta Garibaldi Passante",
+      "departureTime": "2026-10-13T09:28:00.000+02:00",
+      "arrivalTime": "2026-10-13T09:29:00.000+02:00",
+      "train": {
+       "acronym": "UB",
+       "name": null,
+       "trainCategory": "Walking route",
+       "description": null
+      }
+     },
+     {
+      "origin": "Milano Porta Garibaldi Passante",
+      "bdoOrigin": "S01708",
+      "destination": "Busto Arsizio",
+      "departureTime": "2026-10-13T09:34:00.000+02:00",
+      "arrivalTime": "2026-10-13T10:16:00.000+02:00",
+      "train": {
+       "acronym": "SU",
+       "name": "24526",
+       "trainCategory": "Suburbano",
+       "description": "S5 TRENORD 24526"
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

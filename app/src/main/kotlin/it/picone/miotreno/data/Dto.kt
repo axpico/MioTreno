@@ -63,6 +63,8 @@ data class FermataDto(
     val ritardoArrivo: Int? = null,
     val binarioProgrammatoPartenzaDescrizione: String? = null,
     val binarioEffettivoPartenzaDescrizione: String? = null,
+    val binarioProgrammatoArrivoDescrizione: String? = null,
+    val binarioEffettivoArrivoDescrizione: String? = null,
 )
 
 @Serializable

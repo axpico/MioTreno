@@ -53,12 +53,17 @@ import it.picone.miotreno.ui.theme.Testo
 
 private val ANTICIPI = listOf(5, 10, 15, 20, 30)
 
+/** Avviso prima di arrivare alla stazione di cambio: già a bordo, bastano pochi minuti. 0 = spento. */
+private val AVVISI_CAMBIO = listOf(0, 3, 5, 10)
+
 @Composable
 fun SettingsScreen(
     imp: Impostazioni,
     stazione: StazioneCorrente?,
     onNotifiche: (Boolean) -> Unit,
     onAnticipo: (Int) -> Unit,
+    onConCambi: (Boolean) -> Unit,
+    onAvvisoCambio: (Int) -> Unit,
     onAvvisiSciopero: (Boolean) -> Unit,
     onScegliStazione: () -> Unit,
     onUsaGps: () -> Unit,
@@ -118,6 +123,14 @@ fun SettingsScreen(
         }
 
         item {
+            Sezione("Soluzioni", nota = "Treni con 1 o 2 cambi accanto ai diretti, se arrivano prima.") {
+                RigaToggle(Icone.Cambio, "Mostra anche soluzioni con cambi", "Diretti sempre inclusi", imp.conCambi) {
+                    haptic.conferma(); onConCambi(it)
+                }
+            }
+        }
+
+        item {
             Sezione("Stazione di passaggio", nota = "Evidenzia in lista i treni che fermano anche qui.") {
                 RigaVoce(Icone.Cerca, "Passa per", stazionePassaggioNome ?: "Nessuna", onClick = onScegliPassaggio)
                 if (stazionePassaggioNome != null) {
@@ -143,27 +156,15 @@ fun SettingsScreen(
                 Divisore()
                 Column(Modifier.padding(Spazio.l)) {
                     Text("Preavviso", style = Testo.corpoMedio, color = tb.tx)
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = Spazio.m).clip(Forme.chip).background(tb.sf2).padding(4.dp),
-                    ) {
-                        ANTICIPI.forEach { m ->
-                            val attivo = m == imp.anticipoMinuti
-                            val sfondo by animateColorAsState(
-                                // accento tinto, non sf: in scuro sf è più cupo della pista e la scelta spariva
-                                if (attivo) tb.accentoSoft else Color.Transparent, Molla.piatta(), label = "anticipo$m",
-                            )
-                            Box(
-                                Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 40.dp)
-                                    .let { if (attivo) it.ombraMorbida(tb, Forme.chip, 2.dp) else it }
-                                    .clip(Forme.chip)
-                                    .background(sfondo)
-                                    .selectable(selected = attivo, role = Role.RadioButton) { haptic.conferma(); onAnticipo(m) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("$m′", style = Testo.numeroPiccolo, color = if (attivo) tb.accento else tb.sub)
-                            }
+                    Segmenti(ANTICIPI, imp.anticipoMinuti, { "$it′" }) { haptic.conferma(); onAnticipo(it) }
+                }
+                if (imp.conCambi) {
+                    Divisore()
+                    Column(Modifier.padding(Spazio.l)) {
+                        Text("Avviso cambio", style = Testo.corpoMedio, color = tb.tx)
+                        Text("Prima di arrivare alla stazione dove cambi treno", style = Testo.etichetta, color = tb.sub)
+                        Segmenti(AVVISI_CAMBIO, imp.avvisoCambioMinuti, { if (it == 0) "No" else "$it′" }) {
+                            haptic.conferma(); onAvvisoCambio(it)
                         }
                     }
                 }
@@ -316,5 +317,34 @@ private fun RigaToggle(icona: ImageVector, nome: String, desc: String, attivo: B
             Text(desc, style = Testo.etichetta, color = tb.sub)
         }
         Toggle(attivo)
+    }
+}
+
+/** Scelta fra pochi valori in una pista: Preavviso e Avviso cambio. */
+@Composable
+private fun Segmenti(valori: List<Int>, scelto: Int, etichetta: (Int) -> String, onScelta: (Int) -> Unit) {
+    val tb = LocalTb.current
+    Row(
+        Modifier.fillMaxWidth().padding(top = Spazio.m).clip(Forme.chip).background(tb.sf2).padding(4.dp),
+    ) {
+        valori.forEach { m ->
+            val attivo = m == scelto
+            val sfondo by animateColorAsState(
+                // accento tinto, non sf: in scuro sf è più cupo della pista e la scelta spariva
+                if (attivo) tb.accentoSoft else Color.Transparent, Molla.piatta(), label = "segmento$m",
+            )
+            Box(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 40.dp)
+                    .let { if (attivo) it.ombraMorbida(tb, Forme.chip, 2.dp) else it }
+                    .clip(Forme.chip)
+                    .background(sfondo)
+                    .selectable(selected = attivo, role = Role.RadioButton) { onScelta(m) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(etichetta(m), style = Testo.numeroPiccolo, color = if (attivo) tb.accento else tb.sub)
+            }
+        }
     }
 }

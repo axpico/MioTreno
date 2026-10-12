@@ -46,15 +46,17 @@ vicino e proporla come partenza.
 
 ## Servizi esterni contattati
 
-L'app interroga direttamente, dal tuo dispositivo, due fonti pubbliche:
+L'app interroga direttamente, dal tuo dispositivo, tre fonti pubbliche:
 
 - **ViaggiaTreno** (`viaggiatreno.it`), il servizio di infomobilità di RFI, per orari,
   ritardi, binari e tracciamento delle corse;
+- **LeFrecce** (`lefrecce.it`), il sito di Trenitalia, per le soluzioni di viaggio con
+  cambi (disattivabile da Impostazioni → "Mostra anche soluzioni con cambi");
 - **feed scioperi del Ministero delle Infrastrutture e dei Trasporti**
   (`scioperi.mit.gov.it`), per gli avvisi di sciopero.
 
 A queste fonti vengono inviati solo i parametri necessari alla richiesta (codici di
-stazione, numero del treno, data). Non vengono trasmessi identificativi personali.
+stazione, numero del treno, data e ora del viaggio). Non vengono trasmessi identificativi personali.
 Come per qualsiasi richiesta di rete, i rispettivi gestori possono registrare
 l'indirizzo IP secondo le proprie policy, sulle quali lo sviluppatore non ha
 controllo.

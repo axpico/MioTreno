@@ -59,6 +59,7 @@ fun ProssimoTreno.comeSeguito(zona: ZoneId = ZoneId.systemDefault()): TrenoSegui
     ritardoMinuti = ritardoMinuti,
     binario = binario,
     binarioConfermato = binarioConfermato,
+    tratte = tratte,
 )
 
 /** Ultimo dato noto, usato come rete di sicurezza dopo che la corsa lascia il feed partenze. */
@@ -70,7 +71,7 @@ fun TrenoSeguito.comeProssimoTreno(): ProssimoTreno? {
         numeroTreno = numeroTreno, categoria = categoria ?: "TRENO", destinazione = destinazione.orEmpty(),
         codOrigine = origine, dataPartenzaTrenoMs = dataCorsa, orarioPartenzaMs = partenza,
         orarioArrivoDestinazioneMs = arrivoDestinazioneMs, ritardoMinuti = ritardoMinuti, binario = binario,
-        binarioConfermato = binarioConfermato, stato = StatoTreno.Regolare,
+        binarioConfermato = binarioConfermato, stato = StatoTreno.Regolare, tratte = tratte,
     )
 }
 

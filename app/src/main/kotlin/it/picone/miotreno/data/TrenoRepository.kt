@@ -8,11 +8,17 @@ import it.picone.miotreno.domain.RitardoRecord
 import it.picone.miotreno.domain.Sciopero
 import it.picone.miotreno.domain.StatoTreno
 import it.picone.miotreno.domain.Stazione
+import it.picone.miotreno.domain.Tratta
 import it.picone.miotreno.domain.TrenoSeguito
 import it.picone.miotreno.domain.UltimoCluster
 import it.picone.miotreno.domain.comeProssimoTreno
+import it.picone.miotreno.domain.filtraDominati
+import it.picone.miotreno.domain.indicePerOrario
+import it.picone.miotreno.domain.mezzanotte
 import it.picone.miotreno.domain.stazioniVicine
+import it.picone.miotreno.domain.tratteInTreno
 import it.picone.miotreno.domain.trenoAncoraUtile
+import it.picone.miotreno.domain.unoPerPrimoTreno
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -35,6 +41,10 @@ class TrenoRepository(
     private val api: ViaggiaTrenoApi,
     private val scioperiApi: ScioperiApi,
     private val store: JsonStore,
+    /** Soluzioni con cambi; null = solo diretti (test, o se un giorno non servisse più). */
+    private val leFrecce: LeFrecceApi? = null,
+    /** Letto a ogni ricerca: l'interruttore "Mostra anche soluzioni con cambi". */
+    private val conCambi: suspend () -> Boolean = { false },
 ) {
     /**
      * Tutte le stazioni italiane: l'elenco nazionale più quelle aggiunte da [risolviStazione].
@@ -169,50 +179,47 @@ class TrenoRepository(
                 codDestinazioni.map { async { api.arrivi(it, Date(adesso.time + 60 * 60_000L)) } }.flatMap { it.await() }
             }
 
+            val partenze = partenzeReq.await()
             val arriviPerTreno = (arriviOra.await() + arriviDopo.await())
                 .filter { it.numeroTreno != null }
                 .associateBy { it.numeroTreno!! }
 
-            partenzeReq.await().mapNotNull { (codPartenza, p) ->
-                val numero = p.numeroTreno ?: return@mapNotNull null
-                val arrivo = arriviPerTreno[numero] ?: return@mapNotNull null
-                val partenzaMs = p.orarioPartenza ?: return@mapNotNull null
+            val diretti = partenze.mapNotNull { (codPartenza, p) ->
+                val arrivo = arriviPerTreno[p.numeroTreno ?: return@mapNotNull null] ?: return@mapNotNull null
                 val arrivoMs = arrivo.orarioArrivo ?: return@mapNotNull null
                 // stesso numero ma direzione opposta: scarta
-                if (partenzaMs >= arrivoMs) return@mapNotNull null
-                val ritardo = p.ritardo ?: 0
-                val ancoraUtile = trenoAncoraUtile(
-                    partenzaEffettivaMs = partenzaMs + ritardo * 60_000L,
-                    arrivoMs = arrivoMs,
-                    adesso = adesso.time,
-                    seguito = numero == seguito?.numeroTreno,
-                )
-                if (!ancoraUtile) return@mapNotNull null
+                if ((p.orarioPartenza ?: return@mapNotNull null) >= arrivoMs) return@mapNotNull null
+                p.comeProssimoTreno(codPartenza, arrivoMs, codStazione, destinazioneRipiego = arrivo.destinazione)
+            }
+            // un errore sulle coincidenze non deve togliere i diretti, che sono il dato sicuro
+            val conCambi = if (conCambi()) {
+                runCatching { cercaConCambi(codStazioni, codDestinazione, codDestinazioni, partenze, arriviPerTreno, adesso) }
+                    .getOrDefault(emptyList())
+            } else {
+                emptyList()
+            }
 
-                val binEff = p.binarioEffettivoPartenzaDescrizione?.trim()?.takeIf { it.isNotEmpty() }
-                ProssimoTreno(
-                    numeroTreno = numero,
-                    categoria = (p.categoria ?: p.categoriaDescrizione).orEmpty().trim()
-                        .ifEmpty { "TRENO" },
-                    destinazione = (p.destinazione ?: arrivo.destinazione).orEmpty()
-                        .trim().nomeStazione(),
-                    codOrigine = p.codOrigine ?: codStazione,
-                    codPartenza = codPartenza,
-                    dataPartenzaTrenoMs = p.dataPartenzaTreno ?: partenzaMs,
-                    orarioPartenzaMs = partenzaMs,
-                    orarioArrivoDestinazioneMs = arrivoMs,
-                    ritardoMinuti = ritardo,
-                    binario = binEff
-                        ?: p.binarioProgrammatoPartenzaDescrizione?.trim()?.takeIf { it.isNotEmpty() },
-                    binarioConfermato = binEff != null,
-                    stato = statoDa(p),
+            val utili = (diretti + conCambi).filter { t ->
+                trenoAncoraUtile(
+                    partenzaEffettivaMs = t.orarioPartenzaMs + t.ritardoMinuti * 60_000L,
+                    arrivoMs = t.orarioArrivoDestinazioneMs ?: return@filter false,
+                    adesso = adesso.time,
+                    seguito = t.numeroTreno == seguito?.numeroTreno,
                 )
+            }.map { t ->
+                // il viaggio seguito ha le sue tratte, magari ripianificate dopo una coincidenza persa
+                if (t.numeroTreno == seguito?.numeroTreno && seguito.tratte.isNotEmpty()) {
+                    t.copy(tratte = seguito.tratte, orarioArrivoDestinazioneMs = seguito.arrivoDestinazioneMs)
+                } else {
+                    t
+                }
             }.let { dalFeed ->
                 // Dopo la partenza il feed `partenze` può smettere di elencare la corsa. Il
                 // seguito persiste invece fino alla conferma di arrivo, usando l'ultimo snapshot.
                 val fallback = seguito?.comeProssimoTreno()
                 if (fallback != null && dalFeed.none { it.numeroTreno == fallback.numeroTreno }) dalFeed + fallback else dalFeed
-            }.distinctBy { it.numeroTreno }.sortedBy { it.orarioPartenzaMs }
+            }
+            filtraDominati(unoPerPrimoTreno(utili), seguito?.numeroTreno).sortedBy { it.orarioPartenzaMs }
         }
     }.getOrElse { errore ->
         // Un errore momentaneo non cancella il viaggio che l'utente sta seguendo: la UI lo
@@ -220,31 +227,83 @@ class TrenoRepository(
         seguito?.comeProssimoTreno()?.let(::listOf) ?: throw errore
     }
 
-    /** Tracking fermata-per-fermata. HTTP 204 → [DettaglioTreno.DatiNonDisponibili]. */
-    suspend fun dettaglio(treno: ProssimoTreno, codDestinazione: String): DettaglioTreno {
-        val res = api.andamentoTreno(treno.codOrigine, treno.numeroTreno, treno.dataPartenzaTrenoMs)
-        val dto = (res as? Andamento.Ok)?.treno ?: return DettaglioTreno.DatiNonDisponibili
-        if (dto.fermate.isEmpty()) return DettaglioTreno.DatiNonDisponibili
-
-        val fermate = dto.fermate.map { f ->
-            val effettiva = f.effettiva ?: f.partenzaReale ?: f.arrivoReale
-            FermataTreno(
-                codice = f.id.orEmpty(),
-                nome = f.stazione.orEmpty().nomeStazione(),
-                programmataMs = f.programmata ?: f.partenza_teorica ?: f.arrivo_teorico,
-                effettivaMs = effettiva,
-                passata = effettiva != null,
-            )
+    /**
+     * Viaggi con 1–2 cambi: LeFrecce prima; se fallisce o non trova niente, un cambio solo
+     * costruito su ViaggiaTreno agli scali dove un treno finisce e un altro comincia
+     * ([hubCandidati]).
+     */
+    private suspend fun cercaConCambi(
+        codStazioni: List<String>,
+        codDestinazione: String,
+        codDestinazioni: List<String>,
+        partenze: List<Pair<String, PartenzaArrivoDto>>,
+        arriviDestinazione: Map<Int, PartenzaArrivoDto>,
+        adesso: Date,
+    ): List<ProssimoTreno> {
+        val daLeFrecce = leFrecce?.let { lf ->
+            runCatching { connessioniLeFrecce(lf.soluzioni(codStazioni.first(), codDestinazione, adesso), partenze, arriviDestinazione) }
+                .getOrNull()
         }
-        return DettaglioTreno.Ok(
-            fermate = fermate,
-            ritardoMinuti = dto.ritardo ?: treno.ritardoMinuti,
-            indiceCorrente = fermate.indexOfLast { it.passata },
-            // il cluster e non il solo codice scelto: chi va a Garibaldi col Passante scende a
-            // Garibaldi Sotterranea, e senza questo la corsa "non arrivava" mai a destinazione
-            indiceDestinazione = codiciClusterDestinazione(codDestinazione).toSet()
-                .let { cluster -> fermate.indexOfFirst { it.codice in cluster } },
+        if (!daLeFrecce.isNullOrEmpty()) return daLeFrecce
+
+        val hub = hubCandidati(partenze, arriviDestinazione.values, esclusi = (codStazioni + codDestinazioni).toSet())
+        if (hub.isEmpty()) return emptyList()
+        val nomePartenza = nomeStazione(codStazioni.first()).orEmpty()
+        val nomeDestinazione = nomeStazione(codDestinazione).orEmpty()
+        fun fra(minuti: Int) = Date(adesso.time + minuti * 60_000L)
+        return coroutineScope {
+            hub.map { h ->
+                async {
+                    runCatching {
+                        val arriviHub = listOf(adesso, fra(60)).map { async { api.arrivi(h, it) } }.awaitAll().flatten()
+                        // il secondo treno parte dopo l'arrivo del primo: finestre spostate in avanti
+                        val partenzeHub = listOf(fra(15), fra(75)).map { async { api.partenze(h, it) } }.awaitAll().flatten()
+                        connessioniViaHub(h, partenze, arriviHub, partenzeHub, arriviDestinazione, nomePartenza, nomeDestinazione)
+                    }.getOrDefault(emptyList())
+                }
+            }.awaitAll().flatten()
+        }
+    }
+
+    /**
+     * Tracking fermata-per-fermata. HTTP 204 → [DettaglioTreno.DatiNonDisponibili]. Per un
+     * viaggio con cambi è il primo treno, fino alla stazione di cambio.
+     */
+    suspend fun dettaglio(treno: ProssimoTreno, codDestinazione: String): DettaglioTreno {
+        treno.tratteInTreno.firstOrNull()?.let { return dettaglioTratta(it) }
+        val res = api.andamentoTreno(treno.codOrigine, treno.numeroTreno, treno.dataPartenzaTrenoMs)
+        val ok = (res as? Andamento.Ok)?.treno?.comeDettaglio(treno.ritardoMinuti) ?: return DettaglioTreno.DatiNonDisponibili
+        // il cluster e non il solo codice scelto: chi va a Garibaldi col Passante scende a
+        // Garibaldi Sotterranea, e senza questo la corsa "non arrivava" mai a destinazione
+        val cluster = codiciClusterDestinazione(codDestinazione).toSet()
+        return ok.copy(indiceDestinazione = ok.fermate.indexOfFirst { it.codice in cluster })
+    }
+
+    /**
+     * Una tratta di un viaggio con cambi: dove si sale e dove si scende si riconoscono dal
+     * codice se noto, altrimenti dall'orario di tabella (LeFrecce dà solo i nomi).
+     */
+    suspend fun dettaglioTratta(tratta: Tratta): DettaglioTreno {
+        val numero = tratta.numeroTreno ?: return DettaglioTreno.DatiNonDisponibili
+        val origine = tratta.codOrigine ?: return DettaglioTreno.DatiNonDisponibili
+        val res = api.andamentoTreno(origine, numero, tratta.dataPartenzaTrenoMs ?: mezzanotte(tratta.partenzaMs))
+        val ok = (res as? Andamento.Ok)?.treno?.comeDettaglio(tratta.ritardoMinuti) ?: return DettaglioTreno.DatiNonDisponibili
+        fun indice(cod: String?, ms: Long, arrivo: Boolean) =
+            cod?.let { c -> ok.fermate.indexOfFirst { it.codice == c } }?.takeIf { it >= 0 } ?: ok.indicePerOrario(ms, arrivo)
+        return ok.copy(
+            indicePartenza = indice(tratta.codPartenza, tratta.partenzaMs, arrivo = false),
+            indiceDestinazione = indice(tratta.codArrivo, tratta.arrivoMs, arrivo = true),
         )
+    }
+
+    /** Un dettaglio per ogni treno del viaggio, nell'ordine; per un diretto è la lista di uno. */
+    suspend fun dettagliViaggio(treno: ProssimoTreno, codDestinazione: String): List<DettaglioTreno> {
+        if (treno.tratte.isEmpty()) return listOf(dettaglio(treno, codDestinazione))
+        return coroutineScope {
+            treno.tratteInTreno.map { t ->
+                async { runCatching { dettaglioTratta(t) }.getOrDefault(DettaglioTreno.DatiNonDisponibili) }
+            }.awaitAll()
+        }
     }
 
     // ── ultima stazione nota ──────────────────────────────────────────────────
@@ -322,6 +381,71 @@ internal fun statoDa(p: PartenzaArrivoDto): StatoTreno {
         else -> StatoTreno.Regolare
     }
 }
+
+/** Fermate e posizione dall'andamento; [DettaglioTreno.Ok.indiceDestinazione] lo fissa il chiamante. */
+private fun AndamentoTrenoDto.comeDettaglio(ritardoNoto: Int): DettaglioTreno.Ok? {
+    if (fermate.isEmpty()) return null
+    val lista = fermate.map { f ->
+        val effettiva = f.effettiva ?: f.partenzaReale ?: f.arrivoReale
+        FermataTreno(
+            codice = f.id.orEmpty(),
+            nome = f.stazione.orEmpty().nomeStazione(),
+            programmataMs = f.programmata ?: f.partenza_teorica ?: f.arrivo_teorico,
+            effettivaMs = effettiva,
+            passata = effettiva != null,
+            arrivoProgrammatoMs = f.arrivo_teorico,
+            partenzaProgrammataMs = f.partenza_teorica,
+            binario = listOf(
+                f.binarioEffettivoPartenzaDescrizione, f.binarioProgrammatoPartenzaDescrizione,
+                f.binarioEffettivoArrivoDescrizione, f.binarioProgrammatoArrivoDescrizione,
+            ).firstNotNullOfOrNull { it?.trim()?.takeIf(String::isNotEmpty) },
+        )
+    }
+    return DettaglioTreno.Ok(
+        fermate = lista,
+        ritardoMinuti = ritardo ?: ritardoNoto,
+        indiceCorrente = lista.indexOfLast { it.passata },
+        indiceDestinazione = -1,
+        cancellato = provvedimento == 1,
+    )
+}
+
+/**
+ * Un treno del feed partenze come [ProssimoTreno] che arriva a destinazione alle [arrivoMs]:
+ * stessa regola per i diretti e per il primo treno di un viaggio con cambi.
+ */
+internal fun PartenzaArrivoDto.comeProssimoTreno(
+    codPartenza: String,
+    arrivoMs: Long,
+    codStazioneRipiego: String,
+    destinazioneRipiego: String? = null,
+): ProssimoTreno? {
+    val numero = numeroTreno ?: return null
+    val partenzaMs = orarioPartenza ?: return null
+    val binEff = binarioEffettivoPartenzaDescrizione?.trim()?.takeIf { it.isNotEmpty() }
+    return ProssimoTreno(
+        numeroTreno = numero,
+        categoria = categoriaPulita(),
+        destinazione = (destinazione ?: destinazioneRipiego).orEmpty().trim().nomeStazione(),
+        codOrigine = codOrigine ?: codStazioneRipiego,
+        codPartenza = codPartenza,
+        dataPartenzaTrenoMs = dataPartenzaTreno ?: partenzaMs,
+        orarioPartenzaMs = partenzaMs,
+        orarioArrivoDestinazioneMs = arrivoMs,
+        ritardoMinuti = ritardo ?: 0,
+        binario = binario(),
+        binarioConfermato = binEff != null,
+        stato = statoDa(this),
+    )
+}
+
+internal fun PartenzaArrivoDto.categoriaPulita(): String =
+    (categoria ?: categoriaDescrizione).orEmpty().trim().ifEmpty { "TRENO" }
+
+/** Binario effettivo se c'è, altrimenti quello di tabella. */
+internal fun PartenzaArrivoDto.binario(): String? =
+    listOf(binarioEffettivoPartenzaDescrizione, binarioProgrammatoPartenzaDescrizione)
+        .firstNotNullOfOrNull { it?.trim()?.takeIf(String::isNotEmpty) }
 
 /**
  * Una sola regola per tutte le sorgenti (elenco regionale, nazionale, dettaglio): nome

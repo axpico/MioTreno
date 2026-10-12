@@ -314,6 +314,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         onScegliStazione = vm::apriSelettoreStazione,
                         onScambia = vm::scambiaOrigineDestinazione,
                         onScegliDestinazione = vm::apriSelettoreDestinazione,
+                        onAttivaCambi = { vm.setConCambi(true) },
                         altezzaBanner = altezzaBanner,
                     )
                     Schermata.Dettaglio -> DettaglioScreen(
@@ -336,6 +337,8 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                         stazione = state.stazione,
                         onNotifiche = vm::setNotifiche,
                         onAnticipo = vm::setAnticipo,
+                        onConCambi = vm::setConCambi,
+                        onAvvisoCambio = vm::setAvvisoCambio,
                         onAvvisiSciopero = vm::setAvvisiSciopero,
                         onScegliStazione = vm::apriSelettoreStazione,
                         onUsaGps = { vm.scegliStazione(null) },

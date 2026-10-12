@@ -18,6 +18,7 @@ import it.picone.miotreno.domain.Statistiche
 import it.picone.miotreno.domain.Stazione
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.domain.TrenoSeguito
+import it.picone.miotreno.domain.arrivato
 import it.picone.miotreno.domain.calcolaStatistiche
 import it.picone.miotreno.domain.etichetteCluster
 import it.picone.miotreno.domain.filtraPerPeriodo
@@ -26,6 +27,7 @@ import it.picone.miotreno.domain.passaPer
 import it.picone.miotreno.domain.ritardiAttesi
 import it.picone.miotreno.domain.trenoInEvidenza
 import it.picone.miotreno.widget.aggiornaWidget
+import it.picone.miotreno.work.controllaSeguito
 import it.picone.miotreno.work.ricalcolaNotifica
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -36,6 +38,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -68,7 +71,11 @@ data class UiState(
     // dettaglio
     val trenoSelezionato: ProssimoTreno? = null,
     val dettaglio: DettaglioTreno? = null,
+    /** Viaggio con cambi: un andamento per ogni treno, nell'ordine (per un diretto, uno solo). */
+    val dettagliTratte: List<DettaglioTreno> = emptyList(),
     val caricamentoDettaglio: Boolean = false,
+    /** Corsa seguita con cambi: il prossimo cambio o la coincidenza persa, per la card in home. */
+    val rigaCambioSeguito: String? = null,
     // scelta manuale della stazione
     val selettoreStazione: Boolean = false,
     val stazioni: List<Stazione> = emptyList(),
@@ -245,12 +252,23 @@ class TrenoViewModel : ViewModel() {
         }
     }
 
-    /** Anche in Home verifichiamo l'arrivo: la corsa seguita non deve restare appesa al refresh. */
+    /**
+     * Anche in Home verifichiamo l'arrivo: la corsa seguita non deve restare appesa al refresh.
+     * Per un viaggio con cambi lo stesso controllo segue la tratta in corso e ripianifica una
+     * coincidenza persa anche a notifiche spente (vedi [controllaSeguito]).
+     */
     private fun aggiornaTracciamentoSeguito(treni: List<ProssimoTreno>, seguito: TrenoSeguito?, codDestinazione: String) {
-        val treno = treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno } ?: return
+        val treno = treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno }
+        if (treno == null || seguito == null) {
+            _state.update { it.copy(rigaCambioSeguito = null) }
+            return
+        }
         viewModelScope.launch {
-            val d = runCatching { repo.dettaglio(treno, codDestinazione) }.getOrNull() as? DettaglioTreno.Ok ?: return@launch
-            if (d.indiceDestinazione >= 0 && d.indiceCorrente >= d.indiceDestinazione) {
+            // riletto: aggiorna() ha appena rinfrescato lo snapshot, quello passato qui è di prima
+            val attuale = Deps.impostazioni.seguito.first() ?: return@launch
+            val esito = runCatching { controllaSeguito(Deps.app, attuale, treno, codDestinazione) }.getOrNull() ?: return@launch
+            _state.update { it.copy(rigaCambioSeguito = esito.rigaCambio) }
+            if (esito.arrivato) {
                 Deps.impostazioni.smettiDiSeguire()
                 runCatching { aggiornaWidget(Deps.app, seguito = 0) }
             }
@@ -329,17 +347,18 @@ class TrenoViewModel : ViewModel() {
                 schermata = Schermata.Dettaglio,
                 trenoSelezionato = treno,
                 dettaglio = null,
+                dettagliTratte = emptyList(),
                 caricamentoDettaglio = true,
             )
         }
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             while (true) {
-                val d = runCatching { repo.dettaglio(treno, codDestinazione) }
-                    .getOrDefault(DettaglioTreno.DatiNonDisponibili)
-                _state.update { it.copy(dettaglio = d, caricamentoDettaglio = false) }
-                val ok = d as? DettaglioTreno.Ok
-                if (ok != null && ok.indiceDestinazione >= 0 && ok.indiceCorrente >= ok.indiceDestinazione) {
+                val tutti = runCatching { repo.dettagliViaggio(treno, codDestinazione) }
+                    .getOrDefault(listOf(DettaglioTreno.DatiNonDisponibili))
+                _state.update { it.copy(dettaglio = tutti.first(), dettagliTratte = tutti, caricamentoDettaglio = false) }
+                // arrivato = l'ultimo treno a destinazione, non il primo alla stazione di cambio
+                if ((tutti.last() as? DettaglioTreno.Ok)?.arrivato == true) {
                     if (_state.value.seguito?.numeroTreno == treno.numeroTreno) {
                         Deps.impostazioni.smettiDiSeguire()
                         runCatching { aggiornaWidget(Deps.app, seguito = 0) }
@@ -357,7 +376,7 @@ class TrenoViewModel : ViewModel() {
         pollJob?.cancel()
         pollJob = null
         _state.update {
-            it.copy(schermata = Schermata.Home, trenoSelezionato = null, dettaglio = null)
+            it.copy(schermata = Schermata.Home, trenoSelezionato = null, dettaglio = null, dettagliTratte = emptyList())
         }
     }
 
@@ -420,6 +439,13 @@ class TrenoViewModel : ViewModel() {
             _state.update { it.copy(mostraInterstitial = true) }
         }
     }
+
+    fun setConCambi(v: Boolean) = viewModelScope.launch {
+        Deps.impostazioni.setConCambi(v)
+        aggiorna()
+    }
+
+    fun setAvvisoCambio(v: Int) = viewModelScope.launch { Deps.impostazioni.setAvvisoCambio(v) }
 
     fun setAnticipo(v: Int) = viewModelScope.launch {
         Deps.impostazioni.setAnticipo(v)

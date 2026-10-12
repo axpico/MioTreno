@@ -118,7 +118,9 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
     // "segui" dal widget salva solo numero/data/arrivo: qui lo snapshot si completa, finché la
     // corsa è ancora nel feed, o dopo la partenza il fallback non avrebbe di che ripartire
     Deps.impostazioni.aggiornaSeguito(dalFeed)
-    val dettaglio = runCatching { Deps.repository.dettaglio(dalFeed, codDestinazione) }.getOrNull()
+    // tratta in corso, cambio, coincidenza persa: vedi controllaSeguito
+    val esito = controllaSeguito(ctx, Deps.impostazioni.seguito.first() ?: seguito, dalFeed, codDestinazione)
+    val dettaglio = esito.dettaglio
     val ok = dettaglio as? DettaglioTreno.Ok
 
     /*
@@ -132,29 +134,32 @@ private suspend fun unGiro(ctx: Context, pubblica: suspend (Notification) -> Uni
      * Il ritardo vero, dopo la partenza, lo dà solo andamentoTreno — che era già stato
      * scaricato qui sopra e buttato via.
      */
-    val treno = if (ok != null) dalFeed.copy(ritardoMinuti = ok.ritardoMinuti) else dalFeed
+    val treno = if (ok != null) esito.treno.copy(ritardoMinuti = ok.ritardoMinuti) else esito.treno
 
     val adesso = System.currentTimeMillis()
     val minuti = treno.minutiAllaPartenza(adesso)
-    // non ancora nella finestra di preavviso: ci pensa AvvisoTrenoWorker a riaccenderlo
-    if (minuti > imp.anticipoMinuti) {
+    // non ancora nella finestra di preavviso: ci pensa AvvisoTrenoWorker a riaccenderlo. Solo
+    // per il primo treno: alla stazione di cambio si aspetta il secondo con il tracking acceso
+    if (esito.primaTratta && minuti > imp.anticipoMinuti) {
         rimuoviNotificaTracking(ctx)
         return Giro.Finito
     }
 
     val sciopero = Deps.repository.scioperiInCache().rilevanteOggiODomani().takeIf { imp.avvisiSciopero }
-    val nomeDestinazione = Deps.repository.nomeStazione(codDestinazione) ?: "destinazione"
+    // un viaggio con cambi mostra la tratta in corso: da dove sali a dove scendi
+    val diretto = dalFeed.tratte.isEmpty()
+    val nomeDestinazione = if (diretto) Deps.repository.nomeStazione(codDestinazione) ?: "destinazione" else treno.destinazione
     pubblica(
         costruisciNotificaTracking(
-            ctx, treno, minuti, stazione.nome, stazione.codici, sciopero, dettaglio,
+            ctx, treno, minuti, esito.nomeSalita ?: stazione.nome, stazione.codici, sciopero, dettaglio,
             destinazioneNome = nomeDestinazione,
+            rigaCambio = esito.rigaCambio,
         ),
     )
 
-    val arrivato = ok != null && ok.indiceDestinazione >= 0 && ok.indiceCorrente >= ok.indiceDestinazione
-    if (arrivato) Deps.impostazioni.smettiDiSeguire()
+    if (esito.arrivato) Deps.impostazioni.smettiDiSeguire()
     // ultimo fotogramma: resta visibile, non si continua a interrogare un treno finito
-    if (arrivato || treno.cancellato) return Giro.Finito
+    if (esito.arrivato || treno.cancellato) return Giro.Finito
 
     // si guarda all'evento più vicino: prima della partenza è la partenza, dopo è l'arrivo
     val minutiAllArrivo = treno.orarioArrivoDestinazioneMs
