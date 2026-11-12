@@ -347,6 +347,7 @@ private fun BarraPercorso(
     onScambia: () -> Unit,
 ) {
     val s = state.stazione
+    val haptic = rememberHaptic()
     val partenza = s?.nome ?: if (state.caricamento) "Cerco la stazione…" else "Scegli la partenza"
     val origine = when (s?.origine) {
         StazioneCorrente.Origine.Gps -> "più vicina, ${distanzaLeggibile(s.distanzaMetri ?: 0)}"
@@ -391,7 +392,12 @@ private fun BarraPercorso(
         actions = {
             BottoneIcona(
                 Icone.Cambio, "Inverti partenza e destinazione",
-                onClick = { if (s != null) onScambia() },
+                onClick = {
+                    if (s != null) {
+                        haptic.conferma()
+                        onScambia()
+                    }
+                },
                 modifier = Modifier.padding(end = Spazio.s).let { if (s != null) it else it.alpha(0.38f) },
             )
         },

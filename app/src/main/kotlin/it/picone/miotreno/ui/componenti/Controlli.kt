@@ -93,9 +93,6 @@ fun BottoneTesto(testo: String, onClick: () -> Unit, modifier: Modifier = Modifi
     }
 }
 
-/** Area tattile del bottone a icona: chi gli fa da contrappeso (titoli centrati) usa la stessa. */
-val DIMENSIONE_BOTTONE_ICONA = 48.dp
-
 /** Bottone a icona tonale (inverti, chiudi). */
 @Composable
 fun BottoneIcona(icona: ImageVector, descrizione: String, onClick: () -> Unit, modifier: Modifier = Modifier) {

@@ -109,6 +109,7 @@ fun TrainCard(
 
 /** Icona per categoria treno: famiglia di forme, non un codice esatto — un codice ViaggiaTreno
  * mai visto prima cade sul fallback [Icone.Treno] invece di rompersi. */
+@Composable
 internal fun iconaCategoria(categoria: String): ImageVector {
     val c = categoria.uppercase()
     return when {

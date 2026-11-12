@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -150,12 +151,12 @@ private fun App(daIntent: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<
 
     // primo avvio: solo la ricerca della destinazione, nessuna barra
     if (state.schermata == Schermata.SceltaDestinazione) {
-        val activity = LocalContext.current as Activity
+        val activity = LocalActivity.current
         SelettoreStazione(
             correnteCodice = null,
             onScegli = { codice -> codice?.let(vm::scegliDestinazione) },
             // chiuderla esce dall'app invece di lasciare uno sfondo vuoto
-            onChiudi = activity::finish,
+            onChiudi = { activity?.finish() },
             titolo = "Dove vuoi arrivare?",
             mostraOpzioneVuota = false,
             ricercaLive = vm::cercaStazioni,
@@ -178,7 +179,7 @@ private fun App(daIntent: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<
                 item(
                     selected = state.schermata == sezione.schermata,
                     onClick = { vm.vaiA(sezione.schermata) },
-                    icon = { Icon(sezione.icona, contentDescription = null) },
+                    icon = { Icon(sezione.icona(), contentDescription = null) },
                     label = { Text(sezione.nome) },
                 )
             }
@@ -216,12 +217,12 @@ private fun App(daIntent: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<
     SelettoriStazione(state, vm)
 }
 
-private data class Sezione(val nome: String, val icona: ImageVector, val schermata: Schermata)
+private data class Sezione(val nome: String, val icona: @Composable () -> ImageVector, val schermata: Schermata)
 
 private val SEZIONI = listOf(
-    Sezione("Treni", Icone.Treno, Schermata.Home),
-    Sezione("Statistiche", Icone.Statistiche, Schermata.Statistiche),
-    Sezione("Impostazioni", Icone.Impostazioni, Schermata.Impostazioni),
+    Sezione("Treni", { Icone.Treno }, Schermata.Home),
+    Sezione("Statistiche", { Icone.Statistiche }, Schermata.Statistiche),
+    Sezione("Impostazioni", { Icone.Impostazioni }, Schermata.Impostazioni),
 )
 
 @Composable
