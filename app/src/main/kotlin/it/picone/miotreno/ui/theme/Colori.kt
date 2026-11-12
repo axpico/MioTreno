@@ -1,21 +1,21 @@
 package it.picone.miotreno.ui.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
- * Palette MioTreno — "Rail blue": chiaro e scuro, segue il sistema.
+ * Colori MioTreno sopra Material 3. Le superfici, il testo e l'accento vengono dal
+ * [ColorScheme] (dinamico da Android 12, altrimenti [SchemaChiaro]/[SchemaScuro] dal seme
+ * rail blue): [tbDa] li riporta qui con i nomi che usano le schermate.
  *
- * 60/30/10: superfici neutre (60%), testo navy/bianco a opacità decrescente (30%),
- * un solo blu come accento (10%) per tutto ciò che è interattivo o "tuo" (treno seguito).
- *  - semaforo: verde / ambra / arancio / rosso solo per lo stato del treno, mai decorativi.
- *  - sciopero: magenta, un'altra categoria di informazione, non un ritardo.
- *  - [ombra]: tinta delle ombre (navy, mai grigio puro); in scuro le ombre non si vedono e
- *    la separazione la fa [bordo].
- *  - [suStato]: testo sopra un colore pieno (bottone primario, badge cancellato).
+ * I colori di stato invece sono fissi e non seguono lo sfondo: verde / ambra / arancio / rosso
+ * per lo stato del treno, magenta per lo sciopero. Un "in orario" che diventa viola perché lo è
+ * lo sfondo perderebbe il suo significato.
+ *  - [suStato]: testo sopra un colore di stato pieno.
  *
- * Contrasto: ogni coppia testo/superficie è verificata ≥ 4.5:1 (WCAG AA) in `ContrastoTest`,
- * per entrambi i temi. In chiaro i colori di stato sono più scuri del "nominale" apposta.
+ * Contrasto: ogni colore di stato è verificato ≥ 4.5:1 (WCAG AA) sulle superfici del seme in
+ * `ContrastoTest`, per entrambi i temi. In chiaro sono più scuri del "nominale" apposta.
  */
 data class TbColors(
     val scuro: Boolean,
@@ -55,8 +55,8 @@ val ChiaroTb = TbColors(
     accentoSoft = Color(0x142448E0),
     verde = Color(0xFF146B3C),
     ambra = Color(0xFF7A5300),
-    arancio = Color(0xFFA6380C),
-    rosso = Color(0xFFB82530),
+    arancio = Color(0xFF9E340A),
+    rosso = Color(0xFFAD2230),
     sciopero = Color(0xFF9E1F88),
     onAccento = Color(0xFFFFFFFF),
     suStato = Color(0xFFFFFFFF),
@@ -79,7 +79,7 @@ val ScuroTb = TbColors(
     verde = Color(0xFF3DD68C),
     ambra = Color(0xFFF5B83D),
     arancio = Color(0xFFFF8A4C),
-    rosso = Color(0xFFFF6B6B),
+    rosso = Color(0xFFFF7A7A),
     sciopero = Color(0xFFF472D0),
     onAccento = Color(0xFF0B1020),
     suStato = Color(0xFF0B1020),
@@ -87,3 +87,19 @@ val ScuroTb = TbColors(
 )
 
 val LocalTb = staticCompositionLocalOf { ChiaroTb }
+
+/** Neutri e accento dal [scheme], stato fisso da [ChiaroTb]/[ScuroTb]. */
+fun tbDa(scheme: ColorScheme, scuro: Boolean): TbColors = (if (scuro) ScuroTb else ChiaroTb).copy(
+    bg = scheme.surface,
+    sf = scheme.surfaceContainerLow,
+    sf2 = scheme.surfaceContainerHigh,
+    bordo = scheme.outlineVariant,
+    bordoForte = scheme.outline,
+    tx = scheme.onSurface,
+    sub = scheme.onSurfaceVariant,
+    ter = scheme.onSurfaceVariant,
+    accento = scheme.primary,
+    accento2 = scheme.primary,
+    accentoSoft = scheme.secondaryContainer,
+    onAccento = scheme.onPrimary,
+)

@@ -1,7 +1,6 @@
 package it.picone.miotreno.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 /** Angoli generosi e coerenti: card 20, elementi interni 16, pillole piene. */
@@ -24,8 +23,3 @@ object Spazio {
     val xxl = 32.dp
     val pagina = 16.dp
 }
-
-val FormeTb = Shapes(
-    extraSmall = Forme.cardPiccola, small = Forme.cardPiccola, medium = Forme.cardPiccola,
-    large = Forme.card, extraLarge = Forme.card,
-)
