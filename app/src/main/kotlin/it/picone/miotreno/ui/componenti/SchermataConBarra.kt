@@ -13,6 +13,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
@@ -33,6 +34,7 @@ fun SchermataConBarra(
             LargeFlexibleTopAppBar(
                 title = { Text(titolo) },
                 subtitle = sottotitolo?.let { { Text(it) } },
+                titleHorizontalAlignment = Alignment.CenterHorizontally,
                 scrollBehavior = scroll,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,

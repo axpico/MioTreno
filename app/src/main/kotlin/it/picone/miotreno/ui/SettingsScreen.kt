@@ -35,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.BuildConfig
@@ -257,12 +258,12 @@ private fun Informazioni() {
 @Composable
 private fun Sezione(titolo: String, nota: String? = null, content: @Composable () -> Unit) {
     Column {
-        Overline(titolo, Modifier.padding(start = Spazio.s, bottom = Spazio.s))
+        Overline(titolo, Modifier.fillMaxWidth().padding(bottom = Spazio.s), centrato = true)
         Column(Modifier.fillMaxWidth().clip(Forme.card), verticalArrangement = Arrangement.spacedBy(2.dp)) { content() }
         nota?.let {
             Text(
-                it, style = Testo.etichetta, color = LocalTb.current.sub,
-                modifier = Modifier.padding(start = Spazio.s, end = Spazio.s, top = Spazio.s),
+                it, style = Testo.etichetta, color = LocalTb.current.sub, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(start = Spazio.s, end = Spazio.s, top = Spazio.s),
             )
         }
     }

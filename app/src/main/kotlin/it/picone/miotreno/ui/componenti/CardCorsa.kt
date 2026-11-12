@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -72,6 +72,8 @@ internal fun CardCorsa(
     onSmetti: (() -> Unit)?,
     onClick: () -> Unit,
     modifier: Modifier,
+    /** La meta scelta: se il treno finisce proprio lì il titolo ripeterebbe la barra in alto. */
+    destinazioneUtente: String? = null,
 ) {
     val tb = LocalTb.current
     // a bordo della corsa seguita conta l'arrivo, non più la partenza
@@ -84,23 +86,27 @@ internal fun CardCorsa(
         padding = 20.dp,
     ) {
         if (statoCorsa != null) RigaStato(statoCorsa, cambio?.dettaglio?.takeIf { !cambio.persa }, Modifier.padding(bottom = 16.dp))
-        FlowRow(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
+        // treno a sinistra, stato a destra, sempre sulla stessa riga; le etichette in più sotto,
+        // centrate: andando a capo nella stessa riga spingevano il badge a sinistra, fuori asse
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(iconaCategoria(treno.categoria), contentDescription = null, tint = tb.sub, modifier = Modifier.size(18.dp))
-            Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.sub)
-            if (seguito && statoCorsa == null) Chip("Segui", colore = tb.accento, pieno = true)
-            if (partenzaEtichetta != null) {
-                Chip("da $partenzaEtichetta", colore = tb.ambra, pieno = true)
-            }
-            if (passaPerEtichetta != null) {
-                Chip("via $passaPerEtichetta", colore = tb.accento2, pieno = true)
-            }
-            Spacer(Modifier.weight(1f))
+            Text(
+                "${treno.categoria} ${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.sub,
+                modifier = Modifier.padding(start = 6.dp).weight(1f),
+            )
             StatusBadge(semaforo, treno.etichettaStato(), compatto = true)
+        }
+        val etichette = listOfNotNull(
+            ("Segui" to tb.accento).takeIf { seguito && statoCorsa == null },
+            partenzaEtichetta?.let { "da $it" to tb.ambra },
+            passaPerEtichetta?.let { "via $it" to tb.accento2 },
+        )
+        if (etichette.isNotEmpty()) {
+            FlowRow(
+                Modifier.fillMaxWidth().padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) { etichette.forEach { (testo, colore) -> Chip(testo, colore = colore, pieno = true) } }
         }
 
         // con un cambio il titolo è dove si cambia, come nelle righe: il capolinea del primo treno inganna
@@ -113,13 +119,15 @@ internal fun CardCorsa(
             if (stazioneCambio != null) {
                 Icon(Icone.Cambio, contentDescription = "Con cambio", tint = tb.accento2, modifier = Modifier.size(20.dp))
             }
-            Text(
-                stazioneCambio ?: treno.destinazione,
-                style = Testo.sottotitolo,
-                color = tb.tx,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (stazioneCambio != null || !treno.destinazione.equals(destinazioneUtente, ignoreCase = true)) {
+                Text(
+                    stazioneCambio ?: treno.destinazione,
+                    style = Testo.sottotitolo,
+                    color = tb.tx,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         // il titolo dice già dove si cambia: la riga serve solo per il rischio (il cambio live sta nella riga di stato)
         if (statoCorsa == null && (cambio != null || treno.coincidenzaARischio)) RigaCambi(treno, cambio)
@@ -142,8 +150,9 @@ internal fun CardCorsa(
         if (atteso != null && !cancellato) RigaAtteso(atteso)
         if (onSmetti != null) {
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BottoneSecondario("Dettagli", onClick = onClick, icona = Icone.Treno, modifier = Modifier.weight(1f))
-                BottoneSecondario(
+                // azione principale piena, quella che annulla col contorno: si distinguono a colpo d'occhio
+                BottonePrimario("Percorso", onClick = onClick, icona = Icone.Treno, modifier = Modifier.weight(1f))
+                BottoneContorno(
                     "Smetti", onClick = onSmetti, icona = Icone.Chiudi, descrizione = "Smetti di seguire questa corsa",
                     modifier = Modifier.weight(1f),
                 )
@@ -281,7 +290,8 @@ private fun RigaStato(stato: StatoCorsa, dettaglio: String?, modifier: Modifier 
 private fun Tessera(etichetta: String, modifier: Modifier = Modifier, valore: @Composable () -> Unit) {
     val tb = LocalTb.current
     Column(
-        modifier.fillMaxHeight().clip(Forme.cardPiccola).background(tb.sf2).padding(16.dp),
+        // velo leggero sul fondo della card, non un blocco scuro: le tessere sono dettagli, non card dentro la card
+        modifier.fillMaxHeight().clip(Forme.cardPiccola).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(etichetta, style = Testo.etichetta, color = tb.ter)

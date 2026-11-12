@@ -16,8 +16,7 @@ import it.picone.miotreno.ui.theme.Forme
 
 /**
  * La superficie base dell'app: card M3 piena, senza ombra (le superfici tonali bastano a
- * separare). [accento] = la card "tua" (treno seguito): fondo secondaryContainer e bordo
- * primario. [rilievo] = "la prossima": una superficie più alta, niente colore — i due stati
+ * separare). [accento] = la card "tua" (treno seguito): fondo secondaryContainer. [rilievo] = "la prossima": una superficie più alta, niente colore — i due stati
  * non devono sembrare uguali.
  */
 @Composable
@@ -38,7 +37,8 @@ fun GlassCard(
             else -> cs.surfaceContainer
         },
     )
-    val bordo = if (accento) BorderStroke(2.dp, cs.primary) else null
+    // niente bordo: il fondo tonale basta, un contorno chiaro sul grigio sembrava una cornice
+    val bordo: BorderStroke? = null
     val corpo: @Composable ColumnScope.() -> Unit = { Column(Modifier.padding(padding), content = content) }
     if (onClick != null) {
         Card(onClick = onClick, modifier = modifier, shape = forma, colors = colori, border = bordo, content = corpo)

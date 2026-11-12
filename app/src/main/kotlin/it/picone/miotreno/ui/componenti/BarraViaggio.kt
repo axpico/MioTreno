@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,14 +66,27 @@ internal fun BarraViaggio(
 
     Column(modifier.fillMaxWidth()) {
         BoxWithConstraints(Modifier.fillMaxWidth().height(6.dp)) {
-            LinearProgressIndicator(
-                progress = { avanzamento },
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(Forme.chip),
-                color = tb.accento, trackColor = tb.sf2,
-                // Material3 disegna di default un "traguardo" a fine barra: qui i pallini
-                // sopra già marcano le fermate, un secondo pallino fisso in fondo è ridondante.
-                drawStopIndicator = {},
-            )
+            // treno in movimento sul tuo tratto: barra ondulata Expressive, si vede che "va";
+            // fermo o non ancora da te: barra piatta. Senza stacco fra pieno e vuoto (gapSize 0):
+            // la barra spezzata sembrava due pezzi diversi.
+            val inMoto = dettaglio != null && dettaglio.indiceCorrente >= salita && avanzamento in 0.01f..0.99f
+            if (inMoto) {
+                LinearWavyProgressIndicator(
+                    progress = { avanzamento },
+                    modifier = Modifier.fillMaxWidth().height(10.dp),
+                    color = tb.accento, trackColor = tb.accento.copy(alpha = 0.18f),
+                    gapSize = 0.dp, stopSize = 0.dp,
+                )
+            } else {
+                LinearProgressIndicator(
+                    progress = { avanzamento },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(Forme.chip),
+                    color = tb.accento, trackColor = tb.accento.copy(alpha = 0.18f),
+                    gapSize = 0.dp,
+                    // i pallini sopra marcano già le fermate: niente "traguardo" fisso in fondo
+                    drawStopIndicator = {},
+                )
+            }
             for (i in fermateIntermedie) {
                 val frazione = (i - salita).toFloat() / tratte!!
                 val passata = i <= dettaglio.indiceCorrente

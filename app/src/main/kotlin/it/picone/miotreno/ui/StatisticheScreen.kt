@@ -151,7 +151,7 @@ private fun Filtri(
     onStazione: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
         Box {
             FilterChip(
                 selected = periodo != PeriodoFiltro.Sempre,
@@ -316,7 +316,7 @@ private fun ITuoiTreni(treni: List<VoceStat>, colore: (Double) -> Color) {
     val ordinati = treni.sortedByDescending { it.valore }
     val max = ordinati.first().valore.coerceAtLeast(1.0)
     Column {
-        Overline("I tuoi treni", Modifier.padding(start = Spazio.s, bottom = Spazio.s))
+        Overline("I tuoi treni", Modifier.fillMaxWidth().padding(bottom = Spazio.s), centrato = true)
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             ordinati.forEach { v ->
                 val c = colore(v.valore)

@@ -69,6 +69,8 @@ fun TrainCard(
     statoCorsa: StatoCorsa? = null,
     /** Corsa seguita: azioni rapide "Dettagli" e "Smetti di seguire" in fondo alla card. */
     onSmetti: (() -> Unit)? = null,
+    /** La meta scelta dall'utente, per non ripeterla come titolo della card. */
+    destinazioneUtente: String? = null,
 ) {
     val tb = LocalTb.current
     val semaforo = treno.semaforo()
@@ -104,6 +106,7 @@ fun TrainCard(
         onSmetti = onSmetti,
         onClick = onClick,
         modifier = modifier,
+        destinazioneUtente = destinazioneUtente,
     )
 }
 

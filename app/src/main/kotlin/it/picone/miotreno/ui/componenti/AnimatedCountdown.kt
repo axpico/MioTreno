@@ -74,7 +74,7 @@ fun AnimatedCountdown(
         horizontalAlignment = Alignment.End,
     ) {
         if (partito) {
-            Text("in viaggio", style = if (grande) Testo.sottotitolo else Testo.etichettaBold, color = tb.accento2)
+            Text("partito", style = if (grande) Testo.sottotitolo else Testo.etichettaBold, color = tb.accento2)
         } else {
             NumeroAnimato(
                 minuti.toString(),

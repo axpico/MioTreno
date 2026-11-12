@@ -1,5 +1,6 @@
 package it.picone.miotreno.ui.componenti
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
@@ -14,6 +15,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.ui.theme.Forme
@@ -85,6 +88,23 @@ private fun Contenuto(testo: String, icona: ImageVector?) {
     Text(testo, style = Testo.bottone, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
+/** Bottone col contorno: azioni che annullano o tolgono (smetti di seguire). */
+@Composable
+fun BottoneContorno(
+    testo: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icona: ImageVector? = null,
+    descrizione: String? = null,
+) {
+    OutlinedButton(
+        onClick = onClick, shapes = ButtonDefaults.shapes(),
+        // contorno ben visibile anche su una card tonale: col colore di default spariva
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.onSurfaceVariant),
+        modifier = modifier.heightIn(min = 56.dp).semantics { descrizione?.let { contentDescription = it } },
+    ) { Contenuto(testo, icona) }
+}
+
 /** Azione di ripiego: "preferisco fare a mano", "riprova". */
 @Composable
 fun BottoneTesto(testo: String, onClick: () -> Unit, modifier: Modifier = Modifier, colore: Color = MaterialTheme.colorScheme.primary) {
@@ -134,6 +154,9 @@ fun ChipFiltro(
 
 /** Titoletto di sezione, nel colore primario come le intestazioni M3. */
 @Composable
-fun Overline(testo: String, modifier: Modifier = Modifier) {
-    Text(testo, modifier, style = Testo.overline, color = MaterialTheme.colorScheme.primary)
+fun Overline(testo: String, modifier: Modifier = Modifier, centrato: Boolean = false) {
+    Text(
+        testo, modifier, style = Testo.overline, color = MaterialTheme.colorScheme.primary,
+        textAlign = if (centrato) TextAlign.Center else null,
+    )
 }

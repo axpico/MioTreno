@@ -24,8 +24,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -143,8 +145,14 @@ private fun VoceTreno(
         modifier.padding(top = if (compatta && !inizioGruppo) 0.dp else Spazio.l),
         verticalArrangement = Arrangement.spacedBy(Spazio.s),
     ) {
-        if (indice == 0) Overline(if (lista.seguendo) "La tua corsa" else "Prossima partenza")
-        if (indice == 1) Overline(if (lista.seguendo) "Altre partenze" else "Partenze successive", Modifier.padding(top = Spazio.s))
+        // titoli di sezione al centro, come la barra in alto: la pagina si legge sull'asse
+        if (indice == 0) Overline(if (lista.seguendo) "La tua corsa" else "Prossima partenza", Modifier.fillMaxWidth(), centrato = true)
+        if (indice == 1) {
+            Overline(
+                if (lista.seguendo) "Altre partenze" else "Partenze successive",
+                Modifier.fillMaxWidth().padding(top = Spazio.s), centrato = true,
+            )
+        }
         TrainCard(
             t, ora, seguito = seguito,
             onClick = { haptic.tocco(); onApri(t) },
@@ -161,6 +169,7 @@ private fun VoceTreno(
                 null
             },
             onSmetti = if (seguito) ({ haptic.conferma(); onSmetti(t) }) else null,
+            destinazioneUtente = state.destinazioneNome,
             modifier = (if (compatta) Modifier.gruppo(tb, inizioGruppo, fineGruppo) else Modifier),
         )
     }
@@ -169,14 +178,16 @@ private fun VoceTreno(
 /** Le altre partenze nascoste mentre segui una corsa: un tocco e compaiono tutte. */
 @Composable
 private fun MostraTutte(quante: Int, onClick: () -> Unit) {
-    val tb = LocalTb.current
-    Text(
-        "Mostra tutte ($quante)",
-        Modifier.fillMaxWidth().padding(top = Spazio.s).clip(Forme.chip)
-            .semantics { role = Role.Button }
-            .clickable(onClick = onClick).padding(vertical = Spazio.s),
-        style = Testo.etichettaBold, color = tb.accento, textAlign = TextAlign.Center,
-    )
+    FilledTonalButton(
+        onClick = onClick, shapes = ButtonDefaults.shapes(),
+        modifier = Modifier.fillMaxWidth().padding(top = Spazio.m),
+    ) {
+        Icon(Icone.Frecciagiu, null, Modifier.size(ButtonDefaults.IconSize))
+        Text(
+            if (quante == 1) "Un'altra partenza" else "Altre $quante partenze",
+            Modifier.padding(start = ButtonDefaults.IconSpacing), style = Testo.bottone,
+        )
+    }
 }
 
 @Composable
@@ -401,6 +412,7 @@ private fun BarraPercorso(
                 modifier = Modifier.padding(end = Spazio.s).let { if (s != null) it else it.alpha(0.38f) },
             )
         },
+        titleHorizontalAlignment = Alignment.CenterHorizontally,
         scrollBehavior = scroll,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surface,
