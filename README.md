@@ -29,7 +29,7 @@ lo fissa già per questa directory.
 
 ```sh
 mise install
-./gradlew test           # 145 unit test, in parte su fixture reali dell'API
+./gradlew test           # 156 unit test, in parte su fixture reali dell'API
 ./gradlew ktlintCheck    # stile (regole in .editorconfig)
 ./gradlew assembleDebug
 ./gradlew installDebug
@@ -117,11 +117,22 @@ più vicina se ne perdeva metà, senza alcun errore visibile.
 - **Niente Retrofit.** Cinque endpoint, uno che risponde in text/plain e uno che risponde 204:
   OkHttp + kotlinx-serialization con parsing difensivo costa meno di un converter factory.
 - **Niente Hilt.** `Deps` con quattro lazy singleton.
-- **Niente play-services-location.** `LocationManager.getCurrentLocation` con cache a 2 minuti.
+- **Niente play-services-location.** `LocationManager.getCurrentLocation` con cache a 2 minuti:
+  con il solo permesso COARSE si chiede prima il provider fused/rete (istantaneo), il GPS solo
+  come ultima scelta, e un'ultima posizione di meno di 2 minuti si usa subito.
 - **Font Atkinson Hyperlegible.** Next per il testo, Mono per orari e numeri, così le cifre si
   allineano in colonna.
-- **Tema chiaro e scuro** ("Rail blue"), che segue il sistema. I colori vivi sono riservati
-  allo stato del treno (verde / ambra / arancio / rosso) e allo sciopero.
+- **Material 3 Expressive.** `MaterialExpressiveTheme` con colore dinamico dallo sfondo
+  (Android 12+), altrimenti lo schema generato dal seme rail blue `#2448E0`
+  (`ui/theme/SchemaSeme.kt`). Chiaro o scuro segue il sistema. I colori di stato (verde / ambra
+  / arancio / rosso, magenta per lo sciopero) sono fissi e verificati AA in `ContrastoTest`:
+  un "in orario" che cambia colore con lo sfondo perderebbe il suo significato.
+- **Componenti M3.** Barra o rail di navigazione (`NavigationSuiteScaffold`), barre grandi che
+  si riducono scorrendo, dettaglio in un foglio a due altezze (pannello laterale da 840 dp),
+  ricerca stazioni con `SearchBar`, liste segmentate, pull-to-refresh con `LoadingIndicator`.
+  Le API Expressive sono ancora sperimentali: l'opt-in è uno solo, in `app/build.gradle.kts`.
+- **Versioni.** Compose BOM 2026.04.01 e material3 1.5.0-alpha18 sono le ultime compatibili con
+  AGP 8.13 / compileSdk 36; le successive richiedono AGP 9.1.
 
 ## Struttura
 
@@ -129,9 +140,10 @@ più vicina se ne perdeva metà, senza alcun errore visibile.
 data/       client ViaggiaTreno, feed scioperi, store JSON, repository
 domain/     modelli, haversine/stazione più vicina, aggregazioni statistiche
 location/   wrapper LocationManager
-ui/theme/       token del design: colori, tipografia, forme, molle, tema Material sovrascritto
-ui/componenti/  libreria interna: GlassCard, TrainCard, StatusBadge, AnimatedCountdown,
-                TimelineStop, StatChart, Toggle, bottoni, icone line-style, pull-to-refresh
+ui/theme/       tema M3 Expressive, schema dal seme, colori di stato, tipografia Atkinson, molle
+ui/componenti/  card, righe treno, timeline, grafici, badge di stato, bottoni e chip su M3,
+                icone (Material Symbols + treni disegnati a mano)
+ui/anteprime/   @Preview chiaro/scuro e testo grande dei componenti base
 ui/             ViewModel + UiState, home, dettaglio, statistiche, impostazioni, selettore stazione, tile
 work/       sync scioperi (1×/giorno), notifica pre-partenza, tracking della corsa seguita
 ```
