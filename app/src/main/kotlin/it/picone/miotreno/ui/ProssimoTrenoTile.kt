@@ -76,7 +76,7 @@ class ProssimoTrenoTile : TileService() {
         val tile = qsTile ?: return
         val esito = runCatching { withContext(Dispatchers.IO) { prossimo() } }.getOrElse { EsitoTile.ErroreRete }
         seguito = (esito as? EsitoTile.Dati)?.seguito
-        tile.label = ETICHETTA_TILE
+        tile.label = if (seguito != null) "La tua corsa" else ETICHETTA_TILE
         tile.state = if (esito is EsitoTile.Dati) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             tile.subtitle = when (esito) {
@@ -108,12 +108,14 @@ class ProssimoTrenoTile : TileService() {
             treni.firstOrNull { it.numeroTreno == seguito?.numeroTreno } ?: treni.firstOrNull { !it.cancellato }
                 ?: return EsitoTile.NessunTreno
         val minuti = t.minutiAllaPartenza(System.currentTimeMillis())
+        // le due cose che servono in banchina, nell'ordine: quanto manca e dove andare
         val quando = when {
             t.cancellato -> "cancellato"
-            minuti > 0 -> "$minuti min"
+            minuti > 0 -> "$minuti′"
             else -> "in viaggio"
         }
-        return EsitoTile.Dati("${t.categoria} ${t.numeroTreno} · $quando", seguito?.numeroTreno?.takeIf { it == t.numeroTreno })
+        val binario = t.binario?.takeIf { !t.cancellato && minuti > 0 }?.let { "bin $it · " }.orEmpty()
+        return EsitoTile.Dati(binario + quando, seguito?.numeroTreno?.takeIf { it == t.numeroTreno })
     }
 
     override fun onClick() {

@@ -15,10 +15,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -141,24 +148,29 @@ fun StatisticheScreen(
         }
 
         item {
-            GlassCard(Modifier.fillMaxWidth()) {
-                Overline("Per giorno della settimana", Modifier.padding(bottom = 12.dp))
-                StatChart(stat.perGiorno, colore = colore, formato = { it.minuti() })
-            }
-        }
-        item {
-            GlassCard(Modifier.fillMaxWidth()) {
-                Overline("Per fascia oraria", Modifier.padding(bottom = 12.dp))
-                StatChart(stat.perFascia, altezza = 72.dp, colore = colore, formato = { it.minuti() })
-            }
-        }
-        if (stat.perTreno.isNotEmpty()) {
-            item {
+            // un grafico alla volta: tre carte impilate erano un muro da scorrere
+            val viste = listOfNotNull("Giorno", "Fascia oraria", "Treno".takeIf { stat.perTreno.isNotEmpty() })
+            var vista by rememberSaveable { mutableIntStateOf(0) }
+            val scelta = vista.coerceAtMost(viste.lastIndex)
+            Column(verticalArrangement = Arrangement.spacedBy(Spazio.m)) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    viste.forEachIndexed { i, nome ->
+                        SegmentedButton(
+                            selected = i == scelta, onClick = { vista = i },
+                            shape = SegmentedButtonDefaults.itemShape(i, viste.size), icon = {},
+                        ) { Text(nome, style = Testo.etichettaBold, maxLines = 1) }
+                    }
+                }
                 GlassCard(Modifier.fillMaxWidth()) {
-                    Overline("Per treno", Modifier.padding(bottom = 12.dp))
-                    val max = stat.perTreno.maxOf { it.valore }
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        stat.perTreno.forEach { BarraOrizzontale(it, max, colore(it.valore), { v -> v.minuti() }) }
+                    when (scelta) {
+                        0 -> StatChart(stat.perGiorno, colore = colore, formato = { it.minuti() })
+                        1 -> StatChart(stat.perFascia, altezza = 72.dp, colore = colore, formato = { it.minuti() })
+                        else -> {
+                            val max = stat.perTreno.maxOf { it.valore }
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                stat.perTreno.forEach { BarraOrizzontale(it, max, colore(it.valore), { v -> v.minuti() }) }
+                            }
+                        }
                     }
                 }
             }

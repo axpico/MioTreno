@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
+import androidx.core.graphics.drawable.IconCompat
 import it.picone.miotreno.R
 import it.picone.miotreno.domain.DettaglioTreno
 import it.picone.miotreno.domain.OrarioFermata
@@ -278,7 +279,9 @@ private fun costruisciLiveUpdate(
     // Colore del marchio, non del semaforo: lo stato è già scritto nel testo ("+4′", "canc."),
     // e un verde per "in orario" nascondeva del tutto il blu dell'app.
     val colore = COLORE_NOTIFICA
+    // il trenino scorre sulla barra fino alla fermata corrente
     val stile = NotificationCompat.ProgressStyle().setStyledByProgress(true)
+        .setProgressTrackerIcon(IconCompat.createWithResource(context, R.drawable.ic_notifica))
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
     if (p == null) {
         stile.setProgressIndeterminate(true)
