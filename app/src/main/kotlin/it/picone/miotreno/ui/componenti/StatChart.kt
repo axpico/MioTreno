@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -54,7 +53,7 @@ fun StatChart(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             voci.forEach { v ->
                 Text(
-                    if (v.rilevazioni > 0) formato(v.valore) else "–",
+                    if (v.rilevazioni > 0) formato(v.valore) else "", // nessun dato: barra vuota, niente trattino
                     Modifier.weight(1f), style = Testo.micro, color = tb.sub, textAlign = TextAlign.Center,
                 )
             }
@@ -115,30 +114,5 @@ fun Sparkline(valori: List<Double>, modifier: Modifier = Modifier, colore: Color
             drawPath(area, Brush.verticalGradient(listOf(colore.copy(alpha = 0.28f), Color.Transparent)))
             drawPath(linea, colore, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
         }
-    }
-}
-
-/** Riga barra orizzontale per classifiche (per treno). */
-@Composable
-fun BarraOrizzontale(v: VoceStat, max: Double, colore: Color, formato: (Double) -> String, modifier: Modifier = Modifier) {
-    val tb = LocalTb.current
-    val entrata = remember { Animatable(0f) }
-    LaunchedEffect(v) { entrata.snapTo(0f); entrata.animateTo(1f, Molla.ui()) }
-    Row(
-        modifier.fillMaxWidth().clearAndSetSemantics {
-            contentDescription = "${v.etichetta} delle ${v.sottotitolo}: ${formato(v.valore).trimEnd('′')} minuti di ritardo medio"
-        },
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.fillMaxWidth(0.3f)) {
-            Text(v.etichetta, style = Testo.etichettaBold, color = tb.tx)
-            Text(v.sottotitolo, style = Testo.micro, color = tb.ter)
-        }
-        Canvas(Modifier.weight(1f).height(8.dp)) {
-            drawRoundRect(tb.sf2, cornerRadius = CornerRadius(4.dp.toPx()))
-            val w = size.width * (v.valore / max.coerceAtLeast(1.0)).toFloat() * entrata.value
-            drawRoundRect(colore, size = Size(w.coerceAtLeast(3.dp.toPx()), size.height), cornerRadius = CornerRadius(4.dp.toPx()))
-        }
-        Text(formato(v.valore), style = Testo.numeroPiccolo, color = colore, textAlign = TextAlign.End)
     }
 }
