@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -96,17 +95,19 @@ internal fun CardCorsa(
             )
             StatusBadge(semaforo, treno.etichettaStato(), compatto = true)
         }
-        val etichette = listOfNotNull(
-            ("Segui" to tb.accento).takeIf { seguito && statoCorsa == null },
-            partenzaEtichetta?.let { "da $it" to tb.ambra },
-            passaPerEtichetta?.let { "via $it" to tb.accento2 },
+        // dettagli del treno come testo sotto il numero, non come pillole: l'unica pillola
+        // colorata della card resta lo stato (il ritardo), che così salta all'occhio
+        val dettagli = listOfNotNull(
+            "seguita".takeIf { seguito && statoCorsa == null },
+            partenzaEtichetta?.let { "da $it" },
+            passaPerEtichetta?.let { "via $it" },
         )
-        if (etichette.isNotEmpty()) {
-            FlowRow(
-                Modifier.fillMaxWidth().padding(top = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) { etichette.forEach { (testo, colore) -> Chip(testo, colore = colore, pieno = true) } }
+        if (dettagli.isNotEmpty()) {
+            Text(
+                dettagli.joinToString(" · "), style = Testo.etichetta, color = tb.sub,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 24.dp, top = 2.dp),
+            )
         }
 
         // con un cambio il titolo è dove si cambia, come nelle righe: il capolinea del primo treno inganna
@@ -264,13 +265,10 @@ private fun RigaStato(stato: StatoCorsa, dettaglio: String?, modifier: Modifier 
         Tono.Attenzione -> tb.ambra
         Tono.Allarme -> tb.rosso
     }
-    // centrata, come il titolo sotto: la card si legge dall'asse in giù
-    Column(
-        modifier.fillMaxWidth().clip(Forme.cardPiccola).background(colore.copy(alpha = ALPHA_TINTA))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(stato.testo, style = Testo.etichettaBold, color = colore, textAlign = TextAlign.Center)
+    // centrata, come il titolo sotto: la card si legge dall'asse in giù. Testo e non pillola:
+    // è il titolo della card, non un'etichetta accanto alle altre
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(stato.testo, style = Testo.sottotitolo, color = if (stato.tono == Tono.Ok) tb.tx else colore, textAlign = TextAlign.Center)
         // icona e non "→": il glifo del font sta sulla linea di base e sembra scivolato in basso
         dettaglio?.let {
             Row(
