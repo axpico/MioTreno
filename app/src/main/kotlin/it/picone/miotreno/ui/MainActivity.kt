@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
     private val seguiSubito = MutableStateFlow(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         Deps.init(this)
         pianificaLavoriPeriodici(this)
@@ -369,7 +371,6 @@ private fun SchermataCorrente(
             regioneScioperiNome = state.regioneScioperiNome,
             stazionePassaggioNome = state.stazionePassaggioNome,
             onScegliPassaggio = vm::apriSelettorePassaggio,
-            onRimuoviPassaggio = { vm.scegliPassaggio(null) },
             notifichePermesse = state.notifichePermesse,
             onChiediNotifiche = permessi.chiediNotifiche,
             onApriImpostazioniSistema = permessi.apriImpostazioniApp,
@@ -414,8 +415,8 @@ private fun SelettoriStazione(state: UiState, vm: TrenoViewModel) {
             onScegli = vm::scegliPassaggio,
             onChiudi = vm::chiudiSelettorePassaggio,
             titolo = "Evidenzia i treni che passano per…",
-            etichettaOpzioneVuota = "Nessuna",
-            descrizioneOpzioneVuota = "disattiva l'evidenziazione",
+            etichettaOpzioneVuota = "Nessuna stazione",
+            descrizioneOpzioneVuota = "non evidenziare treni per una stazione",
             mostraIconaOpzioneVuota = false,
         )
     }

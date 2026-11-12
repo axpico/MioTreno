@@ -69,7 +69,6 @@ fun SettingsScreen(
     regioneScioperiNome: String? = null,
     stazionePassaggioNome: String? = null,
     onScegliPassaggio: () -> Unit = {},
-    onRimuoviPassaggio: () -> Unit = {},
     notifichePermesse: Boolean = true,
     onChiediNotifiche: () -> Unit = {},
     onApriImpostazioniSistema: () -> Unit = {},
@@ -109,11 +108,11 @@ fun SettingsScreen(
         }
 
         item {
-            Sezione("Stazione di passaggio", nota = "Evidenzia in lista i treni che fermano anche qui.") {
-                RigaVoce(Icone.Cerca, "Passa per", stazionePassaggioNome ?: "Nessuna", onClick = onScegliPassaggio)
-                if (stazionePassaggioNome != null) {
-                    RigaVoce(Icone.Chiudi, "Rimuovi", "Disattiva l'evidenziazione", azione = "Rimuovi", onClick = onRimuoviPassaggio)
-                }
+            Sezione("Stazione di passaggio", nota = "Evidenzia i treni in lista che fermano in questa stazione.") {
+                RigaVoce(
+                    Icone.Cerca, "Stazione", stazionePassaggioNome ?: "Scegli una stazione",
+                    onClick = onScegliPassaggio,
+                )
             }
         }
 

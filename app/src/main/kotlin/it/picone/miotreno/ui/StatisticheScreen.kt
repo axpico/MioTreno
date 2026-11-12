@@ -3,7 +3,9 @@ package it.picone.miotreno.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,8 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -89,18 +89,17 @@ fun StatisticheScreen(
 
     SchermataConBarra("Ritardi", "Storico locale dei tuoi treni") {
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(PeriodoFiltro.entries) { p ->
+            // vanno a capo invece di scorrere: in riga "Ultimo anno" e la stazione restavano fuori schermo
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PeriodoFiltro.entries.forEach { p ->
                     ChipFiltro(p.etichetta, selezionata = p == filtroPeriodo, onClick = { onFiltroPeriodo(p) })
                 }
-                item {
-                    ChipFiltro(
-                        nomeStazioneFiltro ?: "Tutte le stazioni",
-                        selezionata = nomeStazioneFiltro != null,
-                        onClick = onFiltroStazione,
-                        icona = Icone.Posizione,
-                    )
-                }
+                ChipFiltro(
+                    nomeStazioneFiltro ?: "Tutte le stazioni",
+                    selezionata = nomeStazioneFiltro != null,
+                    onClick = onFiltroStazione,
+                    icona = Icone.Posizione,
+                )
             }
         }
         if (stat == null) return@SchermataConBarra
@@ -115,20 +114,24 @@ fun StatisticheScreen(
         }
 
         item {
-            GlassCard(Modifier.fillMaxWidth(), padding = 24.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Overline("Puntualità")
+            GlassCard(Modifier.fillMaxWidth(), rilievo = true, padding = 24.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spazio.xl)) {
+                    // la percentuale dentro l'anello: un solo oggetto da leggere, non due affiancati
+                    Box(contentAlignment = Alignment.Center) {
+                        Anello(stat.quotaEntro5Min.toFloat(), colorePuntualita(stat.quotaEntro5Min))
                         Row(verticalAlignment = Alignment.Bottom) {
                             NumeroAnimato(
-                                "${(stat.quotaEntro5Min * 100).toInt()}", stile = Testo.display,
+                                "${(stat.quotaEntro5Min * 100).toInt()}", stile = Testo.hero,
                                 colore = colorePuntualita(stat.quotaEntro5Min),
                             )
-                            Text("%", style = Testo.numeroGrande, color = tb.sub, modifier = Modifier.padding(bottom = 6.dp, start = 2.dp))
+                            Text("%", style = Testo.numero, color = tb.sub, modifier = Modifier.padding(bottom = 4.dp))
                         }
-                        Text("dei treni entro 5 minuti", style = Testo.etichetta, color = tb.sub)
                     }
-                    Anello(stat.quotaEntro5Min.toFloat(), colorePuntualita(stat.quotaEntro5Min))
+                    Column(Modifier.weight(1f)) {
+                        Overline("Puntualità")
+                        Text(giudizio(stat.quotaEntro5Min), style = Testo.sottotitolo, color = tb.tx)
+                        Text("treni entro 5 minuti dall'orario", style = Testo.etichetta, color = tb.sub)
+                    }
                 }
                 if (stat.andamento.size >= 2) {
                     Spacer(Modifier.height(Spazio.l))
@@ -162,6 +165,21 @@ fun StatisticheScreen(
                     }
                 }
                 GlassCard(Modifier.fillMaxWidth()) {
+                    val voci = when (scelta) {
+                        0 -> stat.perGiorno
+                        1 -> stat.perFascia
+                        else -> stat.perTreno
+                    }
+                    // la domanda vera dietro il grafico: quando conviene evitarlo
+                    voci.filter { it.rilevazioni > 0 || scelta == 2 }.maxByOrNull { it.valore }
+                        ?.takeIf { it.valore > 0 }
+                        ?.let { peggiore ->
+                            Text(
+                                "Peggiore: ${peggiore.etichetta} · ${peggiore.valore.minuti()} in media",
+                                style = Testo.etichettaBold, color = colore(peggiore.valore),
+                                modifier = Modifier.padding(bottom = Spazio.m),
+                            )
+                        }
                     when (scelta) {
                         0 -> StatChart(stat.perGiorno, colore = colore, formato = { it.minuti() })
                         1 -> StatChart(stat.perFascia, altezza = 72.dp, colore = colore, formato = { it.minuti() })
@@ -184,6 +202,14 @@ fun StatisticheScreen(
     }
 }
 
+/** Una frase al posto di un numero da interpretare. */
+private fun giudizio(quota: Double): String = when {
+    quota >= 0.9 -> "Quasi sempre puntuale"
+    quota >= 0.75 -> "Di solito puntuale"
+    quota >= 0.5 -> "Spesso in ritardo"
+    else -> "Quasi sempre in ritardo"
+}
+
 /** Tessera KPI: il valore sopra, grande; l'etichetta sotto, piccola. */
 @Composable
 private fun Kpi(valore: String, etichetta: String, modifier: Modifier = Modifier, colore: Color = LocalTb.current.tx) {
@@ -204,8 +230,8 @@ private fun Anello(quota: Float, colore: Color) {
     val entrata = remember { Animatable(0f) }
     LaunchedEffect(quota) { entrata.animateTo(quota.coerceIn(0f, 1f), Molla.ui()) }
     // decorativo: la percentuale è già scritta accanto
-    Canvas(Modifier.size(72.dp).clearAndSetSemantics { }) {
-        val spessore = 8.dp.toPx()
+    Canvas(Modifier.size(120.dp).clearAndSetSemantics { }) {
+        val spessore = 12.dp.toPx()
         val stile = Stroke(spessore, cap = StrokeCap.Round)
         val inset = spessore / 2
         val area = Size(size.width - spessore, size.height - spessore)

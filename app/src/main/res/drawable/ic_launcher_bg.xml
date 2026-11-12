@@ -1,7 +1,6 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- rail blue pieno, con un alone appena più chiaro dietro al treno per dare profondità -->
-    <path android:fillColor="#2448E0" android:pathData="M0,0h108v108h-108z" />
-    <path android:fillColor="#3A5CF0" android:pathData="M54,54m-34,0a34,34 0 1,1 68,0a34,34 0 1,1 -68,0" />
+    <!-- fondo tonale (primaryContainer del seme rail blue): morbido, il blu pieno resta al treno -->
+    <path android:fillColor="#DDE1FF" android:pathData="M0,0h108v108h-108z" />
 </vector>

@@ -109,28 +109,28 @@ private fun builderTreno(
     fun OrarioFermata.scarto(): String =
         if (inRitardo) programmaMs()?.let { " (orario $it)" }.orEmpty() else ""
 
+    // Titolo corto e sempre uguale (quale treno, verso dove): si riconosce a colpo d'occhio e
+    // non viene tagliato. I dettagli che cambiano stanno nella prima riga.
+    val t = "${treno.categoria} ${treno.numeroTreno}"
     val titolo = when {
-        treno.stato is StatoTreno.Cancellato ->
-            "${treno.categoria} ${treno.numeroTreno} cancellato"
-        minuti < 0 -> "In viaggio · ${treno.categoria} ${treno.numeroTreno} per ${treno.destinazione}"
-        // Il binario è la seconda cosa che serve a chi cammina verso il treno: sta nel titolo.
-        // L'ora e non "fra N min": la notifica resta lì, e un conto fermo diventa falso. Il
-        // countdown vivo lo fa il cronometro nell'intestazione.
-        else -> "Parte alle $ora" + (treno.binario?.let { " · Bin $it" } ?: "") +
-            " · ${treno.categoria} ${treno.numeroTreno} per ${treno.destinazione}"
+        treno.stato is StatoTreno.Cancellato -> "$t cancellato"
+        minuti < 0 -> "In viaggio verso $destinazioneNome"
+        else -> "$t per $destinazioneNome"
     }
+    val stato = if (treno.ritardoMinuti > 0) "+${treno.ritardoMinuti} min" else "in orario"
+    val binario = treno.binario?.let { "bin $it" + if (treno.binarioConfermato) "" else " (previsto)" }
 
     val righe = buildList {
-        add(
-            "$ora da $stazione · " +
-                (if (treno.ritardoMinuti > 0) "+${treno.ritardoMinuti} min" else "in orario") +
-                partenza.scarto(),
-        )
-        rigaCambio?.let(::add)
-        treno.binario?.let {
-            add("Binario $it (${if (treno.binarioConfermato) "confermato" else "previsto"})")
+        // prima riga = testo compresso: le tre cose da banchina. L'ora e non "fra N min": la
+        // notifica resta lì e un conto fermo diventa falso; il countdown vivo è nel cronometro.
+        if (minuti < 0) {
+            add(listOfNotNull(arrivo?.let { "Arrivo $it" }, stato, t).joinToString(" · "))
+        } else {
+            add(listOfNotNull("Parte $ora", binario, stato).joinToString(" · "))
         }
-        arrivo?.let { add("Arrivo a $destinazioneNome alle $it" + arrivoOrario.scarto()) }
+        rigaCambio?.let(::add)
+        add("Da $stazione alle $ora" + partenza.scarto())
+        arrivo?.let { add("A $destinazioneNome alle $it" + arrivoOrario.scarto()) }
         when (val s = treno.stato) {
             is StatoTreno.Cancellato -> add("⚠ ${s.dettaglio}")
             is StatoTreno.Deviato -> add("⚠ Deviato: ${s.dettaglio}")
@@ -343,7 +343,7 @@ private fun costruisciTrackingTreno(
  * Costruisce e basta, non pubblica: la notifica del tracking **è** quella del foreground
  * service, e va aggiornata passando da `setForeground`. Con una `notify()` diretta WorkManager
  * resta convinto che valga ancora la ForegroundInfo che gli è stata data all'avvio e può
- * ripubblicare il placeholder "Aggiornamento della corsa in corso…" sopra il dato vero.
+ * ripubblicare il placeholder "Seguo la tua corsa…" sopra il dato vero.
  */
 fun costruisciNotificaTracking(
     context: Context,
@@ -397,8 +397,8 @@ fun rimuoviNotificaTreno(context: Context) =
 fun rimuoviNotificaTracking(context: Context) =
     NotificationManagerCompat.from(context).cancel(ID_NOTIFICA_TRACKING)
 
-/** Rail blue a metà fra la variante chiara e la scura: si legge su entrambe le tendine. */
-private val COLORE_NOTIFICA = 0xFF4A6BFF.toInt()
+/** Il seme rail blue dell'app (schema M3 in `SchemaSeme.kt`). */
+private val COLORE_NOTIFICA = 0xFF2448E0.toInt()
 
 /**
  * Placeholder per `startForeground()`: un servizio in foreground deve mostrare una notifica
@@ -410,7 +410,7 @@ fun notificaTrackingIniziale(context: Context): Notification {
     return NotificationCompat.Builder(context, CANALE_TRENI)
         .setSmallIcon(R.drawable.ic_notifica)
         .setColor(COLORE_NOTIFICA)
-        .setContentTitle("Aggiornamento della corsa in corso…")
+        .setContentTitle("Seguo la tua corsa…")
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
