@@ -80,8 +80,11 @@ mostra i viaggi con 1–2 cambi, in `data/Coincidenze.kt`:
    partenze ∩ `codOrigine` degli arrivi), al massimo 3 scali, ≥ 5 minuti per cambiare. Un cambio
    in una stazione di passaggio così non si vede.
 
-Poi un viaggio per primo treno, e via quelli chiaramente peggiori (partono prima, arrivano dopo,
-cambiano di più: `filtraDominati`).
+Poi un viaggio per primo treno, e via i viaggi **con cambi** chiaramente peggiori (partono prima,
+arrivano dopo, cambiano di più: `filtraDominati`), confrontando gli orari previsti (tabella +
+ritardo). I diretti non si nascondono mai: un regionale superato da un veloce è comunque sul
+tabellone, e se mancava in app sembrava un treno perso. La lista è in ordine di partenza
+prevista, non di tabella.
 
 Cose verificate su LeFrecce: `bdoOrigin` di una tratta è il codice ViaggiaTreno dell'origine del
 **treno** (quello che vuole `andamentoTreno`), non della stazione dove sali; le tratte non hanno
@@ -131,6 +134,18 @@ più vicina se ne perdeva metà, senza alcun errore visibile.
   si riducono scorrendo, dettaglio in un foglio a due altezze (pannello laterale da 840 dp),
   ricerca stazioni con `SearchBar`, liste segmentate, pull-to-refresh con `LoadingIndicator`.
   Le API Expressive sono ancora sperimentali: l'opt-in è uno solo, in `app/build.gradle.kts`.
+- **Movimento.** Le molle scritte a mano (`ui/theme/Molla.kt`) usano i valori di
+  `MotionScheme.expressive()`, così si muovono come i componenti M3; con "riduci movimento"
+  diventano piatte. Una riga che cambia posto scivola (`animateItem`) e si accende un attimo.
+- **Simmetria.** Titoli, intestazioni di sezione e card principali stanno sull'asse; a
+  sinistra/destra solo le liste, dove testo e valore vanno letti in colonna.
+- **Splash.** Lo splash di sistema è fermo nei colori del telefono (`values-v31/colors.xml`);
+  `IntroAvvio` riparte dallo stesso fotogramma: il binario si srotola, il cerchio si apre
+  sull'app. Una volta per processo, saltata con "riduci movimento".
+- **Notifiche e icona.** Notifiche senza colore impostato (le colora il sistema col colore del
+  telefono); icona piccola, launcher e splash sono lo stesso treno di Material Symbols.
+- **Zero avvisi.** `warningsAsErrors` in lint; gli avvisi "versione più nuova" sono spenti
+  perché richiedono AGP 9.1 (vedi sotto).
 - **Versioni.** Compose BOM 2026.04.01 e material3 1.5.0-alpha18 sono le ultime compatibili con
   AGP 8.13 / compileSdk 36; le successive richiedono AGP 9.1.
 

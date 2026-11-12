@@ -193,7 +193,7 @@ class TrenoRepository(
                 emptyList()
             }
             val utili = ancoraUtili(diretti + conCambi, seguito, adesso.time)
-            filtraDominati(unoPerPrimoTreno(utili), seguito?.numeroTreno).sortedBy { it.orarioPartenzaMs }
+            ordinaPerPartenzaPrevista(filtraDominati(unoPerPrimoTreno(utili), seguito?.numeroTreno))
         }
     }.getOrElse { errore ->
         // Un errore momentaneo non cancella il viaggio che l'utente sta seguendo: la UI lo
@@ -355,6 +355,13 @@ internal fun statoDa(p: PartenzaArrivoDto): StatoTreno {
         else -> StatoTreno.Regolare
     }
 }
+
+/**
+ * In ordine di partenza prevista (tabella + ritardo), come la si vede in banchina: un 17:53
+ * con +9 parte dopo il 17:58 puntuale, e in lista deve stargli sotto.
+ */
+internal fun ordinaPerPartenzaPrevista(treni: List<ProssimoTreno>): List<ProssimoTreno> =
+    treni.sortedBy { it.orarioPartenzaMs + it.ritardoMinuti * 60_000L }
 
 /** I treni del feed partenze che compaiono anche negli arrivi a destinazione, nel verso giusto. */
 internal fun diretti(

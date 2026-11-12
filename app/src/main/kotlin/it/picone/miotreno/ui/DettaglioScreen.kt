@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,7 +60,6 @@ import it.picone.miotreno.ui.componenti.ALPHA_TINTA
 import it.picone.miotreno.ui.componenti.Binario
 import it.picone.miotreno.ui.componenti.BottonePrimario
 import it.picone.miotreno.ui.componenti.BottoneSecondario
-import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.OrarioConRitardo
@@ -72,6 +72,7 @@ import it.picone.miotreno.ui.componenti.TimelineStop
 import it.picone.miotreno.ui.componenti.TipoFermata
 import it.picone.miotreno.ui.componenti.colore
 import it.picone.miotreno.ui.componenti.conferma
+import it.picone.miotreno.ui.componenti.iconaCategoria
 import it.picone.miotreno.ui.componenti.rememberHaptic
 import it.picone.miotreno.ui.componenti.shimmer
 import it.picone.miotreno.ui.theme.Forme
@@ -105,23 +106,12 @@ fun DettaglioScreen(
         contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = Spazio.xl),
         verticalArrangement = Arrangement.spacedBy(Spazio.l),
     ) {
-        item(key = "barra") {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.sottotitolo, color = tb.tx)
-                    Text(
-                        treno.testoCambi() ?: "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
-
         item(key = chiaveTreno(treno.numeroTreno)) {
             run {
                 CardIntestazione(
                     treno, ora, seguito,
                     Modifier,
+                    partenzaNome = state.stazione?.nome,
                     atteso = state.ritardiAttesi[treno.numeroTreno]?.testo,
                     destinazioneNome = state.destinazioneNome,
                     partenzaEtichetta = state.etichettePartenza[treno.codPartenza],
@@ -145,7 +135,8 @@ fun DettaglioScreen(
                         val quando = treno.orarioPartenzaMs + (treno.ritardoMinuti - state.impostazioni.anticipoMinuti) * 60_000L
                         val cambio = treno.primoCambio
                         val avvisoCambio = state.impostazioni.avvisoCambioMinuti
-                        "Ti avviso alle ${quando.comeOra()}" +
+                        // avviso già passato (treno partito): resta solo che la notifica segue la corsa
+                        (if (quando > ora) "Ti avviso alle ${quando.comeOra()}" else "Avviso inviato") +
                             (if (cambio != null && avvisoCambio > 0) " e $avvisoCambio′ prima del cambio a $cambio" else "") +
                             " · la notifica segue " + (if (cambio != null) "questo viaggio" else "questa corsa")
                     } else {
@@ -347,8 +338,9 @@ internal fun Fermate(
 }
 
 /**
- * La card che arriva dalla home espandendosi. Stato terminale (cancellato) = card spenta,
- * badge rosso pieno, orario barrato, nessun countdown.
+ * Il riepilogo in cima al foglio. In alto, al centro, quale treno e il suo stato; sotto il
+ * viaggio come una riga sola: partenza a sinistra, arrivo a destra, la durata in mezzo.
+ * Entra con una molla quando il foglio si apre. Cancellato = card spenta, orario barrato.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -359,60 +351,105 @@ private fun CardIntestazione(
     arrivoFinale: OrarioFermata? = null,
     /** Viaggio con cambi: la striscia delle tratte sta qui, fra partenza e arrivo. */
     dettagliTratte: List<DettaglioTreno> = emptyList(),
+    partenzaNome: String? = null,
 ) {
     val tb = LocalTb.current
     val semaforo = treno.semaforo()
     val cancellato = semaforo == Semaforo.Cancellato
     val minuti = treno.minutiAllaPartenza(ora)
+    val partenza = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti)
+    val arrivo = arrivoFinale ?: orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti)
+
+    // entrata: la card sale e si assesta mentre il foglio si apre
+    val entrata = remember { Animatable(if (Molla.riduci) 1f else 0f) }
+    LaunchedEffect(Unit) { entrata.animateTo(1f, Molla.ui()) }
+
     GlassCard(
-        modifier.fillMaxWidth().let { if (cancellato) it.alpha(0.6f) else it },
+        modifier.fillMaxWidth()
+            .graphicsLayer {
+                alpha = (if (cancellato) 0.6f else 1f) * entrata.value
+                translationY = (1f - entrata.value) * 24.dp.toPx()
+                val sc = 0.96f + 0.04f * entrata.value
+                scaleX = sc
+                scaleY = sc
+            },
         accento = seguito,
         padding = 20.dp,
     ) {
-        // Due colonne speculari: partenza a sinistra, arrivo a destra, stesso peso e stessa scala.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        ) {
+            Icon(iconaCategoria(treno.categoria), contentDescription = null, tint = tb.sub, modifier = Modifier.size(20.dp))
+            Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.sottotitolo, color = tb.tx)
+            StatusBadge(semaforo, treno.etichettaStato(), compatto = true)
+        }
+        Text(
+            treno.testoCambi() ?: "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        )
+        if (!cancellato) {
+            Text(
+                when {
+                    minuti > 1 -> "Parte tra $minuti minuti"
+                    minuti >= 0 -> "Parte adesso"
+                    else -> "In viaggio"
+                },
+                style = Testo.titolo, color = if (minuti in 0..2) tb.ambra else tb.tx, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = Spazio.l),
+            )
+        }
+
+        // il viaggio in una riga: partenza | durata | arrivo, colonne speculari
+        Row(Modifier.fillMaxWidth().padding(top = Spazio.l), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text("Partenza", style = Testo.overline, color = tb.ter)
-                // stesso orario proiettato della home: la stessa corsa non può avere due orari
-                OrarioConRitardo(
-                    orario = orarioProiettato(treno.orarioPartenzaMs, treno.ritardoMinuti),
-                    stile = Testo.hero,
-                    cancellato = cancellato,
-                )
-                Binario(treno, Modifier.padding(top = Spazio.s))
-                // a Garibaldi superficie e sotterranea sono due piazzali diversi: il solo
-                // numero di binario non basta a sapere dove andare
-                if (partenzaEtichetta != null) Chip("da $partenzaEtichetta", colore = tb.ambra, modifier = Modifier.padding(top = 6.dp))
-            }
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                Text("Arrivo", style = Testo.overline, color = tb.ter)
-                OrarioConRitardo(
-                    orario = arrivoFinale ?: orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti),
-                    stile = Testo.hero,
-                    allineaFine = true,
-                )
+                OrarioConRitardo(orario = partenza, stile = Testo.numeroGrande, cancellato = cancellato)
                 Text(
-                    destinazioneNome ?: "destinazione", style = Testo.etichetta, color = tb.sub, textAlign = TextAlign.End,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = Spazio.s),
+                    partenzaNome ?: "Partenza", style = Testo.etichetta, color = tb.sub,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
+            }
+            Durata(partenza.previstoMs, arrivo.previstoMs, Modifier.padding(top = 10.dp))
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                OrarioConRitardo(orario = arrivo, stile = Testo.numeroGrande, allineaFine = true)
+                Text(
+                    destinazioneNome ?: "Arrivo", style = Testo.etichetta, color = tb.sub, textAlign = TextAlign.End,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        // dove presentarsi: binario e, a Garibaldi & co., quale dei due piazzali (a bordo non serve più)
+        if (minuti >= 0 && !cancellato) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = Spazio.m),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Binario(treno, grande = true)
+                if (partenzaEtichetta != null) Text("da $partenzaEtichetta", style = Testo.etichettaBold, color = tb.ambra)
             }
         }
         val treni = treno.tratteInTreno
         if (treni.size > 1) StrisciaViaggio(treni, treno.tratte, dettagliTratte, Modifier.padding(top = Spazio.l))
-        Row(
-            Modifier.fillMaxWidth().padding(top = Spazio.l),
-            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StatusBadge(semaforo, treno.etichettaStato())
-            if (!cancellato) {
-                Text(
-                    if (minuti > 0) "parte tra $minuti min" else "in viaggio",
-                    style = Testo.etichettaBold, color = if (minuti in 0..2) tb.ambra else tb.sub,
-                )
-            }
+        if (atteso != null && !cancellato) {
+            Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) { RigaAtteso(atteso) }
         }
-        if (atteso != null && !cancellato) RigaAtteso(atteso)
+    }
+}
+
+/** In mezzo fra partenza e arrivo: quanto dura, su una linea con il treno sopra. */
+@Composable
+private fun Durata(partenzaMs: Long?, arrivoMs: Long?, modifier: Modifier = Modifier) {
+    val tb = LocalTb.current
+    val minuti = if (partenzaMs != null && arrivoMs != null) ((arrivoMs - partenzaMs) / 60_000L).toInt() else null
+    Column(modifier.width(88.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            minuti?.let { if (it >= 60) "${it / 60} h ${it % 60}′" else "$it′" } ?: "—",
+            style = Testo.etichettaBold, color = tb.sub,
+        )
+        Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(tb.bordoForte))
     }
 }
 

@@ -2,6 +2,8 @@ package it.picone.miotreno.ui
 
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
@@ -38,6 +40,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -141,6 +145,19 @@ private fun VoceTreno(
     val compatta = lista.compatte[indice]
     val inizioGruppo = lista.inizioGruppo(indice)
     val fineGruppo = lista.fineGruppo(indice)
+
+    // Due treni che si scambiano di posto (un ritardo che cresce): la riga scivola al suo posto
+    // (animateItem del chiamante) e si accende un attimo, così si nota cosa è cambiato.
+    var posizione by remember { mutableIntStateOf(indice) }
+    val lampo = remember { Animatable(0f) }
+    LaunchedEffect(indice) {
+        if (indice != posizione && !Molla.riduci) {
+            lampo.snapTo(1f)
+            lampo.animateTo(0f, tween(900))
+        }
+        posizione = indice
+    }
+    val coloreLampo = MaterialTheme.colorScheme.primary
     Column(
         modifier.padding(top = if (compatta && !inizioGruppo) 0.dp else Spazio.l),
         verticalArrangement = Arrangement.spacedBy(Spazio.s),
@@ -170,7 +187,11 @@ private fun VoceTreno(
             },
             onSmetti = if (seguito) ({ haptic.conferma(); onSmetti(t) }) else null,
             destinazioneUtente = state.destinazioneNome,
-            modifier = (if (compatta) Modifier.gruppo(tb, inizioGruppo, fineGruppo) else Modifier),
+            modifier = (if (compatta) Modifier.gruppo(tb, inizioGruppo, fineGruppo) else Modifier.clip(Forme.card))
+                .drawWithContent {
+                    drawContent()
+                    if (lampo.value > 0f) drawRect(coloreLampo.copy(alpha = 0.18f * lampo.value))
+                },
         )
     }
 }
