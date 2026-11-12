@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -39,3 +40,41 @@ jobs:
         with:
           name: reports
           path: app/build/reports/
+
+  # Tag v* → APK firmato allegato alla GitHub Release.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Keystore
+        env:
+          MIOTRENO_KEYSTORE_B64: ${{ secrets.MIOTRENO_KEYSTORE_B64 }}
+        run: echo "$MIOTRENO_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Signed release build
+        env:
+          MIOTRENO_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          MIOTRENO_KEYSTORE_PASSWORD: ${{ secrets.MIOTRENO_KEYSTORE_PASSWORD }}
+          MIOTRENO_KEY_ALIAS: ${{ secrets.MIOTRENO_KEY_ALIAS }}
+          MIOTRENO_KEY_PASSWORD: ${{ secrets.MIOTRENO_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "MioTreno-$TAG.apk"
+          gh release create "$TAG" "MioTreno-$TAG.apk" --generate-notes

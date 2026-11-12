@@ -13,7 +13,14 @@ con cambi) e dal [feed RSS scioperi del MIT](https://scioperi.mit.gov.it/mit2/pu
 > **App non ufficiale.** Non affiliata né approvata da Trenitalia, RFI o Ferrovie dello
 > Stato Italiane. I marchi citati appartengono ai rispettivi titolari.
 
-[Informativa sulla privacy](https://axpico.github.io/MioTreno/privacy) · [Licenza MIT](LICENSE)
+[Licenza MIT](LICENSE) · Nessun account, nessuna pubblicità: posizione, storico e preferenze
+restano sul telefono.
+
+## Download
+
+L'APK firmato di ogni versione è nelle [Releases](https://github.com/axpico/MioTreno/releases)
+di GitHub. Installalo dal telefono (va permessa l'installazione da origini sconosciute); le
+versioni successive si installano sopra la precedente.
 
 ## Build
 
@@ -27,6 +34,22 @@ mise install
 ./gradlew assembleDebug
 ./gradlew installDebug
 ```
+
+### Creare una release
+
+La CI pubblica una release quando arriva un tag `v*`. Una volta sola, nei secret del repo:
+
+- `MIOTRENO_KEYSTORE_B64`: il keystore in base64 (`base64 -w0 release.jks`)
+- `MIOTRENO_KEYSTORE_PASSWORD`, `MIOTRENO_KEY_ALIAS`, `MIOTRENO_KEY_PASSWORD`
+
+Poi, a ogni versione (alza prima `versionCode`/`versionName` in `app/build.gradle.kts`):
+
+```sh
+git tag v1.2.0 && git push origin v1.2.0
+```
+
+Il keystore va conservato: con una chiave diversa Android rifiuta l'aggiornamento sopra la
+versione installata.
 
 ## Come trova i treni
 
