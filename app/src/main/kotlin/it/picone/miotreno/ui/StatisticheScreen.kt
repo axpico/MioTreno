@@ -327,9 +327,9 @@ private fun ITuoiTreni(treni: List<VoceStat>, colore: (Double) -> Color) {
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .padding(horizontal = Spazio.l, vertical = Spazio.m)
                         .semantics(mergeDescendants = true) {
-                            contentDescription =
-                                "${v.etichetta} delle ${v.sottotitolo}: ${v.valore.minuti().trimEnd('′')} minuti di ritardo medio su ${v.rilevazioni} " +
-                                if (v.rilevazioni == 1) "corsa" else "corse"
+                            val corse = if (v.rilevazioni == 1) "corsa" else "corse"
+                            contentDescription = "${v.etichetta} delle ${v.sottotitolo}: " +
+                                "${v.valore.minuti().trimEnd('′')} minuti di ritardo medio su ${v.rilevazioni} $corse"
                         },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spazio.m),
