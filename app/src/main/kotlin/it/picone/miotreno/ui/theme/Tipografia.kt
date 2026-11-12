@@ -67,10 +67,13 @@ object Testo {
     val bottone = stile(15, Bold, 20)
 }
 
-/** Material Typography interamente sovrascritta, così nessun testo "di default" sfugge. */
+/**
+ * Scala M3 tutta in Atkinson Next: i componenti (barre, titoli grandi) usano display e headline
+ * per il testo, quindi lì niente Mono. Le cifre in Mono si chiedono esplicitamente con [Testo].
+ */
 val TipografiaTb = Typography(
-    displayLarge = Testo.display, displayMedium = Testo.hero, displaySmall = Testo.numeroGrande,
-    headlineLarge = Testo.titolo, headlineMedium = Testo.titolo, headlineSmall = Testo.sottotitolo,
+    displayLarge = stile(45, Bold, 52, -0.5f), displayMedium = stile(36, Bold, 44, -0.4f), displaySmall = stile(32, Bold, 40, -0.4f),
+    headlineLarge = stile(28, Bold, 36, -0.4f), headlineMedium = Testo.titolo, headlineSmall = Testo.sottotitolo,
     titleLarge = Testo.titolo, titleMedium = Testo.sottotitolo, titleSmall = Testo.corpoMedio,
     bodyLarge = Testo.corpo, bodyMedium = Testo.corpo, bodySmall = Testo.etichetta,
     labelLarge = Testo.bottone, labelMedium = Testo.etichetta, labelSmall = Testo.micro,

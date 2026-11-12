@@ -61,8 +61,6 @@ fun TrainCard(
     partenzaEtichetta: String? = null,
     /** Percorso reale (fermate passate/prossime): solo sulla card in evidenza, null finché non arriva. */
     dettaglio: DettaglioTreno.Ok? = null,
-    /** Riga compatta: linea sotto, se non è l'ultima del gruppo. */
-    divisore: Boolean = true,
     /** Codici del cluster dove sali: la barra viaggio parte da lì, non dal capolinea. */
     codiciSalita: List<String> = emptyList(),
     /** Corsa seguita con cambi: prossimo cambio o coincidenza persa (vedi `controllaSeguito`). */
@@ -82,7 +80,7 @@ fun TrainCard(
             treno = treno, ora = ora, seguito = seguito, semaforo = semaforo,
             cancellato = cancellato, minuti = minuti, onClick = onClick,
             atteso = atteso, passaPerEtichetta = passaPerEtichetta,
-            partenzaEtichetta = partenzaEtichetta, divisore = divisore, modifier = modifier,
+            partenzaEtichetta = partenzaEtichetta, modifier = modifier,
         )
         return
     }

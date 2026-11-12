@@ -17,19 +17,22 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +46,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -80,9 +83,6 @@ import it.picone.miotreno.ui.theme.Spazio
 import it.picone.miotreno.ui.theme.TbColors
 import it.picone.miotreno.ui.theme.Testo
 import kotlinx.coroutines.delay
-
-/** Spazio in fondo alla lista perché l'ultima card non finisca sotto la barra flottante. */
-val PADDING_BARRA = 112.dp
 
 fun chiaveTreno(numero: Int) = "treno-$numero"
 
@@ -149,7 +149,6 @@ private fun VoceTreno(
             t, ora, seguito = seguito,
             onClick = { haptic.tocco(); onApri(t) },
             compatta = compatta,
-            divisore = !fineGruppo,
             dettaglio = state.dettagliViaggio[t.numeroTreno],
             atteso = state.ritardiAttesi[t.numeroTreno]?.testo,
             passaPerEtichetta = state.stazionePassaggioNome?.takeIf { t.numeroTreno in state.treniConPassaggio },
@@ -211,20 +210,24 @@ fun HomeScreen(
     // mentre segui una corsa le altre partenze sono contorno: ne bastano poche, il resto a richiesta
     var mostraTutte by rememberSaveable { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize()) {
+    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.fillMaxSize().nestedScroll(scroll.nestedScrollConnection),
+        topBar = { BarraPercorso(state, scroll, onScegliStazione, onScegliDestinazione, onScambia) },
+        containerColor = MaterialTheme.colorScheme.surface,
+        // la barra di navigazione sotto gestisce già il suo inset
+        contentWindowInsets = WindowInsets(0),
+    ) { interno ->
         PullRefresh(
             caricamento = state.caricamento && state.treni.isNotEmpty(),
             onRefresh = { tirato = true; onRefresh() },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.padding(interno).fillMaxSize(),
         ) {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA),
+                contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = Spazio.xl),
             ) {
-                item(key = "header") {
-                    Intestazione(state, onScegliStazione, onScegliDestinazione, onScambia)
-                }
-                state.sciopero?.let { item(key = "sciopero") { BannerSciopero(it, Modifier.padding(top = Spazio.l)) } }
+                state.sciopero?.let { item(key = "sciopero") { BannerSciopero(it, Modifier.padding(top = Spazio.s)) } }
 
                 when {
                     state.permessoNegato && state.impostazioni.stazioneManuale == null -> item(key = "posizione") {
@@ -307,101 +310,88 @@ fun HomeScreen(
     }
 }
 
-/** Superficie di un gruppo di righe: angoli arrotondati solo agli estremi, niente ombra fra le righe. */
+/**
+ * Lista segmentata M3 Expressive: ogni riga è una tessera, 2 dp di stacco fra l'una e l'altra,
+ * angoli grandi agli estremi del gruppo e piccoli all'interno.
+ */
 private fun Modifier.gruppo(tb: TbColors, inizio: Boolean, fine: Boolean): Modifier {
-    val r = 20.dp
+    val grande = 24.dp
+    val piccolo = 6.dp
     val forma = RoundedCornerShape(
-        topStart = if (inizio) r else 0.dp, topEnd = if (inizio) r else 0.dp,
-        bottomStart = if (fine) r else 0.dp, bottomEnd = if (fine) r else 0.dp,
+        topStart = if (inizio) grande else piccolo, topEnd = if (inizio) grande else piccolo,
+        bottomStart = if (fine) grande else piccolo, bottomEnd = if (fine) grande else piccolo,
     )
-    return clip(forma).background(tb.sf).padding(horizontal = Spazio.l)
+    return padding(bottom = if (fine) 0.dp else 2.dp).clip(forma).background(tb.sf2).padding(horizontal = Spazio.l)
 }
 
 /**
- * Il percorso come in una app di mappe: "da" sopra, "a" sotto, inverti in mezzo a destra.
- * Entrambe le righe si toccano: cambiare destinazione non richiede più di passare dalle
- * Impostazioni.
+ * Il percorso nella barra in alto: destinazione come titolo, partenza come sottotitolo, inverti
+ * a destra. Titolo e sottotitolo si toccano per cambiare stazione; la barra si riduce scorrendo.
  */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun Intestazione(
+private fun BarraPercorso(
     state: UiState,
+    scroll: TopAppBarScrollBehavior,
     onScegliStazione: () -> Unit,
     onScegliDestinazione: () -> Unit,
     onScambia: () -> Unit,
 ) {
-    val tb = LocalTb.current
     val s = state.stazione
-    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l)) {
-        Text(
-            "Il tuo viaggio", style = Testo.titolo, color = tb.tx, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = Spazio.l),
-        )
-        GlassCard(Modifier.fillMaxWidth(), padding = 0.dp) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    RigaPercorso(
-                        etichetta = "Da",
-                        nome = s?.nome ?: if (state.caricamento) "Cerco la stazione…" else "Scegli la partenza",
-                        dettaglio = when (s?.origine) {
-                            StazioneCorrente.Origine.Gps -> "più vicina · ${distanzaLeggibile(s.distanzaMetri ?: 0)}"
-                            StazioneCorrente.Origine.Manuale -> "scelta a mano"
-                            StazioneCorrente.Origine.UltimaNota -> "ultima nota"
-                            null -> "in attesa del GPS"
-                        },
-                        icona = Icone.Posizione,
-                        descrizione = "Cambia stazione di partenza",
-                        onClick = onScegliStazione,
-                    )
-                    Box(Modifier.padding(start = 56.dp).fillMaxWidth().height(1.dp).background(tb.bordo))
-                    RigaPercorso(
-                        etichetta = "A",
-                        nome = state.destinazioneNome ?: "Scegli la destinazione",
-                        dettaglio = null,
-                        icona = Icone.Treno,
-                        descrizione = "Cambia destinazione",
-                        onClick = onScegliDestinazione,
-                    )
-                }
-                BottoneIcona(
-                    Icone.Cambio, "Inverti partenza e destinazione",
-                    onClick = { if (s != null) onScambia() },
-                    modifier = Modifier.padding(end = Spazio.s).let { if (s != null) it else it.alpha(0.35f) },
+    val partenza = s?.nome ?: if (state.caricamento) "Cerco la stazione…" else "Scegli la partenza"
+    val origine = when (s?.origine) {
+        StazioneCorrente.Origine.Gps -> "più vicina, ${distanzaLeggibile(s.distanzaMetri ?: 0)}"
+        StazioneCorrente.Origine.Manuale -> "scelta a mano"
+        StazioneCorrente.Origine.UltimaNota -> "ultima nota"
+        null -> null
+    }
+    val destinazione = state.destinazioneNome ?: "Scegli la destinazione"
+    LargeFlexibleTopAppBar(
+        title = {
+            Row(
+                Modifier
+                    .clip(Forme.cardPiccola)
+                    .semantics(mergeDescendants = true) {
+                        role = Role.Button; contentDescription = "Cambia destinazione, ora $destinazione"
+                    }
+                    .clickable(onClick = onScegliDestinazione),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(destinazione, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Icon(Icone.Frecciagiu, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(20.dp))
+            }
+        },
+        subtitle = {
+            Row(
+                Modifier
+                    .clip(Forme.cardPiccola)
+                    .semantics(mergeDescendants = true) {
+                        role = Role.Button; contentDescription =
+                            "Cambia stazione di partenza, ora $partenza"
+                    }
+                    .clickable(onClick = onScegliStazione),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icone.Posizione, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(16.dp))
+                Text(
+                    "da $partenza" + (origine?.let { " · $it" } ?: ""),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun RigaPercorso(
-    etichetta: String,
-    nome: String,
-    dettaglio: String?,
-    icona: ImageVector,
-    descrizione: String,
-    onClick: () -> Unit,
-) {
-    val tb = LocalTb.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .semantics { role = Role.Button; contentDescription = "$descrizione, ora $nome" }
-            .clickable(onClick = onClick)
-            .padding(horizontal = Spazio.l, vertical = Spazio.m),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spazio.m),
-    ) {
-        Box(
-            Modifier.size(32.dp).clip(CircleShape).background(tb.accentoSoft),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icona, contentDescription = null, tint = tb.accento, modifier = Modifier.size(18.dp)) }
-        Column(Modifier.weight(1f)) {
-            Text(etichetta, style = Testo.etichetta, color = tb.ter)
-            Text(nome, style = Testo.sottotitolo, color = tb.tx, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            dettaglio?.let { Text(it, style = Testo.etichetta, color = tb.sub, maxLines = 1) }
-        }
-    }
+        },
+        actions = {
+            BottoneIcona(
+                Icone.Cambio, "Inverti partenza e destinazione",
+                onClick = { if (s != null) onScambia() },
+                modifier = Modifier.padding(end = Spazio.s).let { if (s != null) it else it.alpha(0.38f) },
+            )
+        },
+        scrollBehavior = scroll,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    )
 }
 
 /**

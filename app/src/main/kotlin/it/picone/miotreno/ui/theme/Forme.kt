@@ -3,13 +3,12 @@ package it.picone.miotreno.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 
-/** Angoli generosi e coerenti: card 20, elementi interni 16, pillole piene. */
+/** Angoli della scala M3 Expressive: card 24 (large increased), interni 16, pillole piene. */
 object Forme {
-    val card = RoundedCornerShape(20.dp)
+    val card = RoundedCornerShape(24.dp)
     val cardPiccola = RoundedCornerShape(16.dp)
     val chip = RoundedCornerShape(percent = 50)
-    val pillola = RoundedCornerShape(16.dp)
-    val barra = RoundedCornerShape(28.dp)
+    val pillola = RoundedCornerShape(percent = 50)
     val foglio = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 }
 

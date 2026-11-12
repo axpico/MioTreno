@@ -1,72 +1,43 @@
 package it.picone.miotreno.ui.componenti
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
-import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Testo
 
-/** Interruttore custom: pista 52×32, pomello con molla, colore accento quando acceso. */
+/** Interruttore M3; il tocco lo gestisce la riga che lo contiene. */
 @Composable
 fun Toggle(attivo: Boolean, modifier: Modifier = Modifier) {
-    val tb = LocalTb.current
-    val x by animateDpAsState(if (attivo) 24.dp else 4.dp, Molla.ui(), label = "toggle")
-    val pista by animateColorAsState(if (attivo) tb.accento else tb.bordoForte, Molla.piatta(), label = "pista")
-    Box(
-        modifier
-            .width(52.dp).height(32.dp)
-            .clip(CircleShape)
-            .background(pista),
-    ) {
-        Box(
-            Modifier.offset { IntOffset(x.roundToPx(), 4.dp.roundToPx()) }.size(24.dp)
-                .ombraMorbida(tb, CircleShape, 2.dp).clip(CircleShape).background(Color.White),
-        )
-    }
+    Switch(checked = attivo, onCheckedChange = null, modifier = modifier)
 }
 
 /**
- * Bottone primario, fondo pieno accento, ombra tinta e un filo di luce in alto (rilievo).
- * [attivo] = stato "già fatto" (notifica impostata, treno seguito): fondo tinto, testo accento.
+ * Bottone primario M3 (pieno). [attivo] = stato "già fatto" (treno seguito, avviso impostato):
+ * tonale, così non sembra un'altra azione da fare.
  */
 @Composable
 fun BottonePrimario(
@@ -75,46 +46,22 @@ fun BottonePrimario(
     modifier: Modifier = Modifier,
     icona: ImageVector? = null,
     attivo: Boolean = false,
-    colore: Color = LocalTb.current.accento,
+    colore: Color = MaterialTheme.colorScheme.primary,
     /** Per TalkBack, quando il testo visibile da solo non basta (es. "10′ prima"). */
     descrizione: String? = null,
 ) {
-    val tb = LocalTb.current
-    val interaction = remember { MutableInteractionSource() }
-    val premuto by interaction.collectIsPressedAsState()
-    val scala by animateFloatAsState(if (premuto) 0.96f else 1f, Molla.ui(), label = "press")
-    val contenuto = if (attivo) colore else tb.suStato
-    Row(
-        modifier
-            .scale(scala)
-            .let { if (attivo) it else it.ombraMorbida(tb, Forme.pillola, 8.dp, colore) }
-            .clip(Forme.pillola)
-            .let { if (attivo) it.background(colore.copy(alpha = 0.12f)) else it.background(colore).luceSuperiore() }
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                descrizione?.let { contentDescription = it }
-            }
-            .clickable(interaction, indication = null, onClick = onClick)
-            .heightIn(min = 52.dp)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        icona?.let {
-            Icon(it, contentDescription = null, tint = contenuto, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-        }
-        Text(testo, style = Testo.bottone, color = contenuto, maxLines = 1)
+    val m = modifier.heightIn(min = 56.dp).semantics { descrizione?.let { contentDescription = it } }
+    if (attivo) {
+        FilledTonalButton(onClick = onClick, modifier = m, shapes = ButtonDefaults.shapes()) { Contenuto(testo, icona) }
+    } else {
+        Button(
+            onClick = onClick, modifier = m, shapes = ButtonDefaults.shapes(),
+            colors = ButtonDefaults.buttonColors(containerColor = colore),
+        ) { Contenuto(testo, icona) }
     }
 }
 
-/** Filo bianco in alto sul bottone pieno: dà rilievo senza gradienti. */
-private fun Modifier.luceSuperiore(): Modifier = drawWithContent {
-    drawContent()
-    drawLine(Color.White.copy(alpha = 0.25f), Offset(size.height / 3, 1f), Offset(size.width - size.height / 3, 1f), 1.dp.toPx())
-}
-
-/** Bottone secondario: accento tinto, per azioni meno importanti. */
+/** Bottone secondario: tonale. */
 @Composable
 fun BottoneSecondario(
     testo: String,
@@ -123,72 +70,54 @@ fun BottoneSecondario(
     icona: ImageVector? = null,
     descrizione: String? = null,
 ) {
-    val tb = LocalTb.current
-    Row(
-        modifier
-            .clip(Forme.pillola)
-            .background(tb.accentoSoft)
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                descrizione?.let { contentDescription = it }
-            }
-            .clickable(onClick = onClick)
-            .heightIn(min = 52.dp)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        icona?.let {
-            Icon(it, contentDescription = null, tint = tb.accento, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-        }
-        Text(testo, style = Testo.bottone, color = tb.accento, maxLines = 1)
-    }
+    FilledTonalButton(
+        onClick = onClick, shapes = ButtonDefaults.shapes(),
+        modifier = modifier.heightIn(min = 56.dp).semantics { descrizione?.let { contentDescription = it } },
+    ) { Contenuto(testo, icona) }
 }
 
-/** Azione di ripiego come link in accento: "preferisco fare a mano", "riprova". */
 @Composable
-fun BottoneTesto(testo: String, onClick: () -> Unit, modifier: Modifier = Modifier, colore: Color = LocalTb.current.accento) {
-    Text(
-        testo,
-        modifier.clip(Forme.pillola).semantics { role = Role.Button }.clickable(onClick = onClick).padding(12.dp),
-        style = Testo.etichettaBold, color = colore,
-    )
+private fun Contenuto(testo: String, icona: ImageVector?) {
+    icona?.let {
+        Icon(it, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+    }
+    Text(testo, style = Testo.bottone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+/** Azione di ripiego: "preferisco fare a mano", "riprova". */
+@Composable
+fun BottoneTesto(testo: String, onClick: () -> Unit, modifier: Modifier = Modifier, colore: Color = MaterialTheme.colorScheme.primary) {
+    TextButton(onClick = onClick, modifier = modifier, shapes = ButtonDefaults.shapes()) {
+        Text(testo, style = Testo.etichettaBold, color = colore)
+    }
 }
 
 /** Area tattile del bottone a icona: chi gli fa da contrappeso (titoli centrati) usa la stessa. */
 val DIMENSIONE_BOTTONE_ICONA = 48.dp
 
-/** Icona tonda cliccabile (indietro, inverti, chiudi): 48dp di tocco, 40dp visibili. */
+/** Bottone a icona tonale (inverti, chiudi). */
 @Composable
 fun BottoneIcona(icona: ImageVector, descrizione: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val tb = LocalTb.current
-    Box(
-        modifier.size(DIMENSIONE_BOTTONE_ICONA).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            Modifier.size(40.dp).clip(CircleShape).background(tb.sf2),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icona, contentDescription = descrizione, tint = tb.tx, modifier = Modifier.size(20.dp)) }
-    }
+    FilledTonalIconButton(onClick = onClick, modifier = modifier) { Icon(icona, contentDescription = descrizione) }
 }
 
-/** Chip piccola informativa (categoria treno, binario). */
+/** Chip piccola informativa (categoria, stazione, "via …"): testo nel colore, fondo tinto. */
 @Composable
 fun Chip(testo: String, modifier: Modifier = Modifier, colore: Color = LocalTb.current.sub, pieno: Boolean = false) {
     val tb = LocalTb.current
     Text(
         testo,
         modifier
-            .clip(Forme.chip)
-            .background(if (pieno) colore.copy(alpha = ALPHA_TINTA) else tb.sf2)
+            .let { if (pieno) it.sfondoChip(colore.copy(alpha = ALPHA_TINTA)) else it.sfondoChip(tb.sf2) }
             .padding(horizontal = 8.dp, vertical = 2.dp),
         style = Testo.etichettaBold, color = colore, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
     )
 }
 
-/** Chip filtro selezionabile (periodo, stazione): pillola piena accento quando attiva. */
+private fun Modifier.sfondoChip(c: Color) = background(c, Forme.chip)
+
+/** Chip filtro selezionabile (periodo, stazione): FilterChip M3. */
 @Composable
 fun ChipFiltro(
     testo: String,
@@ -197,30 +126,17 @@ fun ChipFiltro(
     modifier: Modifier = Modifier,
     icona: ImageVector? = null,
 ) {
-    val tb = LocalTb.current
-    val sfondo by animateColorAsState(if (selezionata) tb.accento else tb.sf, Molla.piatta(), label = "chipFiltro")
-    val contenuto = if (selezionata) tb.suStato else tb.tx
-    Row(
-        modifier
-            .heightIn(min = 40.dp)
-            .clip(Forme.chip)
-            .background(sfondo)
-            .let { if (selezionata) it else it.border(1.dp, tb.bordoForte, Forme.chip) }
-            .semantics { role = Role.Checkbox; selected = selezionata }
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        icona?.let {
-            Icon(it, contentDescription = null, tint = contenuto, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-        }
-        Text(testo, style = Testo.etichettaBold, color = contenuto, maxLines = 1)
-    }
+    FilterChip(
+        selected = selezionata,
+        onClick = onClick,
+        label = { Text(testo, style = Testo.etichettaBold, maxLines = 1) },
+        leadingIcon = icona?.let { { Icon(it, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) } },
+        modifier = modifier,
+    )
 }
 
-/** Titoletto di sezione. */
+/** Titoletto di sezione, nel colore primario come le intestazioni M3. */
 @Composable
 fun Overline(testo: String, modifier: Modifier = Modifier) {
-    Text(testo, modifier, style = Testo.overline, color = LocalTb.current.sub)
+    Text(testo, modifier, style = Testo.overline, color = MaterialTheme.colorScheme.primary)
 }

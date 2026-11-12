@@ -87,7 +87,7 @@ fun StatisticheScreen(
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA),
+        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = Spazio.xl),
         verticalArrangement = Arrangement.spacedBy(Spazio.l),
     ) {
         item {

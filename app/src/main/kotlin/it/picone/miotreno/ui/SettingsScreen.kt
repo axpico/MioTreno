@@ -45,7 +45,6 @@ import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.Overline
 import it.picone.miotreno.ui.componenti.Toggle
 import it.picone.miotreno.ui.componenti.conferma
-import it.picone.miotreno.ui.componenti.ombraMorbida
 import it.picone.miotreno.ui.componenti.rememberHaptic
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
@@ -87,7 +86,7 @@ fun SettingsScreen(
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA),
+        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = Spazio.xl),
         verticalArrangement = Arrangement.spacedBy(Spazio.xl),
     ) {
         item {
@@ -328,7 +327,6 @@ private fun Segmenti(valori: List<Int>, scelto: Int, etichetta: (Int) -> String,
                 Modifier
                     .weight(1f)
                     .heightIn(min = 40.dp)
-                    .let { if (attivo) it.ombraMorbida(tb, Forme.chip, 2.dp) else it }
                     .clip(Forme.chip)
                     .background(sfondo)
                     .selectable(selected = attivo, role = Role.RadioButton) { onScelta(m) },

@@ -1,6 +1,5 @@
 package it.picone.miotreno.ui.componenti
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,7 +65,6 @@ internal fun RigaTreno(
     atteso: String?,
     passaPerEtichetta: String?,
     partenzaEtichetta: String?,
-    divisore: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val tb = LocalTb.current
@@ -156,6 +154,5 @@ internal fun RigaTreno(
             }
         }
         if (atteso != null && !cancellato) RigaAtteso(atteso, Modifier.padding(start = 80.dp, bottom = 8.dp))
-        if (divisore) Box(Modifier.fillMaxWidth().height(1.dp).background(tb.bordo))
     }
 }
