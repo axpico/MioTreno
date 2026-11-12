@@ -1,17 +1,13 @@
 package it.picone.miotreno.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,16 +15,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -66,11 +57,9 @@ import it.picone.miotreno.domain.testoCambi
 import it.picone.miotreno.domain.tratteInTreno
 import it.picone.miotreno.ui.componenti.ALPHA_TINTA
 import it.picone.miotreno.ui.componenti.Binario
-import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.BottonePrimario
 import it.picone.miotreno.ui.componenti.BottoneSecondario
 import it.picone.miotreno.ui.componenti.Chip
-import it.picone.miotreno.ui.componenti.DIMENSIONE_BOTTONE_ICONA
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.OrarioConRitardo
@@ -83,7 +72,6 @@ import it.picone.miotreno.ui.componenti.TimelineStop
 import it.picone.miotreno.ui.componenti.TipoFermata
 import it.picone.miotreno.ui.componenti.colore
 import it.picone.miotreno.ui.componenti.conferma
-import it.picone.miotreno.ui.componenti.ombraMorbida
 import it.picone.miotreno.ui.componenti.rememberHaptic
 import it.picone.miotreno.ui.componenti.shimmer
 import it.picone.miotreno.ui.theme.Forme
@@ -92,17 +80,18 @@ import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Spazio
 import it.picone.miotreno.ui.theme.Testo
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+/**
+ * Contenuto del foglio di dettaglio (o del pannello laterale su schermi larghi): a metà altezza
+ * intestazione e azioni, tirando su il percorso fermata per fermata.
+ */
 @Composable
 fun DettaglioScreen(
     state: UiState,
     ora: Long,
-    sharedScope: SharedTransitionScope,
-    animatedScope: AnimatedContentScope,
-    onIndietro: () -> Unit,
     onSegui: () -> Unit,
     onNotifiche: (Boolean) -> Unit,
     onChiediNotifiche: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val tb = LocalTb.current
     val treno = state.trenoSelezionato ?: return
@@ -111,138 +100,127 @@ fun DettaglioScreen(
     val notificaAttiva = seguito && state.impostazioni.notifiche
     val haptic = rememberHaptic()
 
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = ALTEZZA_BARRA_AZIONI),
-            verticalArrangement = Arrangement.spacedBy(Spazio.l),
-        ) {
-            item(key = "barra") {
-                Row(
-                    Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.s),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    BottoneIcona(Icone.Indietro, "Indietro", onIndietro)
-                    // titolo al centro dello schermo: a destra un posto vuoto largo quanto il bottone indietro
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.sottotitolo, color = tb.tx)
-                        Text(
-                            treno.testoCambi() ?: "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-                        )
-                    }
-                    Spacer(Modifier.size(DIMENSIONE_BOTTONE_ICONA))
-                }
-            }
-
-            item(key = chiaveTreno(treno.numeroTreno)) {
-                with(sharedScope) {
-                    CardIntestazione(
-                        treno, ora, seguito,
-                        Modifier.sharedBounds(rememberSharedContentState(chiaveTreno(treno.numeroTreno)), animatedScope),
-                        atteso = state.ritardiAttesi[treno.numeroTreno]?.testo,
-                        destinazioneNome = state.destinazioneNome,
-                        partenzaEtichetta = state.etichettePartenza[treno.codPartenza],
-                        // con i cambi l'arrivo è quello dell'ultimo treno, con il *suo* ritardo
-                        arrivoFinale = (state.dettagliTratte.lastOrNull() as? DettaglioTreno.Ok)
-                            ?.takeIf { treno.tratte.isNotEmpty() }
-                            ?.let { it.fermate.getOrNull(it.indiceDestinazione)?.orario(it.ritardoMinuti) },
-                        dettagliTratte = state.dettagliTratte,
+    LazyColumn(
+        modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = Spazio.xl),
+        verticalArrangement = Arrangement.spacedBy(Spazio.l),
+    ) {
+        item(key = "barra") {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.sottotitolo, color = tb.tx)
+                    Text(
+                        treno.testoCambi() ?: "per ${treno.destinazione}", style = Testo.etichetta, color = tb.sub,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                     )
-                }
-            }
-
-            val treni = treno.tratteInTreno
-            when {
-                state.caricamentoDettaglio -> item { Caricamento() }
-                treni.size > 1 -> {
-                    val dettagli = state.dettagliTratte
-                    // la tratta in corso: la prima non ancora arrivata dove scendi
-                    val inCorso = dettagli.indexOfFirst { (it as? DettaglioTreno.Ok)?.arrivato != true }
-                        .takeIf { it >= 0 } ?: dettagli.lastIndex
-                    (dettagli.getOrNull(inCorso) as? DettaglioTreno.Ok)?.let { d ->
-                        item(key = "avanzamento") {
-                            Avanzamento(
-                                d, treni[inCorso].nomeArrivo, emptyList(),
-                                etichettaArrivo = if (inCorso < treni.lastIndex) "al cambio" else "arrivo",
-                            )
-                        }
-                    }
-                    treni.forEachIndexed { i, t ->
-                        if (i > 0) {
-                            item(key = "cambio$i") {
-                                Cambio(treni[i - 1], t, treno.tratte, dettagli.getOrNull(i - 1), dettagli.getOrNull(i))
-                            }
-                        }
-                        item(key = "tratta$i") {
-                            TrattaFermate(t, dettagli.getOrNull(i), notaArrivo = "scendi e cambia".takeIf { i < treni.lastIndex })
-                        }
-                    }
-                }
-                dettaglio !is DettaglioTreno.Ok -> item {
-                    StatoVuoto(
-                        Icone.Treno, "Percorso non disponibile",
-                        "ViaggiaTreno non ha ancora i dati di corsa di questo treno. Di solito arrivano poco prima della partenza.",
-                        colore = tb.ter,
-                    )
-                }
-                else -> {
-                    val codiciSalita = state.stazione?.codici.orEmpty()
-                    item(key = "avanzamento") { Avanzamento(dettaglio, state.destinazioneNome, codiciSalita) }
-                    item(key = "fermate") { Fermate(dettaglio, codiciSalita) }
-                    item(key = "nota") {
-                        Text(
-                            "Aggiornamento automatico ogni 30 secondi",
-                            Modifier.fillMaxWidth(),
-                            style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
-                        )
-                    }
                 }
             }
         }
 
-        BarraAzioni(
-            seguito = seguito,
-            viaggio = treno.cambi > 0,
-            notificaAttiva = notificaAttiva,
-            anticipo = state.impostazioni.anticipoMinuti,
-            conferma = if (notificaAttiva) {
-                if (state.notifichePermesse) {
-                    val quando = treno.orarioPartenzaMs + (treno.ritardoMinuti - state.impostazioni.anticipoMinuti) * 60_000L
-                    val cambio = treno.primoCambio
-                    val avvisoCambio = state.impostazioni.avvisoCambioMinuti
-                    "Ti avviso alle ${quando.comeOra()}" +
-                        (if (cambio != null && avvisoCambio > 0) " e $avvisoCambio′ prima del cambio a $cambio" else "") +
-                        " · la notifica segue " + (if (cambio != null) "questo viaggio" else "questa corsa")
+        item(key = chiaveTreno(treno.numeroTreno)) {
+            run {
+                CardIntestazione(
+                    treno, ora, seguito,
+                    Modifier,
+                    atteso = state.ritardiAttesi[treno.numeroTreno]?.testo,
+                    destinazioneNome = state.destinazioneNome,
+                    partenzaEtichetta = state.etichettePartenza[treno.codPartenza],
+                    // con i cambi l'arrivo è quello dell'ultimo treno, con il *suo* ritardo
+                    arrivoFinale = (state.dettagliTratte.lastOrNull() as? DettaglioTreno.Ok)
+                        ?.takeIf { treno.tratte.isNotEmpty() }
+                        ?.let { it.fermate.getOrNull(it.indiceDestinazione)?.orario(it.ritardoMinuti) },
+                    dettagliTratte = state.dettagliTratte,
+                )
+            }
+        }
+
+        item(key = "azioni") {
+            BarraAzioni(
+                seguito = seguito,
+                viaggio = treno.cambi > 0,
+                notificaAttiva = notificaAttiva,
+                anticipo = state.impostazioni.anticipoMinuti,
+                conferma = if (notificaAttiva) {
+                    if (state.notifichePermesse) {
+                        val quando = treno.orarioPartenzaMs + (treno.ritardoMinuti - state.impostazioni.anticipoMinuti) * 60_000L
+                        val cambio = treno.primoCambio
+                        val avvisoCambio = state.impostazioni.avvisoCambioMinuti
+                        "Ti avviso alle ${quando.comeOra()}" +
+                            (if (cambio != null && avvisoCambio > 0) " e $avvisoCambio′ prima del cambio a $cambio" else "") +
+                            " · la notifica segue " + (if (cambio != null) "questo viaggio" else "questa corsa")
+                    } else {
+                        "Notifiche bloccate dal sistema: la corsa resta seguita qui"
+                    }
                 } else {
-                    "Notifiche bloccate dal sistema: la corsa resta seguita qui"
+                    null
+                },
+                confermaOk = state.notifichePermesse,
+                onSegui = { haptic.conferma(); onSegui() },
+                onAvvisa = {
+                    haptic.conferma()
+                    // il permesso notifiche si chiede qui, la prima volta che serve davvero
+                    if (!notificaAttiva) onChiediNotifiche()
+                    when {
+                        !seguito -> { onSegui(); if (!state.impostazioni.notifiche) onNotifiche(true) }
+                        notificaAttiva -> onNotifiche(false)
+                        else -> onNotifiche(true)
+                    }
+                },
+            )
+        }
+
+        val treni = treno.tratteInTreno
+        when {
+            state.caricamentoDettaglio -> item { Caricamento() }
+            treni.size > 1 -> {
+                val dettagli = state.dettagliTratte
+                // la tratta in corso: la prima non ancora arrivata dove scendi
+                val inCorso = dettagli.indexOfFirst { (it as? DettaglioTreno.Ok)?.arrivato != true }
+                    .takeIf { it >= 0 } ?: dettagli.lastIndex
+                (dettagli.getOrNull(inCorso) as? DettaglioTreno.Ok)?.let { d ->
+                    item(key = "avanzamento") {
+                        Avanzamento(
+                            d, treni[inCorso].nomeArrivo, emptyList(),
+                            etichettaArrivo = if (inCorso < treni.lastIndex) "al cambio" else "arrivo",
+                        )
+                    }
                 }
-            } else {
-                null
-            },
-            confermaOk = state.notifichePermesse,
-            onSegui = { haptic.conferma(); onSegui() },
-            onAvvisa = {
-                haptic.conferma()
-                // il permesso notifiche si chiede qui, la prima volta che serve davvero
-                if (!notificaAttiva) onChiediNotifiche()
-                when {
-                    !seguito -> { onSegui(); if (!state.impostazioni.notifiche) onNotifiche(true) }
-                    notificaAttiva -> onNotifiche(false)
-                    else -> onNotifiche(true)
+                treni.forEachIndexed { i, t ->
+                    if (i > 0) {
+                        item(key = "cambio$i") {
+                            Cambio(treni[i - 1], t, treno.tratte, dettagli.getOrNull(i - 1), dettagli.getOrNull(i))
+                        }
+                    }
+                    item(key = "tratta$i") {
+                        TrattaFermate(t, dettagli.getOrNull(i), notaArrivo = "scendi e cambia".takeIf { i < treni.lastIndex })
+                    }
                 }
-            },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+            }
+            dettaglio !is DettaglioTreno.Ok -> item {
+                StatoVuoto(
+                    Icone.Treno, "Percorso non disponibile",
+                    "ViaggiaTreno non ha ancora i dati di corsa di questo treno. Di solito arrivano poco prima della partenza.",
+                    colore = tb.ter,
+                )
+            }
+            else -> {
+                val codiciSalita = state.stazione?.codici.orEmpty()
+                item(key = "avanzamento") { Avanzamento(dettaglio, state.destinazioneNome, codiciSalita) }
+                item(key = "fermate") { Fermate(dettaglio, codiciSalita) }
+                item(key = "nota") {
+                    Text(
+                        "Aggiornamento automatico ogni 30 secondi",
+                        Modifier.fillMaxWidth(),
+                        style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
     }
 }
 
-/** Spazio in fondo alla lista per non finire sotto la barra azioni. */
-private val ALTEZZA_BARRA_AZIONI = 160.dp
-
 /**
- * Azioni della corsa nella zona del pollice, sempre visibili. "Segui" è l'azione primaria;
+ * Azioni della corsa, subito sotto l'intestazione: visibili già a foglio a metà. "Segui" è l'azione primaria;
  * "Avvisami" è secondaria. Quando la corsa è seguita, il segno di spunta entra con un
  * rimbalzo: è il piccolo momento di soddisfazione dello schermo.
  */
@@ -266,16 +244,7 @@ private fun BarraAzioni(
         scala.snapTo(0.9f)
         scala.animateTo(1f, Molla.stato())
     }
-    Column(
-        modifier
-            .fillMaxWidth()
-            .ombraMorbida(tb, Forme.foglio, 16.dp)
-            .clip(Forme.foglio)
-            .background(tb.sf)
-            .let { if (tb.scuro) it.border(1.dp, tb.bordo, Forme.foglio) else it }
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(start = Spazio.l, end = Spazio.l, top = Spazio.l, bottom = Spazio.s),
-    ) {
+    Column(modifier.fillMaxWidth()) {
         AnimatedVisibility(visible = conferma != null, enter = fadeIn(Molla.piatta()) + expandVertically(Molla.ui())) {
             Text(
                 conferma.orEmpty(),

@@ -44,7 +44,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 
-enum class Schermata { SceltaDestinazione, Home, Dettaglio, Statistiche, Impostazioni }
+enum class Schermata { SceltaDestinazione, Home, Statistiche, Impostazioni }
 
 /**
  * Stato puro della UI: solo modelli di dominio e primitive, nessun tipo Compose.
@@ -354,7 +354,6 @@ class TrenoViewModel : ViewModel() {
         val codDestinazione = _state.value.impostazioni.stazioneDestinazione ?: return
         _state.update {
             it.copy(
-                schermata = Schermata.Dettaglio,
                 trenoSelezionato = treno,
                 dettaglio = null,
                 dettagliTratte = emptyList(),
@@ -385,7 +384,7 @@ class TrenoViewModel : ViewModel() {
         pollJob?.cancel()
         pollJob = null
         _state.update {
-            it.copy(schermata = Schermata.Home, trenoSelezionato = null, dettaglio = null, dettagliTratte = emptyList())
+            it.copy(trenoSelezionato = null, dettaglio = null, dettagliTratte = emptyList())
         }
     }
 

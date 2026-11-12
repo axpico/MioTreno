@@ -10,47 +10,45 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.compose.PredictiveBackHandler
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentScope
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -61,7 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.picone.miotreno.Deps
-import it.picone.miotreno.ui.theme.LocalTb
+import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.theme.MioTrenoTheme
 import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.work.EXTRA_NUMERO_TRENO
@@ -69,7 +67,6 @@ import it.picone.miotreno.work.EXTRA_SEGUI
 import it.picone.miotreno.work.pianificaLavoriPeriodici
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlin.coroutines.cancellation.CancellationException
 
 /** Polling della home mentre l'app è in primo piano. */
 private const val POLL_HOME_MS = 60_000L
@@ -83,10 +80,6 @@ private const val SOGLIA_STALE_MS = 30_000L
  * colonna centrata. Non è un layout tablet, è un layout telefono che regge.
  */
 private val LARGHEZZA_MAX = 640.dp
-private val LARGHEZZA_MAX_BARRA = 520.dp
-
-/** Altezza del velo dietro la barra flottante, sopra la gesture bar: pillola + margini. */
-private val ALTEZZA_VELO = 96.dp
 
 class MainActivity : ComponentActivity() {
     /**
@@ -136,14 +129,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun App(daIntent: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<Boolean>) {
     val vm: TrenoViewModel = viewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     val ora by vm.ora.collectAsStateWithLifecycle()
-    val tb = LocalTb.current
-
     LaunchedEffect(Unit) {
         daIntent.collect { numero ->
             if (numero != null) {
@@ -157,88 +148,91 @@ private fun App(daIntent: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<
     AggiornamentoAutomatico(vm)
     val permessi = rememberPermessi(vm)
 
-    // ── back predittivo: il gesto guida scala e opacità del dettaglio, poi la shared element
-    //    fa il resto. Da API 36 KEYCODE_BACK/onBackPressed non arrivano più: solo questa via.
-    var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler(enabled = state.schermata != Schermata.Home && state.schermata != Schermata.SceltaDestinazione) { eventi ->
-        try {
-            eventi.collect { backProgress = if (Molla.riduci) 0f else it.progress }
-            if (state.schermata == Schermata.Dettaglio) vm.indietro() else vm.vaiA(Schermata.Home)
-        } catch (_: CancellationException) {
-            // gesto annullato: si torna dov'eravamo
-        } finally {
-            backProgress = 0f
-        }
+    // primo avvio: solo la ricerca della destinazione, nessuna barra
+    if (state.schermata == Schermata.SceltaDestinazione) {
+        val activity = LocalContext.current as Activity
+        SelettoreStazione(
+            correnteCodice = null,
+            onScegli = { codice -> codice?.let(vm::scegliDestinazione) },
+            // chiuderla esce dall'app invece di lasciare uno sfondo vuoto
+            onChiudi = activity::finish,
+            titolo = "Dove vuoi arrivare?",
+            mostraOpzioneVuota = false,
+            ricercaLive = vm::cercaStazioni,
+        )
+        return
     }
 
-    val barraVisibile = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.SceltaDestinazione
+    BackHandler(enabled = state.schermata != Schermata.Home && state.trenoSelezionato == null) {
+        vm.vaiA(Schermata.Home)
+    }
 
-    Box(Modifier.fillMaxSize().background(tb.bg)) {
-        SharedTransitionLayout(
-            Modifier.align(Alignment.TopCenter).widthIn(max = LARGHEZZA_MAX).fillMaxSize()
-                .graphicsLayer {
-                    val s = 1f - 0.08f * backProgress
-                    scaleX = s; scaleY = s; alpha = 1f - 0.25f * backProgress
-                },
-        ) {
-            AnimatedContent(
-                targetState = state.schermata,
-                transitionSpec = {
-                    if (Molla.riduci) {
-                        fadeIn(Molla.piatta()).togetherWith(fadeOut(Molla.piatta()))
-                    } else {
-                        (fadeIn(Molla.piatta()) + slideInVertically(Molla.ui()) { it / 16 })
-                            .togetherWith(fadeOut(Molla.piatta()))
-                    }
-                },
-                label = "schermata",
-            ) { schermata ->
-                SchermataCorrente(
-                    schermata, state, ora, vm, permessi,
-                    sharedScope = this@SharedTransitionLayout, animatedScope = this@AnimatedContent,
+    val larghezza = LocalConfiguration.current.screenWidthDp
+    // da 840 dp il dettaglio sta accanto alla lista invece che in un foglio sopra
+    val paneLaterale = larghezza >= 840
+    val effetti = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    NavigationSuiteScaffold(
+        layoutType = if (larghezza >= 600) NavigationSuiteType.NavigationRail else NavigationSuiteType.NavigationBar,
+        navigationSuiteItems = {
+            SEZIONI.forEach { sezione ->
+                item(
+                    selected = state.schermata == sezione.schermata,
+                    onClick = { vm.vaiA(sezione.schermata) },
+                    icon = { Icon(sezione.icona, contentDescription = null) },
+                    label = { Text(sezione.nome) },
                 )
             }
+        },
+    ) {
+        Row(Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = state.schermata,
+                transitionSpec = { fadeIn(effetti) togetherWith fadeOut(effetti) },
+                label = "schermata",
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            ) { schermata ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.widthIn(max = LARGHEZZA_MAX)) {
+                        SchermataCorrente(schermata, state, ora, vm, permessi)
+                    }
+                }
+            }
+            if (paneLaterale && state.trenoSelezionato != null) {
+                BackHandler { vm.indietro() }
+                VerticalDivider()
+                Surface(Modifier.width(420.dp).fillMaxHeight(), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Dettaglio(state, ora, vm, permessi, Modifier.windowInsetsPadding(WindowInsets.safeDrawing))
+                }
+            }
         }
-
-        // Il contenuto scorre edge-to-edge: sotto la status bar serve un velo, o l'orologio
-        // finisce sopra i titoli.
-        Box(
-            Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(tb.bg.copy(alpha = 0.92f)),
-        )
-
-        // Velo sotto la barra flottante: senza, le righe si leggevano nello spazio attorno alla
-        // pillola.
-        AnimatedVisibility(
-            visible = barraVisibile,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta()),
-        ) {
-            Box(
-                Modifier.fillMaxWidth()
-                    .windowInsetsBottomHeight(
-                        WindowInsets.navigationBars.add(WindowInsets(bottom = ALTEZZA_VELO)),
-                    )
-                    .background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to tb.bg.copy(alpha = 0.9f), 1f to tb.bg)),
-            )
-        }
-
-        // Barra, poi la gesture bar: impilate, così la pillola non finisce sotto la gesture bar.
-        Column(
-            Modifier.align(Alignment.BottomCenter).widthIn(max = LARGHEZZA_MAX),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            AnimatedVisibility(
-                visible = barraVisibile,
-                modifier = Modifier.widthIn(max = LARGHEZZA_MAX_BARRA),
-                enter = slideInVertically(Molla.ui()) { it } + fadeIn(),
-                exit = slideOutVertically(Molla.piatta()) { it } + fadeOut(),
-            ) { BarraNav(state.schermata, vm::vaiA) }
-            if (barraVisibile) Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-        }
-
-        SelettoriStazione(state, vm)
     }
+
+    if (!paneLaterale && state.trenoSelezionato != null) {
+        ModalBottomSheet(onDismissRequest = vm::indietro, sheetState = rememberModalBottomSheetState()) {
+            Dettaglio(state, ora, vm, permessi)
+        }
+    }
+
+    SelettoriStazione(state, vm)
+}
+
+private data class Sezione(val nome: String, val icona: ImageVector, val schermata: Schermata)
+
+private val SEZIONI = listOf(
+    Sezione("Treni", Icone.Treno, Schermata.Home),
+    Sezione("Statistiche", Icone.Statistiche, Schermata.Statistiche),
+    Sezione("Impostazioni", Icone.Impostazioni, Schermata.Impostazioni),
+)
+
+@Composable
+private fun Dettaglio(state: UiState, ora: Long, vm: TrenoViewModel, permessi: Permessi, modifier: Modifier = Modifier) {
+    DettaglioScreen(
+        state = state, ora = ora,
+        onSegui = { state.trenoSelezionato?.let(vm::cambiaSeguito) },
+        onNotifiche = vm::setNotifiche,
+        onChiediNotifiche = permessi.chiediNotifiche,
+        modifier = modifier,
+    )
 }
 
 /**
@@ -254,13 +248,13 @@ private fun AggiornamentoAutomatico(vm: TrenoViewModel) {
             // Al primo avvio aggiornatoAlle è null e ci pensa già l'init del ViewModel.
             val ultimo = vm.state.value.aggiornatoAlle
             if (ultimo != null && System.currentTimeMillis() - ultimo > SOGLIA_STALE_MS &&
-                vm.state.value.schermata != Schermata.Dettaglio
+                vm.state.value.trenoSelezionato == null
             ) {
                 vm.aggiorna(silenzioso = true)
             }
             while (true) {
                 delay(POLL_HOME_MS)
-                if (vm.state.value.schermata != Schermata.Dettaglio) vm.aggiorna(silenzioso = true)
+                if (vm.state.value.trenoSelezionato == null) vm.aggiorna(silenzioso = true)
             }
         }
     }
@@ -327,7 +321,6 @@ private class Permessi(
 )
 
 /** Quale schermata mostrare e con quali azioni: solo instradamento, la logica sta nel ViewModel. */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun SchermataCorrente(
     schermata: Schermata,
@@ -335,26 +328,12 @@ private fun SchermataCorrente(
     ora: Long,
     vm: TrenoViewModel,
     permessi: Permessi,
-    sharedScope: SharedTransitionScope,
-    animatedScope: AnimatedContentScope,
 ) {
     val context = LocalContext.current
-    val activity = context as Activity
     when (schermata) {
-        // primo avvio: senza destinazione non c'è nulla da mostrare, quindi subito la ricerca;
-        // chiuderla esce dall'app invece di lasciare uno sfondo vuoto
-        Schermata.SceltaDestinazione -> SelettoreStazione(
-            correnteCodice = null,
-            onScegli = { codice -> codice?.let(vm::scegliDestinazione) },
-            onChiudi = activity::finish,
-            titolo = "Dove vuoi arrivare?",
-            overline = "Destinazione",
-            mostraOpzioneVuota = false,
-            ricercaLive = vm::cercaStazioni,
-        )
+        Schermata.SceltaDestinazione -> Unit
         Schermata.Home -> HomeScreen(
             state = state, ora = ora,
-            sharedScope = sharedScope, animatedScope = animatedScope,
             onApri = vm::apri,
             onSmetti = { vm.cambiaSeguito(it) },
             onChiediPermesso = permessi.chiediPosizione,
@@ -365,14 +344,6 @@ private fun SchermataCorrente(
             onScambia = vm::scambiaOrigineDestinazione,
             onScegliDestinazione = vm::apriSelettoreDestinazione,
             onAttivaCambi = { vm.setConCambi(true) },
-        )
-        Schermata.Dettaglio -> DettaglioScreen(
-            state = state, ora = ora,
-            sharedScope = sharedScope, animatedScope = animatedScope,
-            onIndietro = vm::indietro,
-            onSegui = { state.trenoSelezionato?.let(vm::cambiaSeguito) },
-            onNotifiche = vm::setNotifiche,
-            onChiediNotifiche = permessi.chiediNotifiche,
         )
         Schermata.Statistiche -> StatisticheScreen(
             stat = state.statistiche,
@@ -410,10 +381,10 @@ private fun SchermataCorrente(
     }
 }
 
-/** I quattro selettori di stazione, a tutto schermo sopra il resto quando aperti. */
+/** I quattro selettori di stazione, SearchBar a tutto schermo sopra il resto quando aperti. */
 @Composable
 private fun SelettoriStazione(state: UiState, vm: TrenoViewModel) {
-    AnimatedVisibility(visible = state.selettoreStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+    if (state.selettoreStazione) {
         SelettoreStazione(
             correnteCodice = state.impostazioni.stazioneManuale,
             onScegli = vm::scegliStazione,
@@ -423,41 +394,38 @@ private fun SelettoriStazione(state: UiState, vm: TrenoViewModel) {
         )
     }
 
-    AnimatedVisibility(visible = state.selettoreDestinazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+    if (state.selettoreDestinazione) {
         SelettoreStazione(
             correnteCodice = state.impostazioni.stazioneDestinazione,
             onScegli = { codice -> codice?.let(vm::scegliDestinazione) },
             onChiudi = vm::chiudiSelettoreDestinazione,
-            titolo = "Scegli la destinazione",
-            overline = "Destinazione",
+            titolo = "Cerca la destinazione",
             mostraOpzioneVuota = false,
             ricercaLive = vm::cercaStazioni,
             recenti = state.stazioniRecenti,
         )
     }
 
-    AnimatedVisibility(visible = state.selettorePassaggio, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+    if (state.selettorePassaggio) {
         SelettoreStazione(
             stazioni = state.stazioni,
             correnteCodice = state.impostazioni.stazionePassaggio,
             onScegli = vm::scegliPassaggio,
             onChiudi = vm::chiudiSelettorePassaggio,
-            titolo = "Stazione di passaggio",
-            overline = "Passa sempre per",
+            titolo = "Evidenzia i treni che passano per…",
             etichettaOpzioneVuota = "Nessuna",
             descrizioneOpzioneVuota = "disattiva l'evidenziazione",
             mostraIconaOpzioneVuota = false,
         )
     }
 
-    AnimatedVisibility(visible = state.selettoreFiltroStazione, enter = fadeIn(Molla.piatta()), exit = fadeOut(Molla.piatta())) {
+    if (state.selettoreFiltroStazione) {
         SelettoreStazione(
             stazioni = state.stazioniStorico,
             correnteCodice = state.filtroStazione,
             onScegli = vm::scegliFiltroStazione,
             onChiudi = vm::chiudiSelettoreFiltroStazione,
-            titolo = "Filtra per stazione",
-            overline = "Statistiche",
+            titolo = "Filtra le statistiche per stazione",
             etichettaOpzioneVuota = "Tutte le stazioni",
             descrizioneOpzioneVuota = "nessun filtro",
             mostraIconaOpzioneVuota = false,

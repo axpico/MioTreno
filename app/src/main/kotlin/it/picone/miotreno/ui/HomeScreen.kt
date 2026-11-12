@@ -1,10 +1,7 @@
 package it.picone.miotreno.ui
 
 import android.content.Intent
-import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
@@ -135,7 +132,6 @@ private fun VoceTreno(
     onSmetti: (ProssimoTreno) -> Unit,
     modifier: Modifier,
     /** La transizione condivisa con il dettaglio: la fa il chiamante, che ha gli scope. */
-    modificatoreCard: Modifier,
 ) {
     val tb = LocalTb.current
     val haptic = rememberHaptic()
@@ -166,7 +162,7 @@ private fun VoceTreno(
                 null
             },
             onSmetti = if (seguito) ({ haptic.conferma(); onSmetti(t) }) else null,
-            modifier = (if (compatta) Modifier.gruppo(tb, inizioGruppo, fineGruppo) else Modifier).then(modificatoreCard),
+            modifier = (if (compatta) Modifier.gruppo(tb, inizioGruppo, fineGruppo) else Modifier),
         )
     }
 }
@@ -184,13 +180,10 @@ private fun MostraTutte(quante: Int, onClick: () -> Unit) {
     )
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun HomeScreen(
     state: UiState,
     ora: Long,
-    sharedScope: SharedTransitionScope,
-    animatedScope: AnimatedContentScope,
     onApri: (ProssimoTreno) -> Unit,
     /** Smetti di seguire, dall'azione rapida sulla card della corsa seguita. */
     onSmetti: (ProssimoTreno) -> Unit = {},
@@ -202,7 +195,6 @@ fun HomeScreen(
     onScambia: () -> Unit,
     onScegliDestinazione: () -> Unit,
     onAttivaCambi: () -> Unit = {},
-    /** Altezza del banner sotto la barra di navigazione: la lista deve finire sopra entrambi. */
 ) {
     val tb = LocalTb.current
     val haptic = rememberHaptic()
@@ -278,16 +270,11 @@ fun HomeScreen(
                     else -> {
                         val lista = listaHome(state.treni, state.seguito, mostraTutte)
                         itemsIndexed(lista.visibili, key = { _, t -> chiaveTreno(t.numeroTreno) }) { indice, t ->
-                            with(sharedScope) {
-                                VoceTreno(
-                                    t, indice, lista, state, ora,
-                                    onApri = onApri, onSmetti = onSmetti,
-                                    modifier = Modifier.animateItem(placementSpec = Molla.ui()),
-                                    modificatoreCard = Modifier.sharedBounds(
-                                        rememberSharedContentState(chiaveTreno(t.numeroTreno)), animatedScope,
-                                    ),
-                                )
-                            }
+                            VoceTreno(
+                                t, indice, lista, state, ora,
+                                onApri = onApri, onSmetti = onSmetti,
+                                modifier = Modifier.animateItem(placementSpec = Molla.ui()),
+                            )
                         }
                         if (lista.nascoste > 0) {
                             item(key = "mostra-tutte") { MostraTutte(lista.nascoste) { haptic.tocco(); mostraTutte = true } }
