@@ -19,8 +19,8 @@ import kotlin.coroutines.resume
 
 private const val TTL_POSIZIONE_MS = 2 * 60_000L
 
-/** getCurrentLocation ha un timeout interno del sistema; requestSingleUpdate no. */
-private const val TIMEOUT_FIX_MS = 20_000L
+/** Oltre non si aspetta il fix: meglio l'ultima posizione nota che uno schermo vuoto. */
+private const val TIMEOUT_FIX_MS = 10_000L
 
 /**
  * Wrapper su LocationManager.
@@ -41,22 +41,37 @@ class LocationProvider(private val context: Context) {
         ultima?.let { if (System.currentTimeMillis() - ultimaAlle < TTL_POSIZIONE_MS) return it }
 
         val lm = context.getSystemService<LocationManager>() ?: return null
-        val provider = when {
-            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
-            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
-            else -> null
+        // Con il solo permesso COARSE il GPS dà comunque una posizione sfocata, ma al chiuso
+        // impiega 30 s e più per il fix: per trovare la stazione bastano fused o rete, istantanei.
+        val provider = listOfNotNull(
+            LocationManager.FUSED_PROVIDER.takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S },
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.GPS_PROVIDER,
+        ).firstOrNull { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+
+        // un'ultima posizione di pochi minuti fa va benissimo: niente attesa
+        val recente = listOfNotNull(provider, LocationManager.PASSIVE_PROVIDER)
+            .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
+            .maxByOrNull { it.time }
+            ?.takeIf { System.currentTimeMillis() - it.time < TTL_POSIZIONE_MS }
+        if (recente != null) {
+            ultima = recente
+            ultimaAlle = System.currentTimeMillis()
+            return recente
         }
 
         val fresca = if (provider == null) {
             null
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            suspendCancellableCoroutine<Location?> { cont ->
-                val signal = CancellationSignal()
-                cont.invokeOnCancellation { signal.cancel() }
-                val executor = Executors.newSingleThreadExecutor()
-                lm.getCurrentLocation(provider, signal, executor) {
-                    if (cont.isActive) cont.resume(it)
-                    executor.shutdown()
+            withTimeoutOrNull(TIMEOUT_FIX_MS) {
+                suspendCancellableCoroutine<Location?> { cont ->
+                    val signal = CancellationSignal()
+                    cont.invokeOnCancellation { signal.cancel() }
+                    val executor = Executors.newSingleThreadExecutor()
+                    lm.getCurrentLocation(provider, signal, executor) {
+                        if (cont.isActive) cont.resume(it)
+                        executor.shutdown()
+                    }
                 }
             }
         } else {

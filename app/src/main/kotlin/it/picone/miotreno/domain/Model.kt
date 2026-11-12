@@ -213,5 +213,5 @@ data class TrenoSeguito(
 )
 
 /** Vero se il treno ferma davvero alla stazione [codicePassaggio], secondo il tracking reale. */
-fun passaPer(dettaglio: DettaglioTreno, codicePassaggio: String): Boolean =
-    (dettaglio as? DettaglioTreno.Ok)?.fermate?.any { it.codice == codicePassaggio } == true
+fun passaPer(dettaglio: DettaglioTreno, codiciPassaggio: Collection<String>): Boolean =
+    (dettaglio as? DettaglioTreno.Ok)?.fermate?.any { it.codice in codiciPassaggio } == true

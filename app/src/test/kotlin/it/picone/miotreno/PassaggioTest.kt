@@ -16,7 +16,7 @@ class PassaggioTest {
             fermate = listOf(fermata("S01700"), fermata("S01040"), fermata("S01031")),
             ritardoMinuti = 0, indiceCorrente = 0, indiceDestinazione = 2,
         )
-        assertTrue(passaPer(dettaglio, "S01040"))
+        assertTrue(passaPer(dettaglio, setOf("S01040")))
     }
 
     @Test
@@ -25,11 +25,21 @@ class PassaggioTest {
             fermate = listOf(fermata("S01700"), fermata("S01031")),
             ritardoMinuti = 0, indiceCorrente = 0, indiceDestinazione = 1,
         )
-        assertFalse(passaPer(dettaglio, "S01040"))
+        assertFalse(passaPer(dettaglio, setOf("S01040")))
     }
 
     @Test
     fun `falso quando i dati non sono disponibili`() {
-        assertFalse(passaPer(DettaglioTreno.DatiNonDisponibili, "S01040"))
+        assertFalse(passaPer(DettaglioTreno.DatiNonDisponibili, setOf("S01040")))
+    }
+
+    @Test
+    fun `vero se il treno ferma al codice gemello dello stesso scalo`() {
+        // Garibaldi: scelta la superficie (S01645), il treno del Passante ferma alla sotterranea (S01647)
+        val dettaglio = DettaglioTreno.Ok(
+            fermate = listOf(fermata("S01700"), fermata("S01647"), fermata("S01031")),
+            ritardoMinuti = 0, indiceCorrente = 0, indiceDestinazione = 2,
+        )
+        assertTrue(passaPer(dettaglio, setOf("S01645", "S01647")))
     }
 }

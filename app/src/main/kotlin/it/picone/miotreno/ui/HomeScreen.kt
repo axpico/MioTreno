@@ -287,6 +287,15 @@ fun HomeScreen(
 
                 if (state.treni.isNotEmpty()) {
                     item(key = "footer") {
+                        val passaggio = state.stazionePassaggioNome
+                        if (passaggio != null && state.passaggioVerificato && state.treniConPassaggio.isEmpty()) {
+                            // senza questa riga l'evidenziazione sembra rotta: nessun "via" e nessun perché
+                            Text(
+                                "Nessun treno in lista passa per $passaggio",
+                                Modifier.fillMaxWidth().padding(top = Spazio.l),
+                                style = Testo.etichetta, color = tb.sub, textAlign = TextAlign.Center,
+                            )
+                        }
                         if (state.errore != null) {
                             // refresh fallito con una lista già a video: la lista resta, ma va detto
                             Text(

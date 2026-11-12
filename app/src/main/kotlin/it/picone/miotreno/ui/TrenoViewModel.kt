@@ -26,6 +26,7 @@ import it.picone.miotreno.domain.filtraPerPeriodo
 import it.picone.miotreno.domain.filtraPerStazione
 import it.picone.miotreno.domain.passaPer
 import it.picone.miotreno.domain.ritardiAttesi
+import it.picone.miotreno.domain.stazioniVicine
 import it.picone.miotreno.work.controllaSeguito
 import it.picone.miotreno.work.ricalcolaNotifica
 import kotlinx.coroutines.CancellationException
@@ -94,6 +95,8 @@ data class UiState(
     val stazionePassaggioNome: String? = null,
     /** Numeri dei treni verificati come passanti per [Impostazioni.stazionePassaggio]. */
     val treniConPassaggio: Set<Int> = emptySet(),
+    /** Verifica di [treniConPassaggio] conclusa per la lista attuale: solo allora "nessuno passa" è vero. */
+    val passaggioVerificato: Boolean = false,
     /** Percorso reale (fermate passate/prossime) per la barra viaggio, per numero treno: la card
      * hero (prossima partenza) e quella della corsa seguita possono essere due treni diversi, e
      * servono entrambe i dati reali. */
@@ -167,7 +170,7 @@ class TrenoViewModel : ViewModel() {
                 if (imp.stazionePassaggio != stazionePassaggioCodice) {
                     stazionePassaggioCodice = imp.stazionePassaggio
                     val nome = imp.stazionePassaggio?.let { repo.nomeStazione(it) }
-                    _state.update { it.copy(stazionePassaggioNome = nome, treniConPassaggio = emptySet()) }
+                    _state.update { it.copy(stazionePassaggioNome = nome, treniConPassaggio = emptySet(), passaggioVerificato = false) }
                     verificaPassaggio()
                 }
                 val nomeDestinazione = imp.stazioneDestinazione?.let { repo.nomeStazione(it) }
@@ -176,6 +179,8 @@ class TrenoViewModel : ViewModel() {
                     destinazioneInizializzata = true
                     if (imp.stazioneDestinazione == null) {
                         _state.update { it.copy(schermata = Schermata.SceltaDestinazione, caricamento = false) }
+                        // primo avvio: l'elenco nazionale (23 regioni) si scarica mentre si sceglie la meta
+                        viewModelScope.launch { runCatching { repo.stazioni() } }
                     } else {
                         val regione = runCatching { repo.regioneDestinazione() }.getOrNull()?.let { NOMI_REGIONI[it] }
                         _state.update { it.copy(regioneScioperiNome = regione) }
@@ -324,6 +329,12 @@ class TrenoViewModel : ViewModel() {
         val treni = _state.value.treni
         if (treni.isEmpty()) return
         viewModelScope.launch {
+            // tutto lo scalo, non il solo codice scelto: le stazioni del Passante hanno un codice
+            // gemello (superficie/sotterranea) e un treno ferma solo su uno dei due
+            val stazioni = runCatching { repo.stazioni() }.getOrDefault(emptyList())
+            val codici = stazioni.firstOrNull { it.codice == codice }
+                ?.let { s -> stazioniVicine(stazioni, s.lat, s.lon).map { it.stazione.codice } }
+                .orEmpty() + codice
             val esito = coroutineScope {
                 treni.map { t ->
                     async {
@@ -332,14 +343,14 @@ class TrenoViewModel : ViewModel() {
                         // calcolato per la vecchia scelta verrebbe riusato per la nuova
                         val chiave = "${t.numeroTreno}@${t.dataPartenzaTrenoMs}@$codice"
                         val passa = passaggioCache.getOrPut(chiave) {
-                            runCatching { passaPer(repo.dettaglio(t, codDestinazione), codice) }.getOrDefault(false)
+                            runCatching { passaPer(repo.dettaglio(t, codDestinazione), codici) }.getOrDefault(false)
                         }
                         t.numeroTreno to passa
                     }
                 }.map { it.await() }
             }
             if (stazionePassaggioCodice != codice) return@launch
-            _state.update { it.copy(treniConPassaggio = esito.filter { (_, p) -> p }.map { it.first }.toSet()) }
+            _state.update { it.copy(treniConPassaggio = esito.filter { (_, p) -> p }.map { it.first }.toSet(), passaggioVerificato = true) }
         }
     }
 
@@ -532,6 +543,7 @@ class TrenoViewModel : ViewModel() {
                 stazionePassaggioNome = if (passaggioSuperfluo) null else it.stazionePassaggioNome,
                 // i badge vanno riverificati sui treni della nuova tratta
                 treniConPassaggio = emptySet(),
+                passaggioVerificato = false,
             )
         }
         aggiorna()
