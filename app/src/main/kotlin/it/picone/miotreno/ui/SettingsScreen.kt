@@ -1,26 +1,21 @@
 package it.picone.miotreno.ui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,12 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.picone.miotreno.BuildConfig
@@ -43,12 +36,12 @@ import it.picone.miotreno.ui.componenti.Chip
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.Overline
+import it.picone.miotreno.ui.componenti.SchermataConBarra
 import it.picone.miotreno.ui.componenti.Toggle
 import it.picone.miotreno.ui.componenti.conferma
 import it.picone.miotreno.ui.componenti.rememberHaptic
 import it.picone.miotreno.ui.theme.Forme
 import it.picone.miotreno.ui.theme.LocalTb
-import it.picone.miotreno.ui.theme.Molla
 import it.picone.miotreno.ui.theme.Spazio
 import it.picone.miotreno.ui.theme.Testo
 
@@ -84,18 +77,7 @@ fun SettingsScreen(
     val tb = LocalTb.current
     val haptic = rememberHaptic()
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = Spazio.xl),
-        verticalArrangement = Arrangement.spacedBy(Spazio.xl),
-    ) {
-        item {
-            Text(
-                "Impostazioni", style = Testo.titolo, color = tb.tx, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l),
-            )
-        }
-
+    SchermataConBarra("Impostazioni", spaziatura = Spazio.xl) {
         item {
             Sezione("Percorso") {
                 RigaVoce(
@@ -310,30 +292,17 @@ private fun RigaToggle(icona: ImageVector, nome: String, desc: String, attivo: B
     }
 }
 
-/** Scelta fra pochi valori in una pista: Preavviso e Avviso cambio. */
+/** Scelta fra pochi valori: Preavviso e Avviso cambio, bottoni segmentati M3. */
 @Composable
 private fun Segmenti(valori: List<Int>, scelto: Int, etichetta: (Int) -> String, onScelta: (Int) -> Unit) {
-    val tb = LocalTb.current
-    Row(
-        Modifier.fillMaxWidth().padding(top = Spazio.m).clip(Forme.chip).background(tb.sf2).padding(4.dp),
-    ) {
-        valori.forEach { m ->
-            val attivo = m == scelto
-            val sfondo by animateColorAsState(
-                // accento tinto, non sf: in scuro sf è più cupo della pista e la scelta spariva
-                if (attivo) tb.accentoSoft else Color.Transparent, Molla.piatta(), label = "segmento$m",
-            )
-            Box(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = 40.dp)
-                    .clip(Forme.chip)
-                    .background(sfondo)
-                    .selectable(selected = attivo, role = Role.RadioButton) { onScelta(m) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(etichetta(m), style = Testo.numeroPiccolo, color = if (attivo) tb.accento else tb.sub)
-            }
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = Spazio.m)) {
+        valori.forEachIndexed { i, m ->
+            SegmentedButton(
+                selected = m == scelto,
+                onClick = { onScelta(m) },
+                shape = SegmentedButtonDefaults.itemShape(i, valori.size),
+                icon = {},
+            ) { Text(etichetta(m), style = Testo.numeroPiccolo) }
         }
     }
 }

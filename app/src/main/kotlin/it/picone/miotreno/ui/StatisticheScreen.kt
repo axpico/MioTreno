@@ -5,19 +5,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +37,7 @@ import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.NumeroAnimato
 import it.picone.miotreno.ui.componenti.Overline
+import it.picone.miotreno.ui.componenti.SchermataConBarra
 import it.picone.miotreno.ui.componenti.Sparkline
 import it.picone.miotreno.ui.componenti.StatChart
 import it.picone.miotreno.ui.componenti.StatoVuoto
@@ -85,20 +80,7 @@ fun StatisticheScreen(
         }
     }
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = Spazio.xl),
-        verticalArrangement = Arrangement.spacedBy(Spazio.l),
-    ) {
-        item {
-            Column(
-                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = Spazio.l),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("Ritardi", style = Testo.titolo, color = tb.tx)
-                Text("Storico locale dei tuoi treni", style = Testo.etichetta, color = tb.sub)
-            }
-        }
+    SchermataConBarra("Ritardi", "Storico locale dei tuoi treni") {
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(PeriodoFiltro.entries) { p ->
@@ -114,7 +96,7 @@ fun StatisticheScreen(
                 }
             }
         }
-        if (stat == null) return@LazyColumn
+        if (stat == null) return@SchermataConBarra
         if (stat.rilevazioni == 0) {
             item {
                 StatoVuoto(
@@ -122,7 +104,7 @@ fun StatisticheScreen(
                     "Ogni volta che apri l'app salvo il ritardo dei treni in lista. Dopo qualche giorno qui vedrai i pattern per giorno e fascia oraria.",
                 )
             }
-            return@LazyColumn
+            return@SchermataConBarra
         }
 
         item {
