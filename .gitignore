@@ -11,3 +11,6 @@ build/
 *.keystore
 keystore.properties
 .kotlin/
+
+# file locali di Claude Code
+.claude/
