@@ -42,6 +42,7 @@ jobs:
           path: app/build/reports/
 
   # Tag v* → APK firmato allegato alla GitHub Release.
+  # Versione dal tag (v1.2.0 → versionName 1.2.0), versionCode dal numero di run (sempre crescente).
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
@@ -61,7 +62,13 @@ jobs:
       - name: Keystore
         env:
           MIOTRENO_KEYSTORE_B64: ${{ secrets.MIOTRENO_KEYSTORE_B64 }}
-        run: echo "$MIOTRENO_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+        run: |
+          # senza firma l'APK non si installa sopra la versione precedente: meglio fermarsi qui
+          if [ -z "$MIOTRENO_KEYSTORE_B64" ]; then
+            echo "::error::Manca il secret MIOTRENO_KEYSTORE_B64 (vedi README, Creare una release)"
+            exit 1
+          fi
+          echo "$MIOTRENO_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
 
       - name: Signed release build
         env:
@@ -69,12 +76,15 @@ jobs:
           MIOTRENO_KEYSTORE_PASSWORD: ${{ secrets.MIOTRENO_KEYSTORE_PASSWORD }}
           MIOTRENO_KEY_ALIAS: ${{ secrets.MIOTRENO_KEY_ALIAS }}
           MIOTRENO_KEY_PASSWORD: ${{ secrets.MIOTRENO_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease
+          TAG: ${{ github.ref_name }}
+        run: ./gradlew :app:assembleRelease -PversionName="${TAG#v}" -PversionCode=${{ github.run_number }}
 
       - name: GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "MioTreno-$TAG.apk"
-          gh release create "$TAG" "MioTreno-$TAG.apk" --generate-notes
+          apk=app/build/outputs/apk/release/app-release.apk
+          test -f "$apk" || { echo "::error::APK firmato non trovato (firma non configurata?)"; exit 1; }
+          cp "$apk" "MioTreno-$TAG.apk"
+          gh release create "$TAG" "MioTreno-$TAG.apk" --title "MioTreno ${TAG#v}" --generate-notes

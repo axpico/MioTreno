@@ -42,7 +42,7 @@ La CI pubblica una release quando arriva un tag `v*`. Una volta sola, nei secret
 - `MIOTRENO_KEYSTORE_B64`: il keystore in base64 (`base64 -w0 release.jks`)
 - `MIOTRENO_KEYSTORE_PASSWORD`, `MIOTRENO_KEY_ALIAS`, `MIOTRENO_KEY_PASSWORD`
 
-Poi, a ogni versione (alza prima `versionCode`/`versionName` in `app/build.gradle.kts`):
+Poi, a ogni versione (la versione la prende dal tag, il `versionCode` dal numero di run della CI):
 
 ```sh
 git tag v1.2.0 && git push origin v1.2.0

@@ -14,8 +14,9 @@ android {
         applicationId = "it.picone.miotreno"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // in CI la release le passa dal tag (v1.2.0 → 1.2.0) e dal numero di run; in locale 1 / "1.0"
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("versionName") as String?) ?: "1.0"
     }
 
     // Chiave di firma letta da env/gradle.properties, mai committata: se manca, il release
