@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Specchio di ChiaroTb (Colori.kt) per ciò che Compose non disegna: la finestra. -->
+<!-- Superficie e splash prima che Compose disegni: lo schema dal seme (SchemaSeme.kt), chiaro.
+     Da Android 12 values-v31 li sostituisce con i colori dinamici del telefono. -->
 <resources>
-    <color name="mt_bg">#F5F7FB</color>
-    <color name="mt_sf">#FFFFFF</color>
-    <color name="mt_bordo">#140E1526</color>
+    <color name="mt_bg">#FBF8FF</color>
     <color name="mt_accento">#2448E0</color>
+    <color name="splash_cerchio">#DDE1FF</color>
+    <color name="splash_treno">#2448E0</color>
     <bool name="mt_barre_chiare">true</bool>
 </resources>

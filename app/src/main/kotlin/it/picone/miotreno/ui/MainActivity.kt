@@ -93,7 +93,8 @@ class MainActivity : ComponentActivity() {
     private val seguiSubito = MutableStateFlow(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        // via subito, senza la dissolvenza di sistema: IntroAvvio riparte dallo stesso fotogramma
+        installSplashScreen().setOnExitAnimationListener { it.remove() }
         super.onCreate(savedInstanceState)
         Deps.init(this)
         pianificaLavoriPeriodici(this)
@@ -107,7 +108,14 @@ class MainActivity : ComponentActivity() {
             ),
         )
         leggiExtra(intent)
-        setContent { MioTrenoTheme { App(daIntent, seguiSubito) } }
+        setContent {
+            MioTrenoTheme {
+                Box(Modifier.fillMaxSize()) {
+                    App(daIntent, seguiSubito)
+                    IntroAvvio()
+                }
+            }
+        }
     }
 
     override fun onResume() {

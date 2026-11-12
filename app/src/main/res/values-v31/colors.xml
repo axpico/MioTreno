@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: i colori del telefono (dinamici dallo sfondo), gli stessi ruoli di M3:
+     superficie, primaryContainer, onPrimaryContainer. -->
+<resources>
+    <color name="mt_bg">@android:color/system_neutral1_10</color>
+    <color name="mt_accento">@android:color/system_accent1_600</color>
+    <color name="splash_cerchio">@android:color/system_accent1_100</color>
+    <color name="splash_treno">@android:color/system_accent1_900</color>
+</resources>

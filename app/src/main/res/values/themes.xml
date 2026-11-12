@@ -10,12 +10,12 @@
 
     <style name="Theme.MioTreno" parent="Theme.MioTreno.Base" />
 
-    <!-- Splash animato (core-splashscreen, nativo da Android 12): il treno entra e frena. -->
-    <style name="Theme.MioTreno.Avvio" parent="Theme.SplashScreen">
+    <!-- Splash di sistema (core-splashscreen): fermo e nei colori del telefono. L'animazione
+         la fa IntroAvvio in Compose, che parte identica a questo fotogramma e lo prende in mano. -->
+    <style name="Theme.MioTreno.Avvio" parent="Theme.SplashScreen.IconBackground">
         <item name="windowSplashScreenBackground">@color/mt_bg</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_animato</item>
-        <item name="windowSplashScreenAnimationDuration">700</item>
-        <item name="windowSplashScreenIconBackgroundColor">#DDE1FF</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icona</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_cerchio</item>
         <item name="postSplashScreenTheme">@style/Theme.MioTreno</item>
     </style>
 </resources>

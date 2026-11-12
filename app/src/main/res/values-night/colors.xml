@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Specchio di ScuroTb (Colori.kt). -->
+<!-- Come values/colors.xml, tema scuro. -->
 <resources>
-    <color name="mt_bg">#0B1020</color>
-    <color name="mt_sf">#151B2E</color>
-    <color name="mt_bordo">#1AEEF2FF</color>
-    <color name="mt_accento">#7B96FF</color>
+    <color name="mt_bg">#12131B</color>
+    <color name="mt_accento">#BAC3FF</color>
+    <color name="splash_cerchio">#2448E0</color>
+    <color name="splash_treno">#DDE1FF</color>
     <bool name="mt_barre_chiare">false</bool>
 </resources>
