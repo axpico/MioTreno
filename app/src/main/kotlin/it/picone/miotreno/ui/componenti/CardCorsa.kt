@@ -231,7 +231,7 @@ private fun ColonneArrivo(treno: ProssimoTreno, ora: Long, dettaglio: DettaglioT
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Tessera(if (daSalire) "Il tuo treno è a" else "Prossima fermata", Modifier.weight(1f)) {
-            val fermata = if (daSalire) dettaglio?.fermate?.getOrNull(dettaglio.indiceCorrente) else prossima
+            val fermata = if (daSalire) dettaglio.fermate.getOrNull(dettaglio.indiceCorrente) else prossima
             Text(fermata?.nome ?: "—", style = Testo.corpoMedio, color = tb.tx, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!daSalire && prossima != null) {
                 prossima.orario(dettaglio.ritardoMinuti).previstoMs?.let { Text(it.comeOra(), style = Testo.micro, color = tb.sub) }

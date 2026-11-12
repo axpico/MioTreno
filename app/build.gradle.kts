@@ -85,6 +85,14 @@ dependencies {
     testImplementation(libs.junit)
 }
 
+android.lint {
+    // Aggiornamenti di dipendenze, AGP e targetSdk 37: le versioni nuove di Compose, AndroidX
+    // e AGP richiedono AGP 9.1 + compileSdk 37 (vedi README, Versioni). Finché non si migra
+    // sono avvisi senza azione possibile, e coprivano quelli veri.
+    disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion", "OldTargetApi")
+    warningsAsErrors = true
+}
+
 ktlint {
     version.set("1.3.1")
     android.set(true)

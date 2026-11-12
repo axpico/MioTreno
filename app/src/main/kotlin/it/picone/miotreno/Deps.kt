@@ -1,5 +1,6 @@
 package it.picone.miotreno
 
+import android.annotation.SuppressLint
 import android.content.Context
 import it.picone.miotreno.data.ImpostazioniStore
 import it.picone.miotreno.data.JsonStore
@@ -15,7 +16,11 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Wiring manuale. ponytail: un grafo con sei nodi non giustifica Hilt.
+ *
+ * [app] è l'applicationContext (vedi [init]): vive quanto il processo, nessuna Activity
+ * trattenuta, quindi l'avviso StaticFieldLeak di lint qui non si applica.
  */
+@SuppressLint("StaticFieldLeak")
 object Deps {
     lateinit var app: Context
         private set

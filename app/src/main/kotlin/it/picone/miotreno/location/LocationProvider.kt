@@ -35,7 +35,8 @@ class LocationProvider(private val context: Context) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
 
-    @SuppressLint("MissingPermission")
+    // FUSED_PROVIDER è una costante: letta solo da API 31 (vedi il controllo sotto), sotto non serve
+    @SuppressLint("MissingPermission", "InlinedApi")
     suspend fun posizione(): Location? {
         if (!hasPermission()) return null
         ultima?.let { if (System.currentTimeMillis() - ultimaAlle < TTL_POSIZIONE_MS) return it }

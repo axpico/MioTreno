@@ -90,8 +90,8 @@ fun DettaglioScreen(
     ora: Long,
     onSegui: () -> Unit,
     onNotifiche: (Boolean) -> Unit,
-    onChiediNotifiche: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onChiediNotifiche: () -> Unit = {},
 ) {
     val tb = LocalTb.current
     val treno = state.trenoSelezionato ?: return

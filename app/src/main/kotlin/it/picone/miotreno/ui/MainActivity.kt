@@ -49,8 +49,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
@@ -178,7 +179,7 @@ private fun App(daIntent: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<
         vm.vaiA(Schermata.Home)
     }
 
-    val larghezza = LocalConfiguration.current.screenWidthDp
+    val larghezza = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp().value }
     // da 840 dp il dettaglio sta accanto alla lista invece che in un foglio sopra
     val paneLaterale = larghezza >= 840
     val effetti = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
