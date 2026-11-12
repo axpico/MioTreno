@@ -214,9 +214,9 @@ fun DettaglioScreen(
                     val avvisoCambio = state.impostazioni.avvisoCambioMinuti
                     "Ti avviso alle ${quando.comeOra()}" +
                         (if (cambio != null && avvisoCambio > 0) " e $avvisoCambio′ prima del cambio a $cambio" else "") +
-                        " · widget e notifica seguono " + (if (cambio != null) "questo viaggio" else "questa corsa")
+                        " · la notifica segue " + (if (cambio != null) "questo viaggio" else "questa corsa")
                 } else {
-                    "Notifiche bloccate dal sistema: la corsa resta seguita qui e nel widget"
+                    "Notifiche bloccate dal sistema: la corsa resta seguita qui"
                 }
             } else {
                 null

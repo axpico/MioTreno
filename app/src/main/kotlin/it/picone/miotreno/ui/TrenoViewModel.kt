@@ -26,7 +26,6 @@ import it.picone.miotreno.domain.filtraPerPeriodo
 import it.picone.miotreno.domain.filtraPerStazione
 import it.picone.miotreno.domain.passaPer
 import it.picone.miotreno.domain.ritardiAttesi
-import it.picone.miotreno.widget.aggiornaWidget
 import it.picone.miotreno.work.controllaSeguito
 import it.picone.miotreno.work.ricalcolaNotifica
 import kotlinx.coroutines.CancellationException
@@ -45,7 +44,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 
-enum class Schermata { Onboarding, Home, Dettaglio, Statistiche, Impostazioni }
+enum class Schermata { SceltaDestinazione, Home, Dettaglio, Statistiche, Impostazioni }
 
 /**
  * Stato puro della UI: solo modelli di dominio e primitive, nessun tipo Compose.
@@ -103,8 +102,6 @@ data class UiState(
     val filtroPeriodo: PeriodoFiltro = PeriodoFiltro.Sempre,
     val filtroStazione: String? = null,
     val selettoreFiltroStazione: Boolean = false,
-    /** One-shot: consumato da MainActivity non appena mostra l'interstitial. */
-    val mostraInterstitial: Boolean = false,
 ) {
     /**
      * Come distinguere in elenco i treni di scali gemelli (Garibaldi superficie vs
@@ -149,7 +146,7 @@ class TrenoViewModel : ViewModel() {
 
     private var pollJob: Job? = null
 
-    /** Treno chiesto dal widget, in attesa che la lista sia caricata. */
+    /** Treno chiesto da notifica o tile, in attesa che la lista sia caricata. */
     private var trenoDaAprire: Int? = null
     private var seguiAllApertura = false
 
@@ -178,7 +175,7 @@ class TrenoViewModel : ViewModel() {
                 if (!destinazioneInizializzata) {
                     destinazioneInizializzata = true
                     if (imp.stazioneDestinazione == null) {
-                        _state.update { it.copy(schermata = Schermata.Onboarding, caricamento = false) }
+                        _state.update { it.copy(schermata = Schermata.SceltaDestinazione, caricamento = false) }
                     } else {
                         val regione = runCatching { repo.regioneDestinazione() }.getOrNull()?.let { NOMI_REGIONI[it] }
                         _state.update { it.copy(regioneScioperiNome = regione) }
@@ -217,13 +214,13 @@ class TrenoViewModel : ViewModel() {
     }
 
     /**
-     * La destinazione, se si può cercare: senza destinazione si torna all'onboarding, senza
+     * La destinazione, se si può cercare: senza destinazione si torna alla sua scelta, senza
      * permesso di posizione (e senza stazione scelta a mano) lo si chiede. Altrimenti null.
      */
     private fun destinazionePronta(): String? {
         val imp = _state.value.impostazioni
         val destinazione = imp.stazioneDestinazione ?: run {
-            _state.update { it.copy(caricamento = false, schermata = Schermata.Onboarding) }
+            _state.update { it.copy(caricamento = false, schermata = Schermata.SceltaDestinazione) }
             return null
         }
         if (imp.stazioneManuale == null && !Deps.location.hasPermission()) {
@@ -259,10 +256,9 @@ class TrenoViewModel : ViewModel() {
         return treni
     }
 
-    /** Quello che dipende dalla lista nuova: corsa seguita, widget, badge, percorso, treno chiesto dal widget. */
+    /** Quello che dipende dalla lista nuova: corsa seguita, badge, percorso, treno chiesto da notifica o tile. */
     private suspend fun dopoAggiornamento(treni: List<ProssimoTreno>, seguito: TrenoSeguito?, destinazione: String) {
         aggiornaTracciamentoSeguito(treni, seguito, destinazione)
-        runCatching { aggiornaWidget(Deps.app) }
         verificaPassaggio()
         caricaDettaglioEvidenza(treni, seguito, destinazione)
         trenoDaAprire?.let { numero ->
@@ -297,7 +293,6 @@ class TrenoViewModel : ViewModel() {
             }
             if (esito.arrivato) {
                 Deps.impostazioni.smettiDiSeguire()
-                runCatching { aggiornaWidget(Deps.app, seguito = 0) }
             }
         }
     }
@@ -376,7 +371,6 @@ class TrenoViewModel : ViewModel() {
                 if ((tutti.last() as? DettaglioTreno.Ok)?.arrivato == true) {
                     if (_state.value.seguito?.numeroTreno == treno.numeroTreno) {
                         Deps.impostazioni.smettiDiSeguire()
-                        runCatching { aggiornaWidget(Deps.app, seguito = 0) }
                     }
                     break
                 }
@@ -443,18 +437,6 @@ class TrenoViewModel : ViewModel() {
 
     fun setAvvisiSciopero(v: Boolean) = viewModelScope.launch { Deps.impostazioni.setAvvisiSciopero(v) }
 
-    fun setAdsAbilitate(v: Boolean) = viewModelScope.launch { Deps.impostazioni.setAdsAbilitate(v) }
-
-    fun interstitialMostrato() = _state.update { it.copy(mostraInterstitial = false) }
-
-    /** Cadenza dell'interstitial: mai su polling/notifiche, solo su cambi deliberati di stazione. */
-    private suspend fun contaEProponiInterstitial() {
-        if (!_state.value.impostazioni.adsAbilitate) return
-        if (Deps.impostazioni.incrementaContatoreCambioStazione()) {
-            _state.update { it.copy(mostraInterstitial = true) }
-        }
-    }
-
     fun setConCambi(v: Boolean) = viewModelScope.launch {
         Deps.impostazioni.setConCambi(v)
         aggiorna()
@@ -485,7 +467,6 @@ class TrenoViewModel : ViewModel() {
         _state.update { it.copy(selettoreStazione = false, treni = emptyList()) }
         aggiorna()
         ricalcolaNotifica(Deps.app)
-        contaEProponiInterstitial()
     }
 
     /** Ricerca nazionale live per nome, usata dai selettori di stazione manuale e destinazione. */
@@ -498,7 +479,6 @@ class TrenoViewModel : ViewModel() {
     fun chiudiSelettoreDestinazione() = _state.update { it.copy(selettoreDestinazione = false) }
 
     fun scegliDestinazione(codice: String) = viewModelScope.launch {
-        val primaVolta = _state.value.impostazioni.stazioneDestinazione == null
         val stazione = repo.risolviStazione(codice)
         stazione?.let { Deps.impostazioni.aggiungiRecente(RisultatoStazione(it.nome, it.codice)) }
         val idRegione = repo.regioneDi(codice)
@@ -515,7 +495,6 @@ class TrenoViewModel : ViewModel() {
         }
         aggiorna()
         ricalcolaNotifica(Deps.app)
-        if (!primaVolta) contaEProponiInterstitial()
     }
 
     /**
@@ -558,7 +537,6 @@ class TrenoViewModel : ViewModel() {
         }
         aggiorna()
         ricalcolaNotifica(Deps.app)
-        // niente interstitial: invertire è il gesto quotidiano del ritorno, non una scelta nuova
     }
 
     // ── stazione di passaggio ────────────────────────────────────────────────
@@ -577,10 +555,10 @@ class TrenoViewModel : ViewModel() {
     }
 
     /**
-     * Tap su una riga del widget. La lista potrebbe non essere ancora pronta, quindi la
+     * Tap sulla notifica o sulla tile. La lista potrebbe non essere ancora pronta, quindi la
      * richiesta viene messa in attesa e servita da [aggiorna] appena i treni arrivano.
      */
-    fun apriDaWidget(numeroTreno: Int, segui: Boolean = false) {
+    fun apriDaIntent(numeroTreno: Int, segui: Boolean = false) {
         seguiAllApertura = segui
         val gia = _state.value.treni.firstOrNull { it.numeroTreno == numeroTreno }
         if (gia != null) apriRichiesto(gia) else trenoDaAprire = numeroTreno
@@ -598,7 +576,6 @@ class TrenoViewModel : ViewModel() {
     fun cambiaSeguito(treno: ProssimoTreno) = viewModelScope.launch {
         val smetti = _state.value.seguito?.numeroTreno == treno.numeroTreno
         if (smetti) Deps.impostazioni.smettiDiSeguire() else Deps.impostazioni.segui(treno)
-        runCatching { aggiornaWidget(Deps.app, seguito = if (smetti) 0 else treno.numeroTreno) }
         // la notifica riguarda la corsa seguita: va ricalcolata subito, non fra 15 minuti
         ricalcolaNotifica(Deps.app)
     }

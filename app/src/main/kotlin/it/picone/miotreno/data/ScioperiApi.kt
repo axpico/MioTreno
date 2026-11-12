@@ -11,8 +11,6 @@ import java.time.format.DateTimeFormatter
 const val URL_TRENI_GARANTITI =
     "https://www.trenitalia.com/it/informazioni/treni-garantiti-incasodisciopero.html"
 
-const val URL_BUY_ME_A_COFFEE = "https://buymeacoffee.com/axpico"
-
 /**
  * Feed RSS ufficiale MIT degli scioperi programmati.
  * I campi non sono strutturati: sono etichette dentro <title> e <description>.

@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter
 
 private val ORA = DateTimeFormatter.ofPattern("HH:mm")
 
-/** "14:20": l'unico formato orario dell'app — schermate, widget e notifiche. */
+/** "14:20": l'unico formato orario dell'app — schermate, tile e notifiche. */
 fun Long.comeOra(zona: ZoneId = ZoneId.systemDefault()): String =
     ORA.format(Instant.ofEpochMilli(this).atZone(zona))
 

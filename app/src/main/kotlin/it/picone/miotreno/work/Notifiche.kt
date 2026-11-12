@@ -26,8 +26,12 @@ import it.picone.miotreno.domain.indiceSalita
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.ui.MainActivity
 import it.picone.miotreno.ui.componenti.colore
-import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
-import it.picone.miotreno.widget.EXTRA_SEGUI
+
+/** Extra dell'Intent: quale treno aprire quando si tocca la notifica o la tile. */
+const val EXTRA_NUMERO_TRENO = "numero_treno"
+
+/** Chi apre l'app con questo flag vuole anche seguire quel treno, non solo vederlo. */
+const val EXTRA_SEGUI = "segui_treno"
 
 const val CANALE_TRENI = "treni"
 const val ID_NOTIFICA_TRENO = 1001

@@ -90,7 +90,7 @@ fun SelettoreStazione(
     var cercando by remember { mutableStateOf(false) }
     var erroreRicerca by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
-    // primo uso (onboarding, nessuna stazione recente): l'unica cosa da fare è scrivere
+    // primo uso (nessuna stazione recente): l'unica cosa da fare è scrivere
     if (ricercaLive != null && recenti.isEmpty()) {
         LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     }

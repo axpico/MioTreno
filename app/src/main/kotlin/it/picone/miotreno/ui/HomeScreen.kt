@@ -54,14 +54,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
-import it.picone.miotreno.data.AdsManager
 import it.picone.miotreno.data.URL_TRENI_GARANTITI
 import it.picone.miotreno.domain.ProssimoTreno
 import it.picone.miotreno.domain.Sciopero
@@ -209,7 +203,6 @@ fun HomeScreen(
     onScegliDestinazione: () -> Unit,
     onAttivaCambi: () -> Unit = {},
     /** Altezza del banner sotto la barra di navigazione: la lista deve finire sopra entrambi. */
-    altezzaBanner: Dp = 0.dp,
 ) {
     val tb = LocalTb.current
     val haptic = rememberHaptic()
@@ -234,7 +227,7 @@ fun HomeScreen(
         ) {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA + altezzaBanner),
+                contentPadding = PaddingValues(start = Spazio.pagina, end = Spazio.pagina, bottom = PADDING_BARRA),
             ) {
                 item(key = "header") {
                     Intestazione(state, onScegliStazione, onScegliDestinazione, onScambia)
@@ -242,8 +235,21 @@ fun HomeScreen(
                 state.sciopero?.let { item(key = "sciopero") { BannerSciopero(it, Modifier.padding(top = Spazio.l)) } }
 
                 when {
-                    state.permessoNegato && state.impostazioni.stazioneManuale == null -> item(key = "priming") {
-                        PrimingPosizione(permessoBloccato, onContinua = onChiediPermesso, onScegliStazione = onScegliStazione)
+                    state.permessoNegato && state.impostazioni.stazioneManuale == null -> item(key = "posizione") {
+                        // il dialog di sistema parte da solo; resta solo se negato, con le vie d'uscita
+                        LaunchedEffect(Unit) { if (!permessoBloccato) onChiediPermesso() }
+                        StatoVuoto(
+                            Icone.Posizione, "Posizione non disponibile",
+                            if (permessoBloccato) {
+                                "Permesso negato: riattivalo da Impostazioni › App › MioTreno."
+                            } else {
+                                "Serve per trovare la stazione più vicina."
+                            },
+                            azione = if (permessoBloccato) "Apri le impostazioni" else "Attiva la posizione",
+                            onAzione = onChiediPermesso,
+                            azioneSecondaria = "Scegli la stazione a mano",
+                            onAzioneSecondaria = onScegliStazione,
+                        )
                     }
                     state.errore != null && state.treni.isEmpty() -> item {
                         StatoVuoto(
@@ -312,32 +318,6 @@ fun HomeScreen(
             }
         }
     }
-}
-
-/**
- * Banner adattivo ancorato: larghezza piena del contenuto, altezza scelta da AdMob per quella
- * larghezza (il 320×50 fisso lasciava bande vuote ai lati e rende meno).
- */
-@Composable
-fun rememberAdSize(larghezza: Dp): AdSize {
-    val context = LocalContext.current
-    return remember(larghezza) { AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, larghezza.value.toInt()) }
-}
-
-/** Banner in fondo alla home, *sotto* la barra di navigazione: un annuncio coperto viola le policy AdMob. */
-@Composable
-fun AdMobBanner(adSize: AdSize, modifier: Modifier = Modifier) {
-    AndroidView(
-        modifier = modifier.fillMaxWidth().height(adSize.height.dp),
-        factory = { context ->
-            AdView(context).apply {
-                setAdSize(adSize)
-                adUnitId = AdsManager.AD_UNIT_BANNER_ID
-                loadAd(AdRequest.Builder().build())
-            }
-        },
-        onRelease = { it.destroy() },
-    )
 }
 
 /** Superficie di un gruppo di righe: angoli arrotondati solo agli estremi, niente ombra fra le righe. */

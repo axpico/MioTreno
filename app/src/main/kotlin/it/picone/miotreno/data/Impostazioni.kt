@@ -31,8 +31,6 @@ data class Impostazioni(
     val stazionePassaggio: String? = null,
     /** Stazione di destinazione scelta dall'utente; null = non ancora configurata (primo avvio). */
     val stazioneDestinazione: String? = null,
-    /** Scelta in onboarding (o cambiata dopo in Impostazioni): se false, niente banner/interstitial. */
-    val adsAbilitate: Boolean = true,
     /** "Mostra anche soluzioni con cambi": accanto ai diretti, i viaggi con 1–2 cambi. */
     val conCambi: Boolean = true,
     /** Minuti prima dell'arrivo alla stazione di cambio per l'avviso; 0 = spento. */
@@ -48,8 +46,6 @@ class ImpostazioniStore(private val context: Context) {
     private val stazioneManuale = stringPreferencesKey("stazione_manuale")
     private val stazionePassaggio = stringPreferencesKey("stazione_passaggio")
     private val stazioneDestinazione = stringPreferencesKey("stazione_destinazione")
-    private val adsAbilitate = booleanPreferencesKey("ads_abilitate")
-    private val contatoreCambioStazione = intPreferencesKey("contatore_cambio_stazione")
     private val recentiKey = stringPreferencesKey("stazioni_recenti")
     private val conCambi = booleanPreferencesKey("con_cambi")
     private val avvisoCambio = intPreferencesKey("avviso_cambio_minuti")
@@ -74,7 +70,6 @@ class ImpostazioniStore(private val context: Context) {
             stazioneManuale = p[stazioneManuale]?.takeIf { it.isNotBlank() },
             stazionePassaggio = p[stazionePassaggio]?.takeIf { it.isNotBlank() },
             stazioneDestinazione = p[stazioneDestinazione]?.takeIf { it.isNotBlank() },
-            adsAbilitate = p[adsAbilitate] ?: true,
             conCambi = p[conCambi] ?: true,
             avvisoCambioMinuti = p[avvisoCambio] ?: 5,
             tileAggiunto = p[tileAggiunto] ?: false,
@@ -93,24 +88,9 @@ class ImpostazioniStore(private val context: Context) {
     suspend fun setStazioneDestinazione(codice: String?) = context.dataStore.edit {
         if (codice == null) it.remove(stazioneDestinazione) else it[stazioneDestinazione] = codice
     }.let {}
-    suspend fun setAdsAbilitate(v: Boolean) = context.dataStore.edit { it[adsAbilitate] = v }.let {}
     suspend fun setConCambi(v: Boolean) = context.dataStore.edit { it[conCambi] = v }.let {}
     suspend fun setAvvisoCambio(v: Int) = context.dataStore.edit { it[avvisoCambio] = v }.let {}
     suspend fun setTileAggiunto(v: Boolean) = context.dataStore.edit { it[tileAggiunto] = v }.let {}
-
-    /**
-     * Cadenza dell'interstitial: un contatore persistito, azzerato ogni 4 cambi di
-     * stazione/destinazione. Ritorna true quando è il momento di mostrarlo.
-     */
-    suspend fun incrementaContatoreCambioStazione(): Boolean {
-        var mostra = false
-        context.dataStore.edit {
-            val n = ((it[contatoreCambioStazione] ?: 0) + 1) % 4
-            it[contatoreCambioStazione] = n
-            mostra = n == 0
-        }
-        return mostra
-    }
 
     // ── corsa seguita ─────────────────────────────────────────────────────────
     // Non è una preferenza ma stato transitorio, quindi flusso a parte: `Impostazioni`

@@ -50,8 +50,8 @@ Pubblicata e raggiungibile senza account: **https://axpico.github.io/MioTreno/pr
 
 Incolla quell'URL nel campo "Informativa sulla privacy" di Play Console. Il testo copre:
 posizione approssimativa usata solo sul dispositivo, i due servizi terzi contattati
-(ViaggiaTreno, feed scioperi MIT), i dati che restano in locale, **Google AdMob e il consenso
-UMP in SEE/UK**, e come cancellare tutto.
+(ViaggiaTreno, feed scioperi MIT), i dati che restano in locale, l'assenza di annunci,
+e come cancellare tutto.
 
 Se cambi qualcosa nell'app che tocca i dati trattati, aggiorna `docs/privacy.md` **e** la data
 in cima: l'informativa e' una dichiarazione, non un adempimento da riempire una volta sola.
@@ -114,29 +114,26 @@ un dettaglio burocratico. Risposte pronte, sezione per sezione:
 
 **Accesso all'app** — Tutte le funzionalità sono disponibili senza restrizioni (niente login).
 
-**Annunci** — Sì, l'app contiene annunci (banner AdMob e interstitial occasionale).
+**Annunci** — No, l'app non contiene annunci.
 
 **Classificazione dei contenuti (IARC)** — Categoria "Utilità, produttività, comunicazione o
 altro". Rispondi **No** a violenza, sesso, linguaggio, sostanze, gioco d'azzardo; **No** a
 interazione tra utenti, condivisione di posizione con altri utenti, acquisti digitali.
 Esito atteso: PEGI 3 / Everyone.
 
-**Pubblico di destinazione** — 18+ (o 13+). Non rivolta ai minori: evita gli obblighi della
-policy Famiglie, incompatibili con AdMob personalizzato.
+**Pubblico di destinazione** — 13+. Non rivolta ai minori: evita gli obblighi della policy
+Famiglie.
 
 **Sicurezza dei dati (Data safety)**
-- Raccolta o condivisione di dati utente: **Sì**.
-- Crittografia in transito: **Sì** per AdMob (HTTPS). *Nota*: le richieste a ViaggiaTreno
-  sono HTTP perché l'API non offre HTTPS, ma non trasportano dati personali.
+- Raccolta o condivisione di dati utente: **No** — la posizione è trattata solo sul
+  dispositivo e non lascia il telefono.
+- Crittografia in transito: le richieste a ViaggiaTreno sono HTTP perché l'API non
+  offre HTTPS, ma non trasportano dati personali.
 - Possibilità di chiedere la cancellazione: **Non applicabile** (nessun account, nessun dato
   sui server dello sviluppatore; si cancella tutto disinstallando).
-- **Posizione approssimativa** — raccolta, **non condivisa**, trattata solo sul dispositivo
-  (spunta "elaborati temporaneamente"), **facoltativa**, scopo: Funzionalità dell'app.
-- **ID dispositivo o altri ID** (ID pubblicità) — raccolti e **condivisi** da Google AdMob,
-  scopo: Pubblicità o marketing, Analisi. Facoltativi solo dove il consenso UMP lo prevede:
-  in Play vanno dichiarati come raccolti.
-- **Interazioni con l'app** e **diagnostica** (crash) — raccolti e condivisi da AdMob, scopo:
-  Pubblicità, Analisi.
+- **Posizione approssimativa** — trattata solo sul dispositivo (spunta "elaborati
+  temporaneamente" se la console chiede comunque di dichiararla), **non condivisa**,
+  **facoltativa**, scopo: Funzionalità dell'app.
 - Nessun'altra categoria: niente nome, email, contatti, foto, messaggi, dati finanziari o
   sanitari.
 
@@ -165,9 +162,7 @@ policy Famiglie, incompatibili con AdMob personalizzato.
 
 ## Bloccanti noti
 
-- [ ] **AdMob e' ancora sugli ID di test di Google** (`AndroidManifest.xml`, `data/AdsManager.kt`).
-      Pubblicando cosi' gli annunci si vedono ma non generano nulla: sostituisci App ID e unit ID
-      con i tuoi prima di promuovere in produzione.
+Nessuno.
 
 ## Ancora da fare (solo tu puoi farlo)
 

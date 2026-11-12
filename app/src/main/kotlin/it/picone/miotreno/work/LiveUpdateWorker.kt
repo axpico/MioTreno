@@ -190,7 +190,7 @@ private suspend fun corsaDaSeguire(ctx: Context): Ricerca {
         Log.w(TAG, "tracking: snapshot mancante per ${seguito.numeroTreno}, riprovo al giro successivo")
         return Ricerca.Niente(Giro.Ancora(PASSO_MIN_MS))
     }
-    // "segui" dal widget salva solo numero/data/arrivo: qui lo snapshot si completa, finché la
+    // "segui" dalla notifica salva solo numero/data/arrivo: qui lo snapshot si completa, finché la
     // corsa è ancora nel feed, o dopo la partenza il fallback non avrebbe di che ripartire
     Deps.impostazioni.aggiornaSeguito(dalFeed)
     val aggiornato = Deps.impostazioni.seguito.first() ?: seguito

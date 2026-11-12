@@ -4,7 +4,7 @@ title: Informativa sulla privacy — MioTreno
 
 # Informativa sulla privacy — MioTreno
 
-**Ultimo aggiornamento:** 23 settembre 2026
+**Ultimo aggiornamento:** 12 novembre 2026
 
 MioTreno è un'app Android non ufficiale per consultare orari e ritardi dei treni
 italiani. Non è affiliata né approvata da Trenitalia, RFI o Ferrovie dello Stato
@@ -63,20 +63,7 @@ controllo.
 
 ## Pubblicità
 
-L'app mostra annunci tramite **Google AdMob**. AdMob può raccogliere e trattare dati
-secondo le proprie policy, incluso un identificativo pubblicitario, per erogare e
-misurare gli annunci.
-
-- Informativa di Google: <https://policies.google.com/privacy>
-- Come Google usa i dati delle app partner: <https://policies.google.com/technologies/partner-sites>
-
-Nello Spazio Economico Europeo e nel Regno Unito, prima di mostrare annunci
-personalizzati l'app raccoglie il tuo consenso tramite la piattaforma di messaggistica
-utente di Google (UMP). Puoi modificare la scelta in qualsiasi momento dalle
-impostazioni dell'app.
-
-Puoi limitare la pubblicità personalizzata anche dalle impostazioni di Android
-(*Impostazioni → Google → Annunci*).
+L'app non mostra annunci e non contiene SDK pubblicitari o di analisi.
 
 ## Minori
 
@@ -86,8 +73,7 @@ L'app non è rivolta a minori di 13 anni e non raccoglie consapevolmente i loro 
 
 Poiché lo sviluppatore non conserva alcun dato che ti riguardi, non c'è nulla da
 richiedere, correggere o cancellare presso di lui. Tutti i dati dell'app si
-eliminano cancellandone i dati dalle impostazioni di Android o disinstallandola. Per
-i dati trattati da Google AdMob fai riferimento all'informativa di Google.
+eliminano cancellandone i dati dalle impostazioni di Android o disinstallandola.
 
 ## Modifiche
 

@@ -59,7 +59,7 @@ suspend fun controllaSeguito(
     val (k, d) = trattaInCorso(treni, seguito.trattaCorrente)
     val tratta = treni[k]
     val vista = viaggio.vistaTratta(tratta, d as? DettaglioTreno.Ok)
-    // seguito dal widget: le tratte arrivano dal feed al primo controllo
+    // seguito dalla notifica: le tratte arrivano dal feed al primo controllo
     var aggiornato = seguito.copy(trattaCorrente = k, tratte = seguito.tratte.ifEmpty { viaggio.tratte })
     var cambio: ProssimoCambio? = null
 

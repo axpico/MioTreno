@@ -151,7 +151,7 @@ fun aggiornaRecenti(recenti: List<RisultatoStazione>, scelta: RisultatoStazione,
 /**
  * Ultimo gruppo di stazioni risolto da una posizione vera.
  *
- * Serve al widget e ai worker: in background un fix GPS spesso non c'è (telefono in tasca,
+ * Serve alla tile e ai worker: in background un fix GPS spesso non c'è (telefono in tasca,
  * GPS freddo), e mostrare i treni dell'ultima stazione nota è enormemente più utile che
  * mostrare un errore. La stazione di un pendolare non cambia di minuto in minuto.
  */

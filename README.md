@@ -3,7 +3,7 @@
 App Android che mostra i treni in partenza dalla stazione più vicina e diretti alla
 **destinazione che scegli tu** (qualsiasi stazione italiana, cercata al primo avvio o
 cambiata in qualsiasi momento da Impostazioni), con binario, ritardo, tracking
-fermata-per-fermata, storico locale dei ritardi, avvisi sciopero, widget in home screen e
+fermata-per-fermata, storico locale dei ritardi, avvisi sciopero, riquadro nelle impostazioni rapide e
 notifica pre-partenza.
 
 Dati da [ViaggiaTreno](http://www.viaggiatreno.it) (API non ufficiale RFI), dalle soluzioni
@@ -95,11 +95,10 @@ più vicina se ne perdeva metà, senza alcun errore visibile.
   OkHttp + kotlinx-serialization con parsing difensivo costa meno di un converter factory.
 - **Niente Hilt.** `Deps` con quattro lazy singleton.
 - **Niente play-services-location.** `LocationManager.getCurrentLocation` con cache a 2 minuti.
-- **Un solo file di font.** Inter è variabile: i pesi 400/500/700 arrivano da `FontVariation`,
-  le cifre sono tabulari (`tnum`) così gli orari si allineano in colonna.
-- **Solo tema scuro.** Sfondo #0A0A0F, card vetro con bordo 1dp translucido, accento blu-viola.
-  I colori vivi sono riservati allo stato del treno (verde / ambra / arancio / rosso) e allo
-  sciopero (fucsia, con trama a righe). Vedi `CHANGELOG.md` per il redesign.
+- **Font Atkinson Hyperlegible.** Next per il testo, Mono per orari e numeri, così le cifre si
+  allineano in colonna.
+- **Tema chiaro e scuro** ("Rail blue"), che segue il sistema. I colori vivi sono riservati
+  allo stato del treno (verde / ambra / arancio / rosso) e allo sciopero.
 
 ## Struttura
 
@@ -110,72 +109,44 @@ location/   wrapper LocationManager
 ui/theme/       token del design: colori, tipografia, forme, molle, tema Material sovrascritto
 ui/componenti/  libreria interna: GlassCard, TrainCard, StatusBadge, AnimatedCountdown,
                 TimelineStop, StatChart, Toggle, bottoni, icone line-style, pull-to-refresh
-ui/             ViewModel + UiState, home, dettaglio, statistiche, impostazioni, selettore stazione
-widget/         Glance, tre formati responsive, stesso linguaggio scuro
-work/       sync scioperi (1×/giorno), notifica pre-partenza, refresh widget
+ui/             ViewModel + UiState, home, dettaglio, statistiche, impostazioni, selettore stazione, tile
+work/       sync scioperi (1×/giorno), notifica pre-partenza, tracking della corsa seguita
 ```
 
 ## Stazione di partenza: GPS o scelta a mano
 
 Di default la stazione di partenza è la più vicina al GPS. Dall'header della home o da
 Impostazioni si può fissarne una a mano, cercandola in tutta Italia: da quel momento app,
-widget e notifica la usano tutti (la regola sta in un solo posto,
+tile e notifica la usano tutti (la regola sta in un solo posto,
 `domain/StazioneCorrente.kt` + `data/RisolutoreStazione.kt`) finché non si torna a "Usa GPS".
 
 ## Destinazione
 
 La destinazione (dove vuoi arrivare) si sceglie al primo avvio, cercandola fra tutte le
 stazioni italiane (`ViaggiaTreno` `cercaStazione`), e si può cambiare in qualsiasi momento da
-Impostazioni. Non ha un fallback GPS: senza una destinazione scelta l'app resta sulla schermata
-di primo avvio. Gli avvisi sciopero si aggiornano automaticamente sulla regione della
+Impostazioni. Non ha un fallback GPS: senza una destinazione scelta l'app apre direttamente la
+ricerca della destinazione. Gli avvisi sciopero si aggiornano automaticamente sulla regione della
 destinazione scelta (risolta una volta sola via `regione/{codStazione}`, non a ogni refresh).
 
 ## Seguire una corsa
 
-Dal dettaglio di un treno il pulsante **Segui** lo fissa come corsa del giorno: home, widget e
+Dal dettaglio di un treno il pulsante **Segui** lo fissa come corsa del giorno: home, tile e
 notifica mostrano quello invece del prossimo treno qualsiasi. Non è un preferito ricorrente —
 scade da solo al cambio di giorno o quando il treno ha superato la destinazione scelta
 (`domain/Seguito.kt`), quindi non serve ricordarsi di toglierlo.
 
-Se la corsa seguita oggi non c'è (cancellata, o sei a un'altra stazione), widget e notifica
+Se la corsa seguita oggi non c'è (cancellata, o sei a un'altra stazione), tile e notifica
 ripiegano sul prossimo treno utile **dicendolo**: `treno 24580 non disponibile da qui`. Ripiegare
 in silenzio nasconderebbe il motivo, che è l'unica cosa che l'utente non può dedurre da solo.
 
 ## Seguire un viaggio con cambi
 
-Segui vale per tutto il viaggio (`work/StatoSeguito.kt`, unico controllo per app, widget e
-tracking): home, widget e notifica mostrano la tratta in corso e il prossimo cambio, e si passa
+Segui vale per tutto il viaggio (`work/StatoSeguito.kt`, unico controllo per app, tile e
+tracking): home e notifica mostrano la tratta in corso e il prossimo cambio, e si passa
 alla tratta dopo quando l'`andamentoTreno` conferma l'arrivo alla stazione di cambio. Un avviso
 parte N minuti prima del cambio (Impostazioni → Avviso cambio). Se la coincidenza salta (il
 treno dopo è cancellato o parte prima che arrivi il tuo) il resto del viaggio si ripianifica da
 solo dalla stazione di cambio, e lo si dice con una notifica.
-
-## Pubblicità
-
-L'app integra Google AdMob (banner in fondo alla Home + interstitial ogni 4° cambio di
-stazione/destinazione) e il consenso privacy Google UMP, obbligatorio in UE prima di mostrare
-ads. Tutto è gestito da `data/AdsManager.kt`. L'utente sceglie in onboarding se vuole le ads
-(scelta modificabile in ogni momento da Impostazioni → "Disabilita tutte le pubblicità"); se le
-attiva, il form di consenso UMP appare subito dopo, sempre in onboarding.
-
-**Gli ID attuali sono quelli di test ufficiali Google** (App ID in `AndroidManifest.xml`, unit
-banner/interstitial in `AdsManager.kt`): l'app builda e gira così com'è, ma non va **mai**
-pubblicata con questi ID (violazione delle policy AdMob).
-
-Per andare live:
-
-1. Crea un account [AdMob](https://admob.google.com) e aggiungi l'app (Android, package
-   `it.picone.miotreno`).
-2. Crea due unit pubblicitarie: una Banner e una Interstitial.
-3. Sostituisci i tre ID:
-   - `AndroidManifest.xml` → meta-data `com.google.android.gms.ads.APPLICATION_ID`.
-   - `AdsManager.kt` → costanti `AD_UNIT_BANNER` e `AD_UNIT_INTERSTITIAL`.
-4. Pubblica `app-ads.txt` sul dominio dichiarato nella scheda Play Console, con la riga che AdMob
-   fornisce (`google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0`).
-5. Una volta pubblicata l'app, collega l'app AdMob al listing Play Console (AdMob → App →
-   Collega a Play Console).
-6. Il messaggio di consenso UE (UMP) è configurato di default da Google; per personalizzarlo vai
-   in AdMob → Privacy e messaggi.
 
 ## Limiti noti
 
@@ -194,33 +165,6 @@ Per andare live:
   trattamento speciale: la risoluzione della stazione non fa case-specifici, quindi se scegli
   quella sbagliata l'app non trova automaticamente i treni per la stazione giusta a meno di
   selezionarla a mano.
-- **Un contenitore Glance accetta al massimo 10 figli diretti**: dall'undicesimo in poi
-  spariscono in silenzio, senza errori né avvisi. È il motivo per cui i treni in coda al 2×2
-  venivano calcolati correttamente ma non comparivano. Le parti ripetute stanno in `Column`
-  annidate per restare sotto il limite.
-- I widget usano `SizeMode.Exact`, non `Responsive`: con `Responsive` `LocalSize` restituisce il
-  breakpoint scelto e non la dimensione vera, quindi il contenuto non può adattarsi a come
-  l'utente ridimensiona il widget. Le soglie di larghezza (200dp / 300dp) separano i tre formati;
-  quante righe mostrare si calcola dall'altezza reale. Misurata sull'emulatore: un widget alto
-  due celle riporta 210dp.
-- Nel widget non ci sono animazioni: è `RemoteViews`, quindi il pallino pulsante e l'anello del
-  design restano statici. Per lo stesso motivo la barra di avanzamento del 3×2 non ha il pallino
-  di posizione: Glance ha solo `defaultWeight()` (parti uguali), non pesi frazionari.
-- Dopo aver premuto Segui il widget resta indietro di qualche secondo: `updateAll` rilancia
-  `provideGlance`, che rifà le chiamate di rete. Non è un blocco, ma non è istantaneo.
-- La barra si riempie solo per la corsa **seguita**, perché è l'unica che resta in lista dopo la
-  partenza (`trenoAncoraUtile`). Per gli altri treni, che devono ancora partire, è vuota per
-  definizione e sotto c'è scritto "parte tra N min": era il motivo per cui sembrava rotta. Essendo
-  al massimo una corsa per volta, la barra chiama `andamentoTreno` una volta per refresh del
-  widget (15 min) e mostra la posizione reale (fermate passate su fermate fino a destinazione,
-  `progressoReale()`); se il dato non è disponibile ricade sull'interpolazione fra partenza e
-  arrivo **effettivi** (programmati + ritardo), la stessa usata prima per tutte le corse.
-- Il widget non ha bisogno di un fix GPS per funzionare: l'ultima stazione risolta da una
+- La tile e i worker non hanno bisogno di un fix GPS per funzionare: l'ultima stazione risolta da una
   posizione vera resta in `ultima_stazione.json` e viene riusata quando in background il fix non
-  arriva (telefono in tasca, GPS freddo). Senza questo il widget mostrava un errore per la
-  maggior parte dei suoi aggiornamenti.
-- Il widget è sempre scuro (`ScuroTb` fisso): non legge il tema di sistema né `GlanceTheme`,
-  coerente con la scelta "solo tema scuro" di tutta l'app.
-- Una riga del widget non risponde al tocco se l'app è stata chiusa con `force-stop`: Android
-  blocca i pending intent dei pacchetti in stato "stopped" finché non li si riapre a mano. Non è
-  un bug dell'app, ma va saputo quando si prova da adb.
+  arriva (telefono in tasca, GPS freddo).

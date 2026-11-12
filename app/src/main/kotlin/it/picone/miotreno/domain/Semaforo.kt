@@ -5,7 +5,7 @@ const val SOGLIA_RITARDO_GRAVE = 10
 
 /**
  * Lo stato di un treno ridotto ai cinque colori che l'utente deve riconoscere a colpo d'occhio.
- * È l'unica sorgente per badge, widget e notifica: se la regola cambia, cambia qui.
+ * È l'unica sorgente per badge, tile e notifica: se la regola cambia, cambia qui.
  */
 enum class Semaforo { InOrario, RitardoLieve, RitardoGrave, Irregolare, Cancellato }
 

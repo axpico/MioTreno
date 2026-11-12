@@ -41,13 +41,8 @@ fun pianificaLavoriPeriodici(context: Context) {
             .build(),
     )
 
-    wm.enqueueUniquePeriodicWork(
-        LAVORO_WIDGET,
-        ExistingPeriodicWorkPolicy.KEEP,
-        PeriodicWorkRequestBuilder<WidgetRefreshWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(CON_RETE)
-            .build(),
-    )
+    // il widget non c'è più: ferma il periodico rimasto da installazioni precedenti
+    wm.cancelUniqueWork(LAVORO_WIDGET)
 }
 
 /**

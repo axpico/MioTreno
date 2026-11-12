@@ -3,7 +3,7 @@ package it.picone.miotreno.domain
 /**
  * Il gruppo di stazioni da cui cercare i treni, con la sua origine.
  *
- * Una sola struttura per app, widget e worker: prima ognuno rifaceva GPS → cluster per conto
+ * Una sola struttura per app, tile e worker: prima ognuno rifaceva GPS → cluster per conto
  * suo, e l'override manuale avrebbe dovuto essere replicato in tre posti.
  */
 data class StazioneCorrente(

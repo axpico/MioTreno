@@ -81,10 +81,6 @@ fun SettingsScreen(
     onApriImpostazioniSistema: () -> Unit = {},
     /** null sotto API 33: niente prompt nativo, solo istruzioni. */
     onAggiungiTile: (() -> Unit)? = null,
-    onAdsAbilitate: (Boolean) -> Unit = {},
-    mostraGestioneConsenso: Boolean = false,
-    onGestisciConsenso: () -> Unit = {},
-    onSupportaSviluppatore: () -> Unit = {},
 ) {
     val tb = LocalTb.current
     val haptic = rememberHaptic()
@@ -195,21 +191,6 @@ fun SettingsScreen(
                     onClick = { haptic.conferma(); onAggiungiTile?.invoke() },
                     abilitata = onAggiungiTile != null,
                 )
-            }
-        }
-
-        item {
-            Sezione("Pubblicità e supporto") {
-                RigaToggle(
-                    Icone.Treno, "Pubblicità", "Un banner nella lista treni: aiuta a tenere l'app gratuita",
-                    imp.adsAbilitate, onAdsAbilitate,
-                )
-                if (imp.adsAbilitate && mostraGestioneConsenso) {
-                    Divisore()
-                    RigaVoce(Icone.Impostazioni, "Consenso privacy", "Gestisci le preferenze", onClick = onGestisciConsenso)
-                }
-                Divisore()
-                RigaVoce(Icone.Cuore, "Supporta lo sviluppatore", "Offrimi un caffè ☕", onClick = onSupportaSviluppatore)
             }
         }
 

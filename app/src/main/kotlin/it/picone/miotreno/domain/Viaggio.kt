@@ -122,7 +122,7 @@ fun filtraDominati(viaggi: List<ProssimoTreno>, seguito: Int? = null): List<Pros
 }
 
 /**
- * Un solo viaggio per numero del primo treno: tutta l'app (seguito, widget, notifiche) identifica
+ * Un solo viaggio per numero del primo treno: tutta l'app (seguito, tile, notifiche) identifica
  * un viaggio così. Fra due con lo stesso primo treno resta quello con meno cambi, poi il più rapido.
  */
 fun unoPerPrimoTreno(viaggi: List<ProssimoTreno>): List<ProssimoTreno> =
@@ -220,7 +220,7 @@ fun statoCambio(margineMinuti: Int?): StatoCambio = when {
 }
 
 /**
- * Il prossimo cambio della corsa seguita, per card, widget e notifica: [stazione] e [dettaglio]
+ * Il prossimo cambio della corsa seguita, per card e notifica: [stazione] e [dettaglio]
  * separati, così chi ha già il nome della stazione in vista mostra solo il resto.
  */
 data class ProssimoCambio(

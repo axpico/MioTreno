@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Mette insieme impostazioni, GPS e cache per dire da quale stazione cercare i treni.
- * Usato da ViewModel, widget e worker: la logica sta qui una volta sola.
+ * Usato da ViewModel, tile e worker: la logica sta qui una volta sola.
  */
 class RisolutoreStazione(
     private val repo: TrenoRepository,
@@ -16,7 +16,7 @@ class RisolutoreStazione(
     private val impostazioni: ImpostazioniStore,
 ) {
     /**
-     * [usaUltimaNota] = true in background (widget, worker), dove un fix GPS spesso non arriva
+     * [usaUltimaNota] = true in background (tile, worker), dove un fix GPS spesso non arriva
      * e l'ultima stazione vera è molto più utile di un errore. In primo piano resta false:
      * l'utente vede "posizione non disponibile" e può risolvere.
      */

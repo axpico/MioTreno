@@ -51,26 +51,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.picone.miotreno.Deps
-import it.picone.miotreno.data.AdsManager
-import it.picone.miotreno.data.URL_BUY_ME_A_COFFEE
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.MioTrenoTheme
 import it.picone.miotreno.ui.theme.Molla
-import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
-import it.picone.miotreno.widget.EXTRA_SEGUI
+import it.picone.miotreno.work.EXTRA_NUMERO_TRENO
+import it.picone.miotreno.work.EXTRA_SEGUI
 import it.picone.miotreno.work.pianificaLavoriPeriodici
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,17 +90,16 @@ private val ALTEZZA_VELO = 96.dp
 
 class MainActivity : ComponentActivity() {
     /**
-     * Numero treno arrivato dal widget. È uno stato dell'activity e non un parametro perché
-     * `launchMode` è `singleTask`: al secondo tap sul widget non si passa da `onCreate`,
+     * Numero treno arrivato da notifica o tile. È uno stato dell'activity e non un parametro perché
+     * `launchMode` è `singleTask`: al secondo tap non si passa da `onCreate`,
      * arriva solo `onNewIntent`.
      */
-    private val dalWidget = MutableStateFlow<Int?>(null)
+    private val daIntent = MutableStateFlow<Int?>(null)
     private val seguiSubito = MutableStateFlow(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Deps.init(this)
-        AdsManager.inizializzaSeConsentito(this)
         pianificaLavoriPeriodici(this)
         // Le barre seguono il tema di sistema; il contenuto resta edge-to-edge in entrambi i casi.
         enableEdgeToEdge(
@@ -117,7 +111,7 @@ class MainActivity : ComponentActivity() {
             ),
         )
         leggiExtra(intent)
-        setContent { MioTrenoTheme { App(dalWidget, seguiSubito) } }
+        setContent { MioTrenoTheme { App(daIntent, seguiSubito) } }
     }
 
     override fun onResume() {
@@ -136,7 +130,7 @@ class MainActivity : ComponentActivity() {
         intent?.getIntExtra(EXTRA_NUMERO_TRENO, -1)
             ?.takeIf { it > 0 }
             ?.let {
-                dalWidget.value = it
+                daIntent.value = it
                 seguiSubito.value = intent.getBooleanExtra(EXTRA_SEGUI, false)
             }
     }
@@ -144,17 +138,17 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<Boolean>) {
+private fun App(daIntent: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow<Boolean>) {
     val vm: TrenoViewModel = viewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     val ora by vm.ora.collectAsStateWithLifecycle()
     val tb = LocalTb.current
 
     LaunchedEffect(Unit) {
-        dalWidget.collect { numero ->
+        daIntent.collect { numero ->
             if (numero != null) {
-                vm.apriDaWidget(numero, segui = seguiSubito.value)
-                dalWidget.value = null
+                vm.apriDaIntent(numero, segui = seguiSubito.value)
+                daIntent.value = null
                 seguiSubito.value = false
             }
         }
@@ -162,27 +156,11 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
 
     AggiornamentoAutomatico(vm)
     val permessi = rememberPermessi(vm)
-    val activity = LocalContext.current as Activity
-
-    // interstitial: one-shot, consumato appena mostrato per non ripartire su rotazione/ricomposizione
-    LaunchedEffect(state.mostraInterstitial) {
-        if (state.mostraInterstitial) AdsManager.mostraInterstitial(activity) { vm.interstitialMostrato() }
-    }
-
-    // Utenti già installati prima di questa versione (destinazione già configurata) non passano
-    // mai dall'onboarding, quindi il consenso UMP non verrebbe mai richiesto: lo richiediamo qui
-    // per chiunque abbia le ads attive e non sia in onboarding (dove ci pensa già quello step).
-    // Idempotente: se il consenso è già stato ottenuto o non serve, non mostra alcun form.
-    LaunchedEffect(state.schermata != Schermata.Onboarding, state.impostazioni.adsAbilitate) {
-        if (state.schermata != Schermata.Onboarding && state.impostazioni.adsAbilitate) {
-            AdsManager.richiediConsenso(activity)
-        }
-    }
 
     // ── back predittivo: il gesto guida scala e opacità del dettaglio, poi la shared element
     //    fa il resto. Da API 36 KEYCODE_BACK/onBackPressed non arrivano più: solo questa via.
     var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler(enabled = state.schermata != Schermata.Home && state.schermata != Schermata.Onboarding) { eventi ->
+    PredictiveBackHandler(enabled = state.schermata != Schermata.Home && state.schermata != Schermata.SceltaDestinazione) { eventi ->
         try {
             eventi.collect { backProgress = if (Molla.riduci) 0f else it.progress }
             if (state.schermata == Schermata.Dettaglio) vm.indietro() else vm.vaiA(Schermata.Home)
@@ -193,10 +171,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
         }
     }
 
-    val barraVisibile = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.Onboarding
-    val conBanner = state.schermata == Schermata.Home && state.impostazioni.adsAbilitate && AdsManager.canRequestAds()
-    val adSize = rememberAdSize(LocalConfiguration.current.screenWidthDp.dp.coerceAtMost(LARGHEZZA_MAX))
-    val altezzaBanner = if (conBanner) adSize.height.dp else 0.dp
+    val barraVisibile = state.schermata != Schermata.Dettaglio && state.schermata != Schermata.SceltaDestinazione
 
     Box(Modifier.fillMaxSize().background(tb.bg)) {
         SharedTransitionLayout(
@@ -219,7 +194,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                 label = "schermata",
             ) { schermata ->
                 SchermataCorrente(
-                    schermata, state, ora, vm, permessi, altezzaBanner,
+                    schermata, state, ora, vm, permessi,
                     sharedScope = this@SharedTransitionLayout, animatedScope = this@AnimatedContent,
                 )
             }
@@ -233,7 +208,7 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
         )
 
         // Velo sotto la barra flottante: senza, le righe si leggevano nello spazio attorno alla
-        // pillola. Il banner sta sotto barra e velo, quindi non viene mai coperto.
+        // pillola.
         AnimatedVisibility(
             visible = barraVisibile,
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -242,13 +217,13 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
             Box(
                 Modifier.fillMaxWidth()
                     .windowInsetsBottomHeight(
-                        WindowInsets.navigationBars.add(WindowInsets(bottom = ALTEZZA_VELO + altezzaBanner)),
+                        WindowInsets.navigationBars.add(WindowInsets(bottom = ALTEZZA_VELO)),
                     )
                     .background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to tb.bg.copy(alpha = 0.9f), 1f to tb.bg)),
             )
         }
 
-        // Barra, poi banner, poi la gesture bar: impilati, così l'annuncio non finisce mai sotto la pillola.
+        // Barra, poi la gesture bar: impilate, così la pillola non finisce sotto la gesture bar.
         Column(
             Modifier.align(Alignment.BottomCenter).widthIn(max = LARGHEZZA_MAX),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -259,7 +234,6 @@ private fun App(dalWidget: MutableStateFlow<Int?>, seguiSubito: MutableStateFlow
                 enter = slideInVertically(Molla.ui()) { it } + fadeIn(),
                 exit = slideOutVertically(Molla.piatta()) { it } + fadeOut(),
             ) { BarraNav(state.schermata, vm::vaiA) }
-            if (conBanner) AdMobBanner(adSize, Modifier.background(tb.bg))
             if (barraVisibile) Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
 
@@ -361,18 +335,22 @@ private fun SchermataCorrente(
     ora: Long,
     vm: TrenoViewModel,
     permessi: Permessi,
-    altezzaBanner: Dp,
     sharedScope: SharedTransitionScope,
     animatedScope: AnimatedContentScope,
 ) {
     val context = LocalContext.current
     val activity = context as Activity
     when (schermata) {
-        Schermata.Onboarding -> OnboardingScreen(
-            onCerca = vm::cercaStazioni,
-            onScegli = vm::scegliDestinazione,
-            onAdsScelte = vm::setAdsAbilitate,
-            onRichiediConsenso = { AdsManager.richiediConsenso(activity) },
+        // primo avvio: senza destinazione non c'è nulla da mostrare, quindi subito la ricerca;
+        // chiuderla esce dall'app invece di lasciare uno sfondo vuoto
+        Schermata.SceltaDestinazione -> SelettoreStazione(
+            correnteCodice = null,
+            onScegli = { codice -> codice?.let(vm::scegliDestinazione) },
+            onChiudi = activity::finish,
+            titolo = "Dove vuoi arrivare?",
+            overline = "Destinazione",
+            mostraOpzioneVuota = false,
+            ricercaLive = vm::cercaStazioni,
         )
         Schermata.Home -> HomeScreen(
             state = state, ora = ora,
@@ -387,7 +365,6 @@ private fun SchermataCorrente(
             onScambia = vm::scambiaOrigineDestinazione,
             onScegliDestinazione = vm::apriSelettoreDestinazione,
             onAttivaCambi = { vm.setConCambi(true) },
-            altezzaBanner = altezzaBanner,
         )
         Schermata.Dettaglio -> DettaglioScreen(
             state = state, ora = ora,
@@ -428,12 +405,6 @@ private fun SchermataCorrente(
                 { proponiTile(context) { vm.setTileAggiunto(true) } }
             } else {
                 null
-            },
-            onAdsAbilitate = vm::setAdsAbilitate,
-            mostraGestioneConsenso = AdsManager.richiedeGestioneConsenso(),
-            onGestisciConsenso = { AdsManager.apriGestioneConsenso(activity) },
-            onSupportaSviluppatore = {
-                context.startActivity(Intent(Intent.ACTION_VIEW, URL_BUY_ME_A_COFFEE.toUri()))
             },
         )
     }

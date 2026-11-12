@@ -15,7 +15,7 @@ import androidx.core.content.getSystemService
 import it.picone.miotreno.Deps
 import it.picone.miotreno.R
 import it.picone.miotreno.domain.ProssimoTreno
-import it.picone.miotreno.widget.EXTRA_NUMERO_TRENO
+import it.picone.miotreno.work.EXTRA_NUMERO_TRENO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
