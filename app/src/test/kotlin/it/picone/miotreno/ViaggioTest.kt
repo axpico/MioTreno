@@ -89,6 +89,22 @@ class ViaggioTest {
     }
 
     @Test
+    fun `un diretto non si nasconde mai, anche se un veloce lo supera`() {
+        // regionale che parte prima e arriva dopo un veloce: sul tabellone c'è, in app deve esserci
+        val lento = viaggio(10235, 0, 39)
+        val veloce = viaggio(2535, 5, 38)
+        assertEquals(2, filtraDominati(listOf(lento, veloce)).size)
+    }
+
+    @Test
+    fun `il confronto usa il ritardo, non solo la tabella`() {
+        // in tabella il cambio "migliore" batte quello delle 0, ma con 20' di ritardo arriva dopo
+        val primo = viaggio(1, 0, 60, conCambio.tratte)
+        val inRitardo = viaggio(2, 5, 50, conCambio.tratte, ritardo = 20)
+        assertEquals(2, filtraDominati(listOf(primo, inRitardo)).size)
+    }
+
+    @Test
     fun `stesso primo treno, resta il viaggio con meno cambi`() {
         val diretto = viaggio(1, 0, 70)
         assertEquals(listOf(diretto), unoPerPrimoTreno(listOf(conCambio, diretto)))

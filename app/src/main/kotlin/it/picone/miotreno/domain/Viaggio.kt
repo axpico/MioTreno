@@ -103,22 +103,29 @@ val ProssimoTreno.coincidenzaARischio: Boolean
     get() = ritardoMinuti > 0 && (margineCambioMinuti() ?: Int.MAX_VALUE) < MARGINE_RISCHIO_MIN
 
 /**
- * Toglie le soluzioni chiaramente peggiori: una è nascosta se un'altra parte non prima, arriva
- * non dopo e cambia non di più (e non è identica). Un treno cancellato non nasconde niente, e
- * la corsa seguita non si nasconde mai.
+ * Toglie le soluzioni con cambi chiaramente peggiori: una è nascosta se un'altra parte non
+ * prima, arriva non dopo e cambia non di più (e non è identica). Un treno cancellato non
+ * nasconde niente, e la corsa seguita non si nasconde mai.
  *
- * ponytail: confronto sugli orari di tabella, O(n²) su una lista di poche decine di voci.
+ * Un treno diretto non si nasconde mai: è sul tabellone della stazione, e se manca in app
+ * sembra un treno perso (un regionale superato da un veloce è comunque un treno che puoi
+ * prendere). Il confronto usa gli orari previsti, tabella + ritardo: sull'orario di tabella
+ * un viaggio "migliore" in ritardo di 20 minuti continuava a nascondere quello buono.
+ *
+ * ponytail: O(n²) su una lista di poche decine di voci.
  */
 fun filtraDominati(viaggi: List<ProssimoTreno>, seguito: Int? = null): List<ProssimoTreno> {
+    fun ProssimoTreno.partenzaPrevista() = orarioPartenzaMs + ritardoMinuti * 60_000L
+    fun ProssimoTreno.arrivoPrevisto() = orarioArrivoDestinazioneMs?.plus(ritardoMinuti * 60_000L)
     fun ProssimoTreno.domina(altro: ProssimoTreno): Boolean {
-        val arrivo = orarioArrivoDestinazioneMs ?: return false
-        val arrivoAltro = altro.orarioArrivoDestinazioneMs ?: return false
+        val arrivo = arrivoPrevisto() ?: return false
+        val arrivoAltro = altro.arrivoPrevisto() ?: return false
         if (cancellato) return false
-        val nonPeggio = orarioPartenzaMs >= altro.orarioPartenzaMs && arrivo <= arrivoAltro && cambi <= altro.cambi
-        val meglio = orarioPartenzaMs > altro.orarioPartenzaMs || arrivo < arrivoAltro || cambi < altro.cambi
+        val nonPeggio = partenzaPrevista() >= altro.partenzaPrevista() && arrivo <= arrivoAltro && cambi <= altro.cambi
+        val meglio = partenzaPrevista() > altro.partenzaPrevista() || arrivo < arrivoAltro || cambi < altro.cambi
         return nonPeggio && meglio
     }
-    return viaggi.filter { v -> v.numeroTreno == seguito || viaggi.none { it.domina(v) } }
+    return viaggi.filter { v -> v.cambi == 0 || v.numeroTreno == seguito || viaggi.none { it.domina(v) } }
 }
 
 /**
