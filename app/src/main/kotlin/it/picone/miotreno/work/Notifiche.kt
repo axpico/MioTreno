@@ -26,7 +26,6 @@ import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.indiceSalita
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.ui.MainActivity
-import it.picone.miotreno.ui.componenti.colore
 
 /** Extra dell'Intent: quale treno aprire quando si tocca la notifica o la tile. */
 const val EXTRA_NUMERO_TRENO = "numero_treno"
@@ -160,7 +159,6 @@ private fun builderTreno(
 
     return NotificationCompat.Builder(context, CANALE_TRENI)
         .setSmallIcon(R.drawable.ic_notifica)
-        .setColor(COLORE_NOTIFICA)
         .setContentTitle(titolo)
         .setContentText(righe.first())
         .setStyle(NotificationCompat.InboxStyle().also { st -> righe.forEach(st::addLine) })
@@ -276,9 +274,7 @@ private fun costruisciLiveUpdate(
 ): Notification {
     creaCanale(context)
 
-    // Colore del marchio, non del semaforo: lo stato è già scritto nel testo ("+4′", "canc."),
-    // e un verde per "in orario" nascondeva del tutto il blu dell'app.
-    val colore = COLORE_NOTIFICA
+    // Nessun colore impostato: il sistema usa quello del telefono (colore dinamico dallo sfondo).
     // il trenino scorre sulla barra fino alla fermata corrente
     val stile = NotificationCompat.ProgressStyle().setStyledByProgress(true)
         .setProgressTrackerIcon(IconCompat.createWithResource(context, R.drawable.ic_notifica))
@@ -286,10 +282,10 @@ private fun costruisciLiveUpdate(
     if (p == null) {
         stile.setProgressIndeterminate(true)
     } else {
-        stile.setProgressSegments((0 until p.tratte).map { NotificationCompat.ProgressStyle.Segment(1).setColor(colore) })
+        stile.setProgressSegments((0 until p.tratte).map { NotificationCompat.ProgressStyle.Segment(1) })
             .setProgress(p.fatte)
         // il punto marca la fermata corrente; a posizione 0 il sistema lo scarta comunque
-        if (p.fatte > 0) stile.addProgressPoint(NotificationCompat.ProgressStyle.Point(p.fatte).setColor(colore))
+        if (p.fatte > 0) stile.addProgressPoint(NotificationCompat.ProgressStyle.Point(p.fatte))
     }
 
     val chip = testoChip(treno.cancellato, minuti, p?.let { it.tratte - it.fatte })
@@ -297,7 +293,6 @@ private fun costruisciLiveUpdate(
         .setStyle(stile)
         .setSubText(p?.sottotitolo)
         .setShortCriticalText(chip)
-        .setColor(colore)
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .setAutoCancel(false)
@@ -328,7 +323,6 @@ private fun costruisciTrackingTreno(
     val p = progressoTratte(dettaglio, codiciPartenza, stazione, destinazioneNome)
     val b = builderTreno(context, treno, minuti, stazione, sciopero, destinazioneNome, conAzioneSegui = false, rigaCambio = rigaCambio)
         .setSubText(p?.sottotitolo)
-        .setColor(COLORE_NOTIFICA)
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .setAutoCancel(false)
@@ -379,7 +373,6 @@ fun mostraAvvisoViaggio(context: Context, titolo: String, testo: String) {
             ID_NOTIFICA_CAMBIO,
             NotificationCompat.Builder(context, CANALE_TRENI)
                 .setSmallIcon(R.drawable.ic_notifica)
-                .setColor(COLORE_NOTIFICA)
                 .setContentTitle(titolo)
                 .setContentText(testo)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(testo))
@@ -397,9 +390,6 @@ fun rimuoviNotificaTreno(context: Context) =
 fun rimuoviNotificaTracking(context: Context) =
     NotificationManagerCompat.from(context).cancel(ID_NOTIFICA_TRACKING)
 
-/** Il seme rail blue dell'app (schema M3 in `SchemaSeme.kt`). */
-private val COLORE_NOTIFICA = 0xFF2448E0.toInt()
-
 /**
  * Placeholder per `startForeground()`: un servizio in foreground deve mostrare una notifica
  * nell'istante in cui parte, prima che [LiveTrackingService] abbia già fatto il primo giro e
@@ -409,7 +399,6 @@ fun notificaTrackingIniziale(context: Context): Notification {
     creaCanale(context)
     return NotificationCompat.Builder(context, CANALE_TRENI)
         .setSmallIcon(R.drawable.ic_notifica)
-        .setColor(COLORE_NOTIFICA)
         .setContentTitle("Seguo la tua corsa…")
         .setOngoing(true)
         .setOnlyAlertOnce(true)
