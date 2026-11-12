@@ -400,6 +400,13 @@ private fun BarraPercorso(
                 )
             }
         },
+        // a sinistra la partenza, a destra l'inversione: due bottoni gemelli ai lati del titolo
+        navigationIcon = {
+            BottoneIcona(
+                Icone.Posizione, "Cambia stazione di partenza",
+                onClick = onScegliStazione, modifier = Modifier.padding(start = Spazio.s),
+            )
+        },
         actions = {
             BottoneIcona(
                 Icone.Cambio, "Inverti partenza e destinazione",

@@ -85,14 +85,14 @@ internal fun CardCorsa(
         padding = 20.dp,
     ) {
         if (statoCorsa != null) RigaStato(statoCorsa, cambio?.dettaglio?.takeIf { !cambio.persa }, Modifier.padding(bottom = 16.dp))
-        // treno a sinistra, stato a destra, sempre sulla stessa riga; le etichette in più sotto,
-        // centrate: andando a capo nella stessa riga spingevano il badge a sinistra, fuori asse
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // treno e stato insieme, al centro, sotto il titolo: la card si legge tutta sull'asse
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        ) {
             Icon(iconaCategoria(treno.categoria), contentDescription = null, tint = tb.sub, modifier = Modifier.size(18.dp))
-            Text(
-                "${treno.categoria} ${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.sub,
-                modifier = Modifier.padding(start = 6.dp).weight(1f),
-            )
+            Text("${treno.categoria} ${treno.numeroTreno}", style = Testo.etichettaBold, color = tb.sub)
             StatusBadge(semaforo, treno.etichettaStato(), compatto = true)
         }
         // dettagli del treno come testo sotto il numero, non come pillole: l'unica pillola
@@ -105,8 +105,8 @@ internal fun CardCorsa(
         if (dettagli.isNotEmpty()) {
             Text(
                 dettagli.joinToString(" · "), style = Testo.etichetta, color = tb.sub,
-                maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 24.dp, top = 2.dp),
+                maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
         }
 

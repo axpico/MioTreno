@@ -195,11 +195,12 @@ private fun Riepilogo(stat: Statistiche, coloreRitardo: Color) {
     LaunchedEffect(quota) { entrata.animateTo(quota, Molla.ui()) }
 
     GlassCard(Modifier.fillMaxWidth(), rilievo = true, padding = 24.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spazio.xl)) {
+        // anello al centro, giudizio sotto: simmetrico come il resto della pagina
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.clearAndSetSemantics { }) {
                 CircularWavyProgressIndicator(
                     progress = { entrata.value },
-                    modifier = Modifier.size(128.dp),
+                    modifier = Modifier.size(148.dp),
                     color = coloreQuota,
                     trackColor = coloreQuota.copy(alpha = 0.16f),
                 )
@@ -209,9 +210,10 @@ private fun Riepilogo(stat: Statistiche, coloreRitardo: Color) {
                 }
             }
             Column(
-                Modifier.weight(1f).semantics(mergeDescendants = true) {
+                Modifier.padding(top = Spazio.l).semantics(mergeDescendants = true) {
                     contentDescription = "Puntualità ${(quota * 100).toInt()} per cento: ${giudizio(stat.quotaEntro5Min)}"
                 },
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Overline("Puntualità")
                 Text(giudizio(stat.quotaEntro5Min), style = Testo.sottotitolo, color = tb.tx)
@@ -251,23 +253,23 @@ private fun Andamento(andamento: List<Double>) {
     val tb = LocalTb.current
     val t = tendenza(andamento)
     GlassCard(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Overline("Andamento")
-                Text(
-                    when {
-                        t == null -> "Stabile"
-                        t < 0 -> "In miglioramento"
-                        else -> "In peggioramento"
-                    },
-                    style = Testo.sottotitolo, color = tb.tx,
-                )
-            }
+        // tutto sull'asse: titolo, verdetto e variazione centrati, la linea sotto a tutta larghezza
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Overline("Andamento")
+            Text(
+                when {
+                    t == null -> "Stabile"
+                    t < 0 -> "In miglioramento"
+                    else -> "In peggioramento"
+                },
+                style = Testo.sottotitolo, color = tb.tx,
+            )
             if (t != null) {
                 // meno ritardo è buono: verde quando scende
                 val c = if (t < 0) tb.verde else tb.arancio
                 Row(
-                    Modifier.clip(CircleShape).background(c.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 6.dp),
+                    Modifier.padding(top = 6.dp).clip(CircleShape).background(c.copy(alpha = 0.14f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(if (t < 0) Icone.Frecciagiu else Icone.Frecciasu, null, tint = c, modifier = Modifier.size(18.dp))
@@ -278,7 +280,8 @@ private fun Andamento(andamento: List<Double>) {
         Sparkline(andamento, Modifier.padding(top = Spazio.m), colore = MaterialTheme.colorScheme.primary)
         Text(
             "Ritardo medio, ultimi ${andamento.size} giorni con dati",
-            style = Testo.micro, color = tb.ter, modifier = Modifier.padding(top = 4.dp),
+            style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
         )
     }
 }
@@ -289,7 +292,7 @@ private fun Distribuzione(stat: Statistiche, colore: (Double) -> Color) {
     var vista by rememberSaveable { mutableIntStateOf(0) }
     val voci = if (vista == 0) stat.perGiorno else stat.perFascia
     GlassCard(Modifier.fillMaxWidth()) {
-        Overline("Quando c'è più ritardo")
+        Overline("Quando c'è più ritardo", Modifier.fillMaxWidth(), centrato = true)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = Spazio.m, bottom = Spazio.l)) {
             listOf("Giorno", "Fascia oraria").forEachIndexed { i, nome ->
                 SegmentedButton(
@@ -301,8 +304,8 @@ private fun Distribuzione(stat: Statistiche, colore: (Double) -> Color) {
         voci.filter { it.rilevazioni > 0 }.maxByOrNull { it.valore }?.takeIf { it.valore > 0 }?.let { peggiore ->
             Text(
                 "Peggiore: ${peggiore.etichetta} · ${peggiore.valore.minuti()} in media",
-                style = Testo.etichettaBold, color = colore(peggiore.valore),
-                modifier = Modifier.padding(bottom = Spazio.m),
+                style = Testo.etichettaBold, color = colore(peggiore.valore), textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = Spazio.m),
             )
         }
         StatChart(voci, altezza = if (vista == 0) 104.dp else 88.dp, colore = colore, formato = { it.minuti() })

@@ -226,27 +226,26 @@ fun SettingsScreen(
 private fun Informazioni() {
     val tb = LocalTb.current
     Column(
-        Modifier.fillMaxWidth().clip(Forme.card).background(MaterialTheme.colorScheme.surfaceContainer).padding(Spazio.l),
+        Modifier.fillMaxWidth().clip(Forme.card).background(MaterialTheme.colorScheme.surfaceContainer).padding(Spazio.xl),
         verticalArrangement = Arrangement.spacedBy(Spazio.m),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spazio.m)) {
-            Box(
-                Modifier.size(48.dp).clip(CircleShape).background(colorResource(R.color.splash_cerchio)),
-                contentAlignment = Alignment.Center,
-            ) { Image(painterResource(R.drawable.splash_icona), null, Modifier.size(72.dp)) }
-            Column {
-                Text("MioTreno", style = Testo.sottotitolo, color = tb.tx)
-                Text("Versione ${BuildConfig.VERSION_NAME}", style = Testo.etichetta, color = tb.sub)
-            }
+        Box(
+            Modifier.size(64.dp).clip(CircleShape).background(colorResource(R.color.splash_cerchio)),
+            contentAlignment = Alignment.Center,
+        ) { Image(painterResource(R.drawable.splash_icona), null, Modifier.size(96.dp)) }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("MioTreno", style = Testo.sottotitolo, color = tb.tx)
+            Text("Versione ${BuildConfig.VERSION_NAME}", style = Testo.etichetta, color = tb.sub)
         }
         // Va detto chiaramente e dentro l'app: usa un feed pubblico di RFI ma non ha nulla a che vedere con loro.
         Text(
             "App non ufficiale, non affiliata né approvata da Trenitalia, RFI o Ferrovie dello Stato Italiane.",
-            style = Testo.etichetta, color = tb.sub,
+            style = Testo.etichetta, color = tb.sub, textAlign = TextAlign.Center,
         )
         Text(
             "Orari da ViaggiaTreno, cambi da LeFrecce, scioperi dal MIT. Lo storico dei ritardi resta solo su questo telefono.",
-            style = Testo.micro, color = tb.ter,
+            style = Testo.micro, color = tb.ter, textAlign = TextAlign.Center,
         )
     }
 }
@@ -341,9 +340,12 @@ private fun RigaToggle(icona: ImageVector, nome: String, desc: String, attivo: B
 /** Riga libera (titolo + controllo sotto) nello stesso stile delle altre. */
 @Composable
 private fun RigaBlocco(titolo: String, sotto: String? = null, content: @Composable () -> Unit) {
-    Column(Modifier.tessera().padding(Spazio.l)) {
-        Text(titolo, style = Testo.corpoMedio, color = MaterialTheme.colorScheme.onSurface)
-        sotto?.let { Text(it, style = Testo.etichetta, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    // titolo centrato sopra i bottoni segmentati, che occupano tutta la larghezza
+    Column(Modifier.tessera().padding(Spazio.l), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(titolo, style = Testo.corpoMedio, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
+        sotto?.let {
+            Text(it, style = Testo.etichetta, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
         content()
     }
 }
