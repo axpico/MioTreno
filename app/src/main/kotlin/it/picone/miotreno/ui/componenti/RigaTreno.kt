@@ -42,6 +42,7 @@ import it.picone.miotreno.domain.orario
 import it.picone.miotreno.domain.orarioProiettato
 import it.picone.miotreno.domain.primoCambio
 import it.picone.miotreno.domain.semaforo
+import it.picone.miotreno.ui.theme.Bold
 import it.picone.miotreno.ui.theme.LocalTb
 import it.picone.miotreno.ui.theme.Testo
 
@@ -120,10 +121,16 @@ internal fun RigaTreno(
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // Una sola riga secondaria per tutte le righe: con un chip "via X" a parte le righe
-                // con il passaggio erano più alte delle altre e la lista perdeva il ritmo.
+                // Una riga secondaria di testo, non un chip "via X" a parte: le righe con il passaggio
+                // sarebbero più alte delle altre. Va a capo solo se non ci sta.
                 Text(
                     buildAnnotatedString {
+                        // "via X" in testa: è il motivo per cui l'utente l'ha chiesto, non va tagliato in coda
+                        if (passaPerEtichetta !=
+                            null
+                        ) {
+                            withStyle(SpanStyle(color = tb.accento, fontWeight = Bold)) { append("via $passaPerEtichetta · ") }
+                        }
                         withStyle(SpanStyle(color = tb.ter)) { append("${treno.categoria} ${treno.numeroTreno}") }
                         // l'arrivo su ogni riga: è l'unico modo di confrontare un diretto con un viaggio con cambi
                         orarioProiettato(treno.orarioArrivoDestinazioneMs, treno.ritardoMinuti).previstoMs?.let {
@@ -132,14 +139,13 @@ internal fun RigaTreno(
                         if (treno.cambi > 1) withStyle(SpanStyle(color = tb.accento2)) { append(" · ${treno.cambi} cambi") }
                         if (treno.coincidenzaARischio) withStyle(SpanStyle(color = tb.ambra)) { append(" · coincidenza a rischio") }
                         if (seguito) withStyle(SpanStyle(color = tb.accento)) { append(" · seguita") }
-                        if (passaPerEtichetta != null) withStyle(SpanStyle(color = tb.accento)) { append(" · via $passaPerEtichetta") }
                         if (semaforo == Semaforo.Cancellato || semaforo == Semaforo.Irregolare) {
                             withStyle(SpanStyle(color = tb.colore(semaforo))) {
                                 append(" · " + treno.etichettaStato() + (nota?.let { " · $it" } ?: ""))
                             }
                         }
                     },
-                    style = Testo.micro, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = Testo.micro, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             }
 

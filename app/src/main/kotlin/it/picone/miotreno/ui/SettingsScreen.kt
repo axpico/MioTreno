@@ -5,14 +5,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -23,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -33,7 +36,6 @@ import it.picone.miotreno.BuildConfig
 import it.picone.miotreno.data.Impostazioni
 import it.picone.miotreno.domain.StazioneCorrente
 import it.picone.miotreno.ui.componenti.Chip
-import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.Overline
 import it.picone.miotreno.ui.componenti.SchermataConBarra
@@ -86,12 +88,9 @@ fun SettingsScreen(
                     onClick = onScegliStazione,
                 )
                 if (imp.stazioneManuale != null) {
-                    Divisore()
                     RigaVoce(Icone.Aggiorna, "Torna al GPS", "Usa la stazione più vicina", azione = "Usa GPS", onClick = onUsaGps)
                 }
-                Divisore()
                 RigaVoce(Icone.Treno, "Verso", destinazioneNome ?: "—", onClick = onScegliDestinazione)
-                Divisore()
                 RigaVoce(
                     Icone.Cambio, "Inverti percorso", "Scambia partenza e destinazione", azione = "Inverti",
                     // abilitata = false toglie già il click: qui la stazione c'è sempre
@@ -113,7 +112,6 @@ fun SettingsScreen(
             Sezione("Stazione di passaggio", nota = "Evidenzia in lista i treni che fermano anche qui.") {
                 RigaVoce(Icone.Cerca, "Passa per", stazionePassaggioNome ?: "Nessuna", onClick = onScegliPassaggio)
                 if (stazionePassaggioNome != null) {
-                    Divisore()
                     RigaVoce(Icone.Chiudi, "Rimuovi", "Disattiva l'evidenziazione", azione = "Rimuovi", onClick = onRimuoviPassaggio)
                 }
             }
@@ -127,21 +125,16 @@ fun SettingsScreen(
                 if (imp.notifiche && !notifichePermesse) {
                     Text(
                         "Bloccate dal sistema: tocca per riattivarle da Impostazioni Android ↗",
-                        Modifier.fillMaxWidth().clip(Forme.cardPiccola).clickable(onClick = onApriImpostazioniSistema)
+                        Modifier.tessera().clickable(onClick = onApriImpostazioniSistema)
                             .padding(horizontal = Spazio.l, vertical = Spazio.s),
                         style = Testo.etichetta, color = tb.ambra,
                     )
                 }
-                Divisore()
-                Column(Modifier.padding(Spazio.l)) {
-                    Text("Preavviso", style = Testo.corpoMedio, color = tb.tx)
+                RigaBlocco("Preavviso") {
                     Segmenti(ANTICIPI, imp.anticipoMinuti, { "$it′" }) { haptic.conferma(); onAnticipo(it) }
                 }
                 if (imp.conCambi) {
-                    Divisore()
-                    Column(Modifier.padding(Spazio.l)) {
-                        Text("Avviso cambio", style = Testo.corpoMedio, color = tb.tx)
-                        Text("Prima di arrivare alla stazione dove cambi treno", style = Testo.etichetta, color = tb.sub)
+                    RigaBlocco("Avviso cambio", "Prima di arrivare alla stazione dove cambi treno") {
                         Segmenti(AVVISI_CAMBIO, imp.avvisoCambioMinuti, { if (it == 0) "No" else "$it′" }) {
                             haptic.conferma(); onAvvisoCambio(it)
                         }
@@ -200,12 +193,15 @@ fun SettingsScreen(
     }
 }
 
-/** Gruppo di righe in una card: titolo sopra, nota opzionale sotto. */
+/**
+ * Gruppo di righe come lista segmentata M3 Expressive: ogni riga è una tessera, 2 dp di stacco,
+ * angoli grandi agli estremi del gruppo e piccoli all'interno. Titolo sopra, nota sotto.
+ */
 @Composable
 private fun Sezione(titolo: String, nota: String? = null, content: @Composable () -> Unit) {
     Column {
         Overline(titolo, Modifier.padding(start = Spazio.s, bottom = Spazio.s))
-        GlassCard(Modifier.fillMaxWidth(), padding = 0.dp) { content() }
+        Column(Modifier.fillMaxWidth().clip(Forme.card), verticalArrangement = Arrangement.spacedBy(2.dp)) { content() }
         nota?.let {
             Text(
                 it, style = Testo.etichetta, color = LocalTb.current.sub,
@@ -215,22 +211,23 @@ private fun Sezione(titolo: String, nota: String? = null, content: @Composable (
     }
 }
 
+/** Una tessera del gruppo: angoli piccoli, quelli grandi li dà il ritaglio della [Sezione]. */
 @Composable
-private fun Divisore() {
-    Box(Modifier.padding(start = 68.dp).fillMaxWidth().height(1.dp).background(LocalTb.current.bordo))
-}
+private fun Modifier.tessera(): Modifier =
+    fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
 
-/** Icona in una tessera tinta: il segnale visivo di ogni riga. */
+/** Icona in un cerchio tonale: il segnale visivo di ogni riga. */
 @Composable
 private fun TesseraIcona(icona: ImageVector) {
-    val tb = LocalTb.current
     Box(
-        Modifier.size(36.dp).clip(Forme.pillola).background(tb.accentoSoft),
+        Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
-    ) { Icon(icona, contentDescription = null, tint = tb.accento, modifier = Modifier.size(20.dp)) }
+    ) { Icon(icona, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp)) }
 }
 
-/** Riga navigabile: icona, titolo, valore attuale, freccia. Il valore è ciò che conta. */
+private val coloriRiga @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
+
+/** Riga navigabile: etichetta sopra, valore attuale come titolo, freccia. Il valore è ciò che conta. */
 @Composable
 private fun RigaVoce(
     icona: ImageVector,
@@ -246,49 +243,44 @@ private fun RigaVoce(
     azioneFatta: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val tb = LocalTb.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .let { if (abilitata) it.clickable(onClick = onClick) else it.alpha(0.4f) }
-            .semantics { role = Role.Button }
-            .padding(horizontal = Spazio.l, vertical = Spazio.m),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spazio.l),
-    ) {
-        TesseraIcona(icona)
-        Column(Modifier.weight(1f)) {
-            Text(titolo, style = Testo.etichetta, color = tb.sub)
-            Text(valore, style = Testo.corpoMedio, color = tb.tx, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            sotto?.let { Text(it, style = Testo.etichetta, color = tb.ter) }
-        }
-        if (azione != null) {
-            Chip(azione, colore = if (azioneFatta) tb.verde else tb.accento, pieno = true)
-        } else {
-            Icon(Icone.Avanti, contentDescription = null, tint = tb.ter, modifier = Modifier.size(20.dp))
-        }
-    }
+    ListItem(
+        overlineContent = { Text(titolo, style = Testo.etichetta) },
+        headlineContent = { Text(valore, style = Testo.corpoMedio, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        supportingContent = sotto?.let { { Text(it, style = Testo.etichetta) } },
+        leadingContent = { TesseraIcona(icona) },
+        trailingContent = {
+            if (azione != null) {
+                Chip(azione, colore = if (azioneFatta) LocalTb.current.verde else MaterialTheme.colorScheme.primary, pieno = true)
+            } else {
+                Icon(Icone.Avanti, contentDescription = null, modifier = Modifier.size(20.dp))
+            }
+        },
+        colors = coloriRiga,
+        modifier = Modifier.tessera()
+            .let { if (abilitata) it.clickable(onClick = onClick) else it.alpha(0.38f) }
+            .semantics { role = Role.Button },
+    )
 }
 
 @Composable
 private fun RigaToggle(icona: ImageVector, nome: String, desc: String, attivo: Boolean, onChange: (Boolean) -> Unit) {
-    val tb = LocalTb.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .toggleable(value = attivo, role = Role.Switch, onValueChange = onChange)
-            .padding(horizontal = Spazio.l, vertical = Spazio.m),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spazio.l),
-    ) {
-        TesseraIcona(icona)
-        Column(Modifier.weight(1f)) {
-            Text(nome, style = Testo.corpoMedio, color = tb.tx)
-            Text(desc, style = Testo.etichetta, color = tb.sub)
-        }
-        Toggle(attivo)
+    ListItem(
+        headlineContent = { Text(nome, style = Testo.corpoMedio) },
+        supportingContent = { Text(desc, style = Testo.etichetta) },
+        leadingContent = { TesseraIcona(icona) },
+        trailingContent = { Toggle(attivo) },
+        colors = coloriRiga,
+        modifier = Modifier.tessera().toggleable(value = attivo, role = Role.Switch, onValueChange = onChange),
+    )
+}
+
+/** Riga libera (titolo + controllo sotto) nello stesso stile delle altre. */
+@Composable
+private fun RigaBlocco(titolo: String, sotto: String? = null, content: @Composable () -> Unit) {
+    Column(Modifier.tessera().padding(Spazio.l)) {
+        Text(titolo, style = Testo.corpoMedio, color = MaterialTheme.colorScheme.onSurface)
+        sotto?.let { Text(it, style = Testo.etichetta, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        content()
     }
 }
 
