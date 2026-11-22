@@ -353,6 +353,8 @@ private fun SchermataCorrente(
             onRiprova = vm::aggiorna,
             onRefresh = { vm.aggiorna() },
             onScegliStazione = vm::apriSelettoreStazione,
+            onUsaGps = { vm.scegliStazione(null) },
+            onScegliPassaggio = vm::apriSelettorePassaggio,
             onScambia = vm::scambiaOrigineDestinazione,
             onScegliDestinazione = vm::apriSelettoreDestinazione,
             onAttivaCambi = { vm.setConCambi(true) },

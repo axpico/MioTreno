@@ -517,7 +517,7 @@ class TrenoViewModel : ViewModel() {
         val vecchiaDestinazioneCodice = state.value.impostazioni.stazioneDestinazione
 
         val nuovaDestinazioneStazione = repo.risolviStazione(vecchiaOrigine.codice)
-        vecchiaDestinazioneCodice?.let { repo.risolviStazione(it) }
+        val nuovaOrigineStazione = vecchiaDestinazioneCodice?.let { repo.risolviStazione(it) }
         val idRegione = vecchiaDestinazioneCodice?.let { repo.regioneDi(it) }
         idRegione?.let { repo.salvaRegioneDestinazione(it) }
 
@@ -538,6 +538,11 @@ class TrenoViewModel : ViewModel() {
         _state.update {
             it.copy(
                 treni = emptyList(),
+                // i due capi cambiano insieme, così la barra li incrocia nello stesso istante;
+                // il cluster completo della nuova partenza arriva con aggiorna()
+                stazione = nuovaOrigineStazione?.let { o ->
+                    StazioneCorrente(o.nome, listOf(o.codice), StazioneCorrente.Origine.Manuale)
+                } ?: it.stazione,
                 destinazioneNome = nuovaDestinazioneStazione?.nome ?: vecchiaOrigine.nome,
                 regioneScioperiNome = idRegione?.let { r -> NOMI_REGIONI[r] } ?: it.regioneScioperiNome,
                 stazionePassaggioNome = if (passaggioSuperfluo) null else it.stazionePassaggioNome,

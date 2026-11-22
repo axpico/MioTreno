@@ -1,7 +1,31 @@
 package it.picone.miotreno.ui
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -19,6 +43,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,10 +53,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -70,7 +93,6 @@ import it.picone.miotreno.domain.TrenoSeguito
 import it.picone.miotreno.domain.comeOra
 import it.picone.miotreno.domain.statoCorsa
 import it.picone.miotreno.domain.trenoInEvidenza
-import it.picone.miotreno.ui.componenti.BottoneIcona
 import it.picone.miotreno.ui.componenti.GlassCard
 import it.picone.miotreno.ui.componenti.Icone
 import it.picone.miotreno.ui.componenti.Overline
@@ -223,6 +245,10 @@ fun HomeScreen(
     onRiprova: () -> Unit,
     onRefresh: () -> Unit,
     onScegliStazione: () -> Unit,
+    /** Torna alla stazione più vicina, dalla chip "Usa GPS" della partenza scelta a mano. */
+    onUsaGps: () -> Unit = {},
+    /** Sceglie la stazione di passaggio da evidenziare, dalla riga "via" della barra. */
+    onScegliPassaggio: () -> Unit = {},
     onScambia: () -> Unit,
     onScegliDestinazione: () -> Unit,
     onAttivaCambi: () -> Unit = {},
@@ -245,7 +271,7 @@ fun HomeScreen(
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scroll.nestedScrollConnection),
-        topBar = { BarraPercorso(state, scroll, onScegliStazione, onScegliDestinazione, onScambia) },
+        topBar = { BarraPercorso(state, scroll, onScegliStazione, onUsaGps, onScegliPassaggio, onScegliDestinazione, onScambia) },
         containerColor = MaterialTheme.colorScheme.surface,
         // la barra di navigazione sotto gestisce già il suo inset
         contentWindowInsets = WindowInsets(0),
@@ -365,21 +391,36 @@ private fun Modifier.gruppo(tb: TbColors, inizio: Boolean, fine: Boolean): Modif
     return padding(bottom = if (fine) 0.dp else 2.dp).clip(forma).background(tb.sf2).padding(horizontal = Spazio.l)
 }
 
+private val ALTEZZA_APERTA = 148.dp
+private val ALTEZZA_CHIUSA = 64.dp
+private val ALTEZZA_RIGA = 48.dp
+private val ALTEZZA_VIA = 36.dp
+private val TOCCO_GPS = 40.dp
+private const val DURATA_FLUSSO = 700
+private const val DURATA_ONDA = 1800
+
+/** Margine a sinistra dei nomi, dove sta il tracciato pallino–linea–pallino. */
+private val RIENTRO_TRACCIATO = 28.dp
+
 /**
- * Il percorso nella barra in alto: destinazione come titolo, partenza come sottotitolo, inverti
- * a destra. Titolo e sottotitolo si toccano per cambiare stazione; la barra si riduce scorrendo.
+ * Il percorso in alto, letto nell'ordine giusto: da (sopra) → a (sotto), ognuno toccabile,
+ * con l'inversione a destra. Scorrendo il blocco a due righe sfuma in una riga sola
+ * "partenza → destinazione": entrambi i capi restano sempre a vista.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BarraPercorso(
     state: UiState,
     scroll: TopAppBarScrollBehavior,
     onScegliStazione: () -> Unit,
+    onUsaGps: () -> Unit,
+    onScegliPassaggio: () -> Unit,
     onScegliDestinazione: () -> Unit,
     onScambia: () -> Unit,
 ) {
     val s = state.stazione
     val haptic = rememberHaptic()
+    val density = LocalDensity.current
     val partenza = s?.nome ?: if (state.caricamento) "Cerco la stazione…" else "Scegli la partenza"
     val origine = when (s?.origine) {
         StazioneCorrente.Origine.Gps -> "più vicina, ${distanzaLeggibile(s.distanzaMetri ?: 0)}"
@@ -388,65 +429,220 @@ private fun BarraPercorso(
         null -> null
     }
     val destinazione = state.destinazioneNome ?: "Scegli la destinazione"
-    LargeFlexibleTopAppBar(
-        title = {
-            Row(
-                Modifier
-                    .clip(Forme.cardPiccola)
-                    .semantics(mergeDescendants = true) {
-                        role = Role.Button; contentDescription = "Cambia destinazione, ora $destinazione"
-                    }
-                    .clickable(onClick = onScegliDestinazione),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(destinazione, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                Icon(Icone.Frecciagiu, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(20.dp))
-            }
-        },
-        subtitle = {
-            Row(
-                Modifier
-                    .clip(Forme.cardPiccola)
-                    .semantics(mergeDescendants = true) {
-                        role = Role.Button; contentDescription =
-                            "Cambia stazione di partenza, ora $partenza"
-                    }
-                    .clickable(onClick = onScegliStazione),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icone.Posizione, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(16.dp))
-                Text(
-                    "da $partenza" + (origine?.let { " · $it" } ?: ""),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+
+    // stesso meccanismo delle barre M3: il limite dice al nestedScroll quanto può ridursi
+    val limite = with(density) { (ALTEZZA_CHIUSA - ALTEZZA_APERTA).toPx() }
+    SideEffect { if (scroll.state.heightOffsetLimit != limite) scroll.state.heightOffsetLimit = limite }
+    val f = scroll.state.collapsedFraction
+    val altezza = ALTEZZA_APERTA + with(density) { scroll.state.heightOffset.toDp() }
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer, f))
+            .windowInsetsPadding(TopAppBarDefaults.windowInsets)
+            .height(altezza)
+            .clipToBounds()
+            .padding(start = Spazio.pagina - 4.dp, end = Spazio.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+            if (f < 0.5f) {
+                PercorsoEsteso(
+                    partenza = partenza,
+                    distanza = s?.takeIf { it.origine == StazioneCorrente.Origine.Gps }
+                        ?.let { distanzaLeggibile(it.distanzaMetri ?: 0) },
+                    mostraGps = s != null && s.origine != StazioneCorrente.Origine.Gps,
+                    descrizionePartenza = "Partenza $partenza" + (origine?.let { ", $it" } ?: "") + ". Tocca per cambiarla",
+                    passaggio = state.stazionePassaggioNome,
+                    onScegliPassaggio = onScegliPassaggio,
+                    destinazione = destinazione,
+                    onScegliStazione = onScegliStazione,
+                    onUsaGps = { haptic.conferma(); onUsaGps() },
+                    onScegliDestinazione = onScegliDestinazione,
+                    modifier = Modifier
+                        .wrapContentHeight(Alignment.CenterVertically, unbounded = true)
+                        .graphicsLayer { alpha = 1f - f * 2f },
+                )
+            } else {
+                PercorsoCompatto(
+                    partenza, destinazione, onScegliDestinazione,
+                    Modifier.graphicsLayer { alpha = (f - 0.5f) * 2f },
                 )
             }
-        },
-        // a sinistra la partenza, a destra l'inversione: due bottoni gemelli ai lati del titolo
-        navigationIcon = {
-            BottoneIcona(
-                Icone.Posizione, "Cambia stazione di partenza",
-                onClick = onScegliStazione, modifier = Modifier.padding(start = Spazio.s),
-            )
-        },
-        actions = {
-            BottoneIcona(
-                Icone.Cambio, "Inverti partenza e destinazione",
-                onClick = {
-                    if (s != null) {
-                        haptic.conferma()
-                        onScambia()
-                    }
-                },
-                modifier = Modifier.padding(end = Spazio.s).let { if (s != null) it else it.alpha(0.38f) },
-            )
-        },
-        titleHorizontalAlignment = Alignment.CenterHorizontally,
-        scrollBehavior = scroll,
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+        }
+        // mezzo giro a ogni inversione, sempre nello stesso verso: si accumula, non torna indietro
+        val giro = remember { Animatable(0f) }
+        val scope = rememberCoroutineScope()
+        FilledTonalIconButton(
+            onClick = {
+                if (s != null) {
+                    haptic.conferma()
+                    onScambia()
+                    scope.launch { giro.animateTo(giro.targetValue + 180f, Molla.stato()) }
+                }
+            },
+            modifier = if (s != null) Modifier else Modifier.alpha(0.38f),
+        ) {
+            Icon(Icone.Inverti, "Inverti partenza e destinazione", Modifier.graphicsLayer { rotationZ = giro.value })
+        }
+    }
+}
+
+/** Da / a su due righe, unite a sinistra dal tracciato: pallino vuoto, tratteggio, pallino pieno. */
+@Composable
+private fun PercorsoEsteso(
+    partenza: String,
+    distanza: String?,
+    mostraGps: Boolean,
+    descrizionePartenza: String,
+    passaggio: String?,
+    onScegliPassaggio: () -> Unit,
+    destinazione: String,
+    onScegliStazione: () -> Unit,
+    onUsaGps: () -> Unit,
+    onScegliDestinazione: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tb = LocalTb.current
+    val primario = MaterialTheme.colorScheme.primary
+    val gps = distanza != null
+    // il tracciato è vivo: il tratteggio scorre verso la destinazione e, se la partenza viene dal
+    // GPS, il pallino emette un'onda come un radar. Con "riduci movimento" resta il disegno fermo.
+    val vivo = !Molla.riduci
+    val tempo = rememberInfiniteTransition(label = "tracciato")
+    val flusso by tempo.animateFloat(
+        0f, 1f, infiniteRepeatable(tween(DURATA_FLUSSO, easing = LinearEasing)), label = "flusso",
     )
+    val onda by tempo.animateFloat(
+        0f, 1f, infiniteRepeatable(tween(DURATA_ONDA, easing = LinearOutSlowInEasing)), label = "onda",
+    )
+    Column(
+        modifier.drawBehind {
+            val x = RIENTRO_TRACCIATO.toPx() / 2
+            val r = 5.dp.toPx()
+            val sopra = ALTEZZA_RIGA.toPx() / 2
+            val sotto = sopra + ALTEZZA_RIGA.toPx() + ALTEZZA_VIA.toPx()
+            val passo = 6.dp.toPx()
+            if (gps && vivo) {
+                drawCircle(primario.copy(alpha = 0.45f * (1f - onda)), r + 12.dp.toPx() * onda, Offset(x, sopra))
+            }
+            // partenza scelta a mano: al posto del pallino c'è il bottone "usa GPS" (vedi sotto)
+            if (!mostraGps) drawCircle(if (gps) primario else tb.ter, r, Offset(x, sopra), style = Stroke(2.dp.toPx()))
+            drawLine(
+                Brush.verticalGradient(listOf(tb.ter, primario), sopra, sotto),
+                Offset(x, sopra + (if (mostraGps) 13.dp.toPx() else r + 4.dp.toPx())), Offset(x, sotto - r - 4.dp.toPx()), 2.dp.toPx(),
+                cap = StrokeCap.Round,
+                pathEffect = PathEffect.dashPathEffect(
+                    floatArrayOf(passo / 2, passo / 2), if (vivo) -flusso * passo else 0f,
+                ),
+            )
+            drawCircle(primario, r, Offset(x, sotto))
+            // la fermata di passaggio è un pallino piccolo sul tratteggio, solo se impostata
+            if (passaggio != null) drawCircle(tb.sub, 3.dp.toPx(), Offset(x, ALTEZZA_RIGA.toPx() + ALTEZZA_VIA.toPx() / 2))
+        },
+    ) {
+        Box {
+            Row(Modifier.height(ALTEZZA_RIGA), verticalAlignment = Alignment.CenterVertically) {
+                RigaPercorso(partenza, descrizionePartenza, onScegliStazione, entraDaSotto = true, Modifier.weight(1f, fill = false))
+                if (distanza != null) {
+                    Text(distanza, Modifier.padding(start = Spazio.s), style = Testo.etichetta, color = tb.sub, maxLines = 1)
+                }
+            }
+            if (mostraGps) {
+                // sopra la riga, al posto del pallino: tocco largo 40 dp centrato sul tracciato
+                Box(
+                    Modifier
+                        .offset(x = (RIENTRO_TRACCIATO - TOCCO_GPS) / 2)
+                        .size(TOCCO_GPS, ALTEZZA_RIGA)
+                        .clip(Forme.cardPiccola)
+                        .semantics { role = Role.Button; contentDescription = "Usa la stazione più vicina, dal GPS" }
+                        .clickable(onClick = onUsaGps),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icone.Posizione, null, Modifier.size(20.dp), tint = primario)
+                }
+            }
+        }
+        RigaVia(passaggio, onScegliPassaggio)
+        RigaPercorso(
+            destinazione, "Destinazione $destinazione. Tocca per cambiarla", onScegliDestinazione,
+            entraDaSotto = false, Modifier.height(ALTEZZA_RIGA),
+        )
+    }
+}
+
+/** "via Legnano" fra partenza e destinazione; senza stazione impostata invita ad aggiungerla. */
+@Composable
+private fun RigaVia(passaggio: String?, onClick: () -> Unit) {
+    val tb = LocalTb.current
+    Text(
+        if (passaggio != null) "via $passaggio" else "+ Aggiungi una stazione di passaggio",
+        Modifier
+            .height(ALTEZZA_VIA)
+            .clip(Forme.cardPiccola)
+            .semantics {
+                role = Role.Button
+                contentDescription = passaggio?.let { "Evidenzia i treni via $it. Tocca per cambiare" }
+                    ?: "Aggiungi una stazione di passaggio da evidenziare"
+            }
+            .clickable(onClick = onClick)
+            .wrapContentHeight(Alignment.CenterVertically)
+            .padding(start = RIENTRO_TRACCIATO, end = Spazio.s),
+        style = Testo.etichetta, color = if (passaggio != null) tb.sub else tb.ter,
+        maxLines = 1, overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+private fun RigaPercorso(
+    nome: String,
+    descrizione: String,
+    onClick: () -> Unit,
+    /** Verso del cambio: all'inversione partenza e destinazione si incrociano. */
+    entraDaSotto: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier
+            .clip(Forme.cardPiccola)
+            .semantics(mergeDescendants = true) { role = Role.Button; contentDescription = descrizione }
+            .clickable(onClick = onClick)
+            .padding(start = RIENTRO_TRACCIATO, end = Spazio.s, top = Spazio.s, bottom = Spazio.s),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        val verso = if (entraDaSotto) 1 else -1
+        AnimatedContent(
+            nome,
+            transitionSpec = {
+                (slideInVertically(Molla.ui()) { it * verso } + fadeIn(Molla.piatta())) togetherWith
+                    (slideOutVertically(Molla.ui()) { it * verso } + fadeOut(Molla.piatta()))
+            },
+            label = "nome",
+        ) {
+            Text(it, style = Testo.sottotitolo, color = LocalTb.current.tx, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Barra ridotta: "partenza → destinazione" su una riga; il tocco cambia la destinazione. */
+@Composable
+private fun PercorsoCompatto(partenza: String, destinazione: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val tb = LocalTb.current
+    Row(
+        modifier
+            .clip(Forme.cardPiccola)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button; contentDescription = "Da $partenza a $destinazione. Tocca per cambiare destinazione"
+            }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = Spazio.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(partenza, Modifier.weight(1f, fill = false), style = Testo.sottotitolo, color = tb.tx, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(Icone.Freccia, null, Modifier.padding(horizontal = 6.dp).size(18.dp), tint = tb.sub)
+        Text(destinazione, Modifier.weight(1f, fill = false), style = Testo.sottotitolo, color = tb.tx, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
 }
 
 /**

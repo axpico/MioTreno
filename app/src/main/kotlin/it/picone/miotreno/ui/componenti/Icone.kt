@@ -43,6 +43,7 @@ object Icone {
     val Chiudi: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.sym_close)
     val Spunta: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.sym_check)
     val Cambio: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.sym_swap_horiz)
+    val Inverti: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.sym_swap_vert)
     val Sciopero: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.sym_campaign)
     val Cancellato: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.sym_cancel)
     val Aggiorna: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.sym_refresh)
